@@ -47,6 +47,8 @@
   .tagcard .tag-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:#F7F9FB;border-bottom:1px solid var(--line);}
   .tag-head .num{font-family:var(--mono);font-size:13px;color:var(--charcoal);font-weight:700;}
   .tag-head .hint{font-size:11px;color:var(--muted);}
+  .copy-prev-btn{font-size:11px;font-weight:600;color:var(--amber-deep);background:#F0FBF9;border:1px solid var(--amber);border-radius:6px;padding:5px 9px;cursor:pointer;}
+  .copy-prev-btn:disabled{opacity:.4;cursor:default;}
   .form-grid{padding:16px;display:flex;flex-direction:column;gap:14px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--charcoal);margin-bottom:5px;letter-spacing:.01em;}
   .field label .req{color:var(--danger);margin-left:2px;}
@@ -71,6 +73,12 @@
   .chip{font-size:12px;padding:6px 12px;border-radius:7px;border:1.3px solid var(--line);background:#fff;color:var(--charcoal);cursor:pointer;font-weight:600;}
   .chip.active{background:var(--amber);color:#fff;border-color:var(--amber);}
   .search-box{width:100%;padding:10px 12px;border-radius:7px;border:1.3px solid var(--line);font-size:13.5px;margin-bottom:12px;background:#fff;}
+  .list-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .list-row{display:flex;gap:8px;}
+  .list-row input[type="text"]{flex:2 1 auto;min-width:0;}
+  .list-row input[type="number"]{flex:0 0 62px;}
+  .list-row .rm-row{flex:0 0 34px;background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);border-radius:7px;cursor:pointer;font-size:13px;}
+  .list-add-btn{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--amber-deep);background:#F0FBF9;border:1.3px dashed var(--amber);border-radius:7px;padding:8px 12px;cursor:pointer;width:100%;justify-content:center;}
   .list-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;}
   .list-count{font-size:12px;color:var(--muted);}
   .toolbar-right{display:flex;gap:14px;align-items:center;}
@@ -142,7 +150,10 @@
     <div class="tagcard">
       <div class="tag-head">
         <span class="num" id="previewNum">รายการใหม่</span>
-        <span class="hint" id="formModeHint">รายการใหม่</span>
+        <span style="display:flex;align-items:center;gap:10px;">
+          <button type="button" class="copy-prev-btn" id="btnCopyPrev">📋 คัดลอกล่าสุด</button>
+          <span class="hint" id="formModeHint">รายการใหม่</span>
+        </span>
       </div>
       <div class="form-grid" id="dynamicFields"></div>
       <div class="form-grid" style="padding-top:0">
@@ -196,6 +207,14 @@
   function slug(s){ return (s||'').toLowerCase().replace(/\s+/g,'-'); }
   function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function uid(){ return Date.now().toString(36) + Math.random().toString(16).slice(2); }
+  function calcDuration(s, e){
+    if(!s || !e) return '--';
+    const [sh,sm] = s.split(':').map(Number), [eh,em] = e.split(':').map(Number);
+    const m = (eh*60+em) - (sh*60+sm);
+    if(m <= 0) return '--';
+    const h = Math.floor(m/60), r = m%60;
+    return r > 0 ? `${h} hrs ${r} min` : `${h} hrs`;
+  }
 
   // ================= MODULE DEFINITIONS =================
   const MODULES = [
@@ -235,19 +254,28 @@
     {
       id:'daily', label:'Daily Report', icon:'📋', table:'daily_reports',
       dateField:'report_date', hasAutoNumber:false,
-      accentField:null, titleField:'progress_notes', badgeFields:['weather'], badgeColorMap:{},
+      accentField:null, titleField:'activities', badgeFields:['weather','location'], badgeColorMap:{},
       statusFilterField:null,
       fields:[
-        {key:'report_date', label:'วันที่', type:'date', required:true},
-        {key:'weather', label:'สภาพอากาศ', type:'select', options:['แจ้ง','มีเมฆบางส่วน','ฝนตก','ฝนตกหนัก']},
-        {key:'workers_summary', label:'จำนวนคนงาน', type:'textarea', placeholder:'เช่น ช่างเหล็ก 5, ช่างไฟ 2, กรรมกร 10'},
-        {key:'equipment', label:'เครื่องจักร/อุปกรณ์ที่ใช้', type:'textarea'},
-        {key:'progress_notes', label:'ความก้าวหน้างาน', type:'textarea', required:true},
-        {key:'issues', label:'ปัญหา/อุปสรรค', type:'textarea'},
-        {key:'next_day_plan', label:'แผนงานวันถัดไป', type:'textarea'},
+        {key:'report_date', label:'📅 Date', type:'date', required:true},
+        {key:'location', label:'📍 Location', type:'text', placeholder:'Site location'},
+        {key:'time_start', label:'🕖 Work Start', type:'time', default:'07:00'},
+        {key:'time_end', label:'🕕 Work End', type:'time', default:'18:00'},
+        {key:'project_name', label:'🏢 Project Name', type:'text', default:'RISE Project REPCO NEX'},
+        {key:'weather', label:'🌤️ Weather', type:'select', options:['Sunny (ท้องฟ้าโปร่งใส)','Cloudy (มีเมฆ)','Rainy (ฝนตก)','Windy (ลมแรง)']},
+        {key:'repco_personnel', label:'👨‍💼 REPCO Personnel', type:'personnel-list', default:[{position:'Construction Manager',count:1}]},
+        {key:'state_personnel_site', label:'👥 State Personnel — Area Construction Site', type:'personnel-list', default:[{position:'Worker (M)',count:1},{position:'Worker (W)',count:1}]},
+        {key:'state_personnel_workshop', label:'👥 State Personnel — Area Workshop', type:'personnel-list', default:[]},
+        {key:'equipment', label:'🚜 Machinery / Equipment', type:'personnel-list', itemPlaceholder:'Equipment', default:[{position:'',count:1}]},
+        {key:'activities', label:'🎯 Daily Activity & Goals', type:'textarea', required:true, placeholder:'Describe completed tasks and goals...'},
+        {key:'progress_summary', label:'📊 Progress Summary', type:'textarea', placeholder:'Enter progress summary...'},
       ],
       computeStats(rows){ return [{label:'รายงานทั้งหมด',value:rows.length,cls:'c1'}]; },
-      idLabel(f){ return 'DR-' + (f.id ? f.id.slice(0,6) : ''); }
+      idLabel(f){ return 'DR-' + (f.id ? f.id.slice(0,6) : ''); },
+      detailExtra(f){
+        const dur = calcDuration(f.time_start, f.time_end);
+        return `<div class="field"><label>Working Hours</label><div>${escapeHtml(f.time_start||'--')} – ${escapeHtml(f.time_end||'--')} (${dur})</div></div>`;
+      }
     },
     {
       id:'qc', label:'QC Report', icon:'🔍', table:'qc_reports',
@@ -404,7 +432,7 @@
 
   // ---------- layout helper ----------
   function chunkFieldsForLayout(fields){
-    const rowsOut = []; let i = 0; const shortTypes = ['select','date','text'];
+    const rowsOut = []; let i = 0; const shortTypes = ['select','date','time','text'];
     while(i < fields.length){
       const f = fields[i];
       if(shortTypes.includes(f.type) && i+1 < fields.length && shortTypes.includes(fields[i+1].type)){ rowsOut.push([f, fields[i+1]]); i += 2; }
@@ -420,9 +448,58 @@
       return `<textarea id="${id}" placeholder="${escapeHtml(f.placeholder||'')}"></textarea>`;
     } else if(f.type === 'date'){
       return `<input type="date" id="${id}">`;
+    } else if(f.type === 'time'){
+      return `<input type="time" id="${id}">`;
+    } else if(f.type === 'personnel-list' || f.type === 'text-list'){
+      const ph = f.itemPlaceholder || (f.type === 'text-list' ? 'Equipment' : 'Position');
+      return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}" data-placeholder="${escapeHtml(ph)}">+ เพิ่มรายการ</button>`;
     } else {
       return `<input type="text" id="${id}" placeholder="${escapeHtml(f.placeholder||'')}">`;
     }
+  }
+
+  function addListRow(key, listType, value, placeholder){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    const rowId = uid();
+    const ph = placeholder || (listType === 'text-list' ? 'Equipment' : 'Position');
+    if(listType === 'personnel-list'){
+      const pos = (value && value.position) || '', cnt = (value && value.count != null) ? value.count : 1;
+      container.insertAdjacentHTML('beforeend', `
+        <div class="list-row" data-row="${rowId}">
+          <input type="text" class="lr-pos" value="${escapeHtml(pos)}" placeholder="${escapeHtml(ph)}">
+          <input type="number" min="0" class="lr-count" value="${escapeHtml(String(cnt))}">
+          <button type="button" class="rm-row" data-row="${rowId}">✕</button>
+        </div>`);
+    } else {
+      const v = value || '';
+      container.insertAdjacentHTML('beforeend', `
+        <div class="list-row" data-row="${rowId}">
+          <input type="text" class="lr-text" value="${escapeHtml(v)}" placeholder="${escapeHtml(ph)}">
+          <button type="button" class="rm-row" data-row="${rowId}">✕</button>
+        </div>`);
+    }
+    container.querySelector(`.rm-row[data-row="${rowId}"]`).addEventListener('click', ()=>{
+      container.querySelector(`.list-row[data-row="${rowId}"]`).remove();
+    });
+  }
+  function getListValue(key, listType){
+    const container = document.getElementById('field_' + key);
+    if(!container) return [];
+    if(listType === 'personnel-list'){
+      return Array.from(container.querySelectorAll('.list-row')).map(row => ({
+        position: row.querySelector('.lr-pos').value.trim(),
+        count: parseInt(row.querySelector('.lr-count').value, 10) || 0
+      })).filter(r => r.position);
+    } else {
+      return Array.from(container.querySelectorAll('.list-row')).map(row => row.querySelector('.lr-text').value.trim()).filter(Boolean);
+    }
+  }
+  function setListValue(key, listType, arr, placeholder){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    container.innerHTML = '';
+    (arr && arr.length ? arr : []).forEach(v => addListRow(key, listType, v, placeholder));
   }
   function renderFormFields(){
     const rowsHtml = chunkFieldsForLayout(activeModule.fields).map(group=>{
@@ -435,6 +512,9 @@
       return group.length === 2 ? `<div class="two-col">${inner}</div>` : inner;
     }).join('');
     $('#dynamicFields').innerHTML = rowsHtml;
+    $$('.list-add-btn').forEach(btn => btn.addEventListener('click', ()=>{
+      addListRow(btn.dataset.key, btn.dataset.listtype, btn.dataset.listtype === 'personnel-list' ? {position:'',count:1} : '', btn.dataset.placeholder);
+    }));
     if(activeModule.id === 'findings'){
       $('#field_finding_date').addEventListener('change', ()=>{
         updatePreviewNumber();
@@ -443,11 +523,15 @@
     }
   }
   function getFieldValue(f){
+    if(f.type === 'personnel-list' || f.type === 'text-list') return getListValue(f.key, f.type);
     const el = document.getElementById('field_' + f.key);
     if(!el) return '';
     return el.value.trim ? el.value.trim() : el.value;
   }
-  function setFieldValue(f, val){ const el = document.getElementById('field_' + f.key); if(el) el.value = val || ''; }
+  function setFieldValue(f, val){
+    if(f.type === 'personnel-list' || f.type === 'text-list'){ setListValue(f.key, f.type, val, f.itemPlaceholder); return; }
+    const el = document.getElementById('field_' + f.key); if(el) el.value = val || '';
+  }
 
   function updatePreviewNumber(){
     if(activeModule.id !== 'findings') return;
@@ -514,16 +598,31 @@
     }
   }
 
+  function formatFieldDisplay(f, val){
+    if(f.type === 'personnel-list'){
+      const arr = Array.isArray(val) ? val : [];
+      if(!arr.length) return '-';
+      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join(', ');
+    }
+    if(f.type === 'text-list'){
+      const arr = Array.isArray(val) ? val : [];
+      return arr.length ? arr.map(escapeHtml).join(', ') : '-';
+    }
+    return escapeHtml(val || '-');
+  }
+
   function openDetail(id){
     const f = rows.find(x => String(x.id) === String(id));
     if(!f) return;
     const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-    const fieldsHtml = activeModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${escapeHtml(f[fl.key]||'-')}</div></div>`).join('');
+    const fieldsHtml = activeModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${formatFieldDisplay(fl, f[fl.key])}</div></div>`).join('');
+    const extraHtml = activeModule.detailExtra ? activeModule.detailExtra(f) : '';
     const modal = $('#modalContent');
     modal.innerHTML = `
       <div class="modal-head"><h2>${escapeHtml(activeModule.idLabel(f))}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
       <div class="form-grid">
         ${fieldsHtml}
+        ${extraHtml}
         <div class="field"><label>Photos</label>
           <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
         </div>
@@ -564,6 +663,7 @@
     }
     $('#previewNum').textContent = activeModule.hasAutoNumber ? nextFindingNumber(todayISO()) : 'รายการใหม่';
     $('#formModeHint').textContent = 'รายการใหม่';
+    $('#btnCopyPrev').style.display = '';
     $('#validationMsg').classList.remove('show');
     $('#photoStatus').textContent = '';
     renderPhotoGrid();
@@ -575,6 +675,7 @@
     activeModule.fields.forEach(fl => setFieldValue(fl, f[fl.key]));
     $('#previewNum').textContent = activeModule.hasAutoNumber ? f[activeModule.numberField] : activeModule.idLabel(f);
     $('#formModeHint').textContent = 'แก้ไข: ' + activeModule.idLabel(f);
+    $('#btnCopyPrev').style.display = 'none';
     const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
     pendingPhotos = urls.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
     $('#photoStatus').textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป (เดิม)') : '';
@@ -606,7 +707,7 @@
       const record = {};
       activeModule.fields.forEach(f=>{
         let v = getFieldValue(f);
-        if(f.type === 'date' && !v) v = null;
+        if((f.type === 'date' || f.type === 'time') && !v) v = null;
         record[f.key] = v;
       });
       record.photo_urls = finalUrls;
@@ -633,6 +734,28 @@
   $('#btnSave').addEventListener('click', handleSave);
   $('#btnClear').addEventListener('click', ()=>{ if(confirm('ล้างฟอร์มเพื่อกรอกรายการถัดไปหรือไม่?')) clearForm(); });
 
+  async function copyPreviousEntry(){
+    const btn = $('#btnCopyPrev');
+    btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...';
+    try{
+      const res = await fetch(restUrl() + '?select=*&order=' + activeModule.dateField + '.desc&limit=1', { headers: HEADERS });
+      if(!res.ok) throw new Error('fetch failed: ' + res.status);
+      const data = await res.json();
+      if(!data.length){ showToast('ยังไม่มีข้อมูลก่อนหน้าให้คัดลอก', true); return; }
+      const prev = data[0];
+      activeModule.fields.forEach(f=>{
+        if(f.key === activeModule.dateField) return; // keep today's date as-is
+        setFieldValue(f, prev[f.key]);
+      });
+      showToast('คัดลอกข้อมูลจากรายการวันที่ ' + (prev[activeModule.dateField] || '-') + ' แล้ว (ไม่รวมรูปภาพ)');
+    }catch(e){
+      console.error(e); showToast('คัดลอกไม่สำเร็จ: ' + e.message, true);
+    }finally{
+      btn.disabled = false; btn.textContent = '📋 คัดลอกล่าสุด';
+    }
+  }
+  $('#btnCopyPrev').addEventListener('click', copyPreviousEntry);
+
   function switchTab(name){
     $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     $('#panel-form').hidden = name !== 'form';
@@ -645,10 +768,18 @@
 
   $('#btnExport').addEventListener('click', ()=>{
     const headers = activeModule.fields.map(f=>f.key).concat(['photo_urls']);
+    const fieldByKey = {}; activeModule.fields.forEach(f => fieldByKey[f.key] = f);
     const csvRows = [headers.join(',')];
     rows.forEach(f=>{
       const row = headers.map(h=>{
-        let v = h === 'photo_urls' ? (Array.isArray(f[h]) ? f[h].join(';') : '') : (f[h] ?? '');
+        let v;
+        if(h === 'photo_urls'){ v = Array.isArray(f[h]) ? f[h].join(';') : ''; }
+        else{
+          const fdef = fieldByKey[h];
+          if(fdef && fdef.type === 'personnel-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.position}:${p.count}`).join(' | '); }
+          else if(fdef && fdef.type === 'text-list'){ v = (Array.isArray(f[h])?f[h]:[]).join(' | '); }
+          else{ v = f[h] ?? ''; }
+        }
         v = v.toString().replace(/"/g,'""');
         if(v.includes(',') || v.includes('\n')) v = '"' + v + '"';
         return v;

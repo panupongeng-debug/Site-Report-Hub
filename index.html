@@ -71,6 +71,9 @@
   .tabs{display:flex;gap:0;margin:14px 16px 0;border-bottom:1px solid var(--line);}
   .tab-btn{flex:1;text-align:center;padding:10px 4px;font-family:var(--disp);font-weight:600;font-size:13.5px;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
   .tab-btn.active{color:var(--charcoal);border-bottom-color:var(--amber-deep);}
+  .piling-tab-btn{padding:8px 14px;font-family:var(--disp);font-weight:600;font-size:12.5px;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+  .piling-tab-btn.active{color:#2563EB;border-bottom-color:#2563EB;}
+  .piling-tab-btn:hover{color:var(--charcoal);}
   .panel{padding:16px;padding-top:14px;} .panel[hidden]{display:none;}
   .tagcard{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,30,60,.03);}
   .tagcard .tag-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:#F7F9FB;border-bottom:1px solid var(--line);}
@@ -91,6 +94,7 @@
   .btn:active{transform:scale(.98);} .btn:disabled{opacity:.5;}
   .btn-primary{background:var(--amber);color:#fff;}
   .btn-ghost{background:none;border:1.3px solid var(--line);color:var(--charcoal);flex:0 0 auto;}
+  .btn-ghost.active{background:#D946EF;border-color:#D946EF;color:#fff;}
   .btn-danger{background:none;border:1.3px solid var(--danger);color:var(--danger);}
   .validation{margin:0 16px 14px;padding:10px 12px;border-radius:7px;font-size:12.5px;background:#FEF2F2;color:var(--danger);border:1px solid #FECACA;display:none;}
   .validation.show{display:block;}
@@ -118,9 +122,14 @@
   .dash-kpi .l{font-size:11px;color:var(--muted);margin-top:4px;}
   .dash-kpi .f{font-size:9.5px;color:#9AA3B0;margin-top:3px;font-family:var(--mono);}
   .dash-section{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
+  #pileGeoChartWrap:fullscreen, #pileGeoChartWrap:-webkit-full-screen{background:#fff;padding:20px;display:flex;flex-direction:column;overflow:auto;}
+  #pileGeoChartWrap:fullscreen #pileGeoCanvasWrap, #pileGeoChartWrap:-webkit-full-screen #pileGeoCanvasWrap{height:calc(100vh - 180px) !important;flex:1 1 auto;}
   .dash-section h3{font-size:13px;font-weight:700;color:var(--charcoal);margin:0 0 10px;}
   .dash-section .chart-wrap{position:relative;height:220px;}
   .dash-note{font-size:11px;color:var(--muted);background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-bottom:14px;}
+  .dash-weekpicker-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .dash-weekpicker-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
+  .dash-weekpicker-row select{max-width:260px;}
   .dash-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
 
   /* ---------- Safety KPI report page + Dashboard Safety KPI cards ---------- */
@@ -249,6 +258,8 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="form">+ บันทึกใหม่</button>
     <button class="tab-btn" data-tab="list">รายการทั้งหมด</button>
+    <button class="tab-btn" data-tab="list-pending" id="tabPendingPiles" style="display:none;">🕓 รอกรอกข้อมูลจริง</button>
+    <button class="btn btn-ghost" id="btnPileMapJump" style="display:none;margin:6px 0 6px auto;align-self:center;">🗺️ Map</button>
   </div>
 
   <div class="panel" id="panel-form">
@@ -360,6 +371,39 @@
     return fmt(startIso) + '-' + fmt(weekEndMonday);
   }
 
+  // สภาพอากาศราย 4 ช่วงเวลา (Daily Report) — ใช้ทั้งในฟอร์มและ "นาฬิกาอากาศ" ใน Dashboard Daily
+  const WEATHER_OPTIONS = ['Sunny (ท้องฟ้าโปร่งใส)','Cloudy (มีเมฆ)','Rainy (ฝนตก)','Windy (ลมแรง)'];
+  const WEATHER_COLORS = {
+    'Sunny (ท้องฟ้าโปร่งใส)': '#F0A93B',
+    'Cloudy (มีเมฆ)': '#9AA3B0',
+    'Rainy (ฝนตก)': '#2563EB',
+    'Windy (ลมแรง)': '#0EA394',
+    'ไม่ระบุ': '#E5E7EB',
+  };
+  function weatherColor(w){ return WEATHER_COLORS[w || 'ไม่ระบุ'] || '#E5E7EB'; }
+  const WEATHER_ICONS = {
+    'Sunny (ท้องฟ้าโปร่งใส)': '☀️',
+    'Cloudy (มีเมฆ)': '☁️',
+    'Rainy (ฝนตก)': '🌧️',
+    'Windy (ลมแรง)': '💨',
+  };
+  function weatherIcon(w){ return WEATHER_ICONS[w] || '➖'; }
+  const WEATHER_PERIODS = [
+    {key:'weather_0609', label:'06:00–09:00'},
+    {key:'weather_0912', label:'09:00–12:00'},
+    {key:'weather_1215', label:'12:00–15:00'},
+    {key:'weather_1518', label:'15:00–18:00'},
+  ];
+  // ลำดับสำหรับวาด "นาฬิกาอากาศ" ให้ตรงกับตำแหน่งจริงบนหน้าปัดนาฬิกา (12=บน, 3=ขวา, 6=ล่าง, 9=ซ้าย)
+  // เริ่มวาดจาก 12 นาฬิกาตามเข็ม: 12→3 (บนขวา) = 12:00-15:00, 3→6 (ล่างขวา) = 15:00-18:00,
+  // 6→9 (ล่างซ้าย) = 06:00-09:00, 9→12 (บนซ้าย) = 09:00-12:00
+  const WEATHER_CLOCK_ORDER = [
+    WEATHER_PERIODS.find(p=>p.key==='weather_1215'),
+    WEATHER_PERIODS.find(p=>p.key==='weather_1518'),
+    WEATHER_PERIODS.find(p=>p.key==='weather_0609'),
+    WEATHER_PERIODS.find(p=>p.key==='weather_0912'),
+  ];
+
   // ================= MODULE DEFINITIONS =================
   const MODULES = [
     {
@@ -419,15 +463,21 @@
     {
       id:'daily', label:'Daily Report', icon:'📋', table:'daily_reports',
       dateField:'report_date', hasAutoNumber:false,
-      accentField:null, titleField:'activities', badgeFields:['weather','location'], badgeColorMap:{},
+      accentField:null, titleField:'activities', badgeFields:[], badgeColorMap:{},
       statusFilterField:null,
+      renderExtraMeta(f){
+        return WEATHER_PERIODS.map(p => `<span class="pill loc" title="${p.label}: ${f[p.key] || 'ไม่ระบุ'}">${weatherIcon(f[p.key])} ${p.label}</span>`).join('');
+      },
       fields:[
         {key:'report_date', label:'📅 Date', type:'date', required:true},
         {key:'location', label:'📍 Location', type:'text', placeholder:'Site location'},
         {key:'time_start', label:'🕖 Work Start', type:'time', default:'07:00'},
         {key:'time_end', label:'🕕 Work End', type:'time', default:'18:00'},
         {key:'project_name', label:'🏢 Project Name', type:'text', default:'RISE Project'},
-        {key:'weather', label:'🌤️ Weather', type:'select', options:['Sunny (ท้องฟ้าโปร่งใส)','Cloudy (มีเมฆ)','Rainy (ฝนตก)','Windy (ลมแรง)']},
+        {key:'weather_0609', label:'🌤️ Weather 06:00–09:00', type:'select', options:WEATHER_OPTIONS},
+        {key:'weather_0912', label:'🌤️ Weather 09:00–12:00', type:'select', options:WEATHER_OPTIONS},
+        {key:'weather_1215', label:'🌤️ Weather 12:00–15:00', type:'select', options:WEATHER_OPTIONS},
+        {key:'weather_1518', label:'🌤️ Weather 15:00–18:00', type:'select', options:WEATHER_OPTIONS},
         {key:'repco_personnel', label:'👨‍💼 REPCO Personnel', type:'personnel-list', default:[{position:'Construction Manager',count:1}]},
         {key:'state_personnel_site', label:'👥 State Personnel — Area Construction Site', type:'personnel-list', default:[{position:'Worker (M)',count:1},{position:'Worker (W)',count:1}]},
         {key:'state_personnel_workshop', label:'👥 State Personnel — Area Workshop', type:'personnel-list', default:[]},
@@ -481,6 +531,98 @@
       ],
       computeStats(rows){ return [{label:'รายงานทั้งหมด',value:rows.length,cls:'c1'}]; },
       idLabel(f){ return 'CR-' + (f.id ? f.id.slice(0,6) : ''); }
+    },
+    {
+      id:'piling', label:'Piling Report', icon:'🔨', table:'pile_reports',
+      dateField:'piled_date', hasAutoNumber:false,
+      accentField:'status', accentMap:{Completed:'sev-low',Pending:'sev-medium',Corrected:'sev-high',Defected:'sev-critical'},
+      titleField:'size', badgeFields:['area','status'],
+      badgeColorMap:{Completed:'status-closed',Pending:'status-open',Corrected:'status-in-progress',Defected:'status-overdue'},
+      statusFilterField:'status', statusFilterOptions:['Pending','Completed','Corrected','Defected'],
+      fields:[
+        {key:'pile_number', label:'PILE NUMBER', type:'text', required:true, note:'กดปุ่ม 🔍 ค้นหา เพื่อเปิดรายการเดิมมาแก้ไข (ถ้ามีอยู่แล้ว)'},
+        {key:'area', label:'AREA', type:'text', readOnly:true},
+        {key:'dwg_no', label:'DWG No.', type:'text', readOnly:true},
+        {key:'rfi_no', label:'RFI No.', type:'text', readOnly:true},
+        {key:'size', label:'SIZE', type:'text', readOnly:true},
+        {key:'length_plan', label:'LENGTH(m.) — แผน', type:'number', readOnly:true},
+        {key:'type', label:'TYPE', type:'text', readOnly:true},
+        {key:'pile_cut', label:'PILE CUT', type:'number', readOnly:true},
+        {key:'pile_production_day', label:'PILE PRODUCTION DAY', type:'date', readOnly:true},
+        {key:'pile_delivery_day', label:'PILE DELIVERY DAY', type:'date', readOnly:true},
+        {key:'plan_date', label:'แผนวันที่ตอก', type:'date', readOnly:true},
+        {key:'design_n', label:'Design N', type:'number', readOnly:true},
+        {key:'design_e', label:'Design E', type:'number', readOnly:true},
+        {key:'status', label:'สถานะ', type:'select', required:true, options:['Pending','Completed','Corrected','Defected'], default:'Pending'},
+        {key:'rig', label:'RIG.', type:'select', options:['1','2','3','4','5','6','7','8','9']},
+        {key:'rig_code', label:'RIG. Code', type:'select', options:['22T15','18T15','6C19','4C19','2C19','16T15','6HL1','NO.3','NO.9']},
+        {key:'driving_time_start', label:'Driving Time (START)', type:'text', placeholder:'เช่น 9:28 AM'},
+        {key:'weld_inspection', label:'Weld Inspection', type:'select', options:['Accept','Reject']},
+        {key:'driving_time_finish', label:'Driving Time (FINISH)', type:'text', placeholder:'เช่น 10:41 AM'},
+        {key:'elevation_pile_top', label:'Elevation PILE TOP', type:'number'},
+        {key:'length_actual', label:'LENGTH(m.) — Actual', type:'number'},
+        {key:'elevation_pile_tip', label:'Elevation PILE TIP', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = Elevation PILE TOP − LENGTH(Actual)'},
+        {key:'n_actual', label:'N (Actual)', type:'number'},
+        {key:'e_actual', label:'E (Actual)', type:'number'},
+        {key:'deviation_n', label:'Deviation N (m)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = N(Actual) − Design N'},
+        {key:'deviation_e', label:'Deviation E (m)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = E(Actual) − Design E'},
+        {key:'piled_date', label:'วันที่ตอก', type:'date'},
+        {key:'sequence_no', label:'ลำดับการตอก', type:'number'},
+        {key:'remark', label:'REMARK', type:'textarea'},
+      ],
+      computeStats(rows){
+        const done = rows.filter(r=>r.status==='Completed').length;
+        const pending = rows.filter(r=>r.status==='Pending').length;
+        const corrected = rows.filter(r=>r.status==='Corrected').length;
+        return [{label:'ทั้งหมด',value:rows.length,cls:'c1'},{label:'ตอกแล้ว',value:done,cls:'c4'},{label:'รอตอก',value:pending,cls:'c2'},{label:'ตอกแซม',value:corrected,cls:'c3'}];
+      },
+      idLabel(f){ return 'PILE-' + (f.pile_number || ''); }
+    },
+    {
+      id:'piling_design', label:'Piling Design Data', icon:'📐', table:'pile_reports',
+      dateField:'plan_date', hasAutoNumber:false,
+      accentField:'status', accentMap:{Completed:'sev-low',Pending:'sev-medium',Corrected:'sev-high',Defected:'sev-critical'},
+      titleField:'size', badgeFields:['area','status'],
+      badgeColorMap:{Completed:'status-closed',Pending:'status-open',Corrected:'status-in-progress',Defected:'status-overdue'},
+      statusFilterField:'status', statusFilterOptions:['Pending','Completed','Corrected','Defected'],
+      // ทุกช่องแก้ไขได้ทั้งหมด (ทั้งข้อมูลออกแบบ/แผน และข้อมูลหน้างาน) — ใช้สร้างข้อมูลเสาเข็มเริ่มต้น
+      // หรือแก้ไขข้อมูลออกแบบของเสาเข็มที่มีอยู่แล้ว (กดปุ่มค้นหาเพื่อดึงรายการเดิมมาแก้)
+      fields:[
+        {key:'pile_number', label:'PILE NUMBER', type:'text', required:true, note:'กดปุ่ม 🔍 ค้นหา เพื่อตรวจว่ามีเสาเข็มนี้อยู่แล้วหรือยัง ก่อนสร้างใหม่'},
+        {key:'area', label:'AREA', type:'text'},
+        {key:'dwg_no', label:'DWG No.', type:'text'},
+        {key:'rfi_no', label:'RFI No.', type:'text'},
+        {key:'size', label:'SIZE', type:'text'},
+        {key:'length_plan', label:'LENGTH(m.) — แผน', type:'number'},
+        {key:'type', label:'TYPE', type:'text'},
+        {key:'pile_cut', label:'PILE CUT', type:'number'},
+        {key:'pile_production_day', label:'PILE PRODUCTION DAY', type:'date'},
+        {key:'pile_delivery_day', label:'PILE DELIVERY DAY', type:'date'},
+        {key:'plan_date', label:'แผนวันที่ตอก', type:'date'},
+        {key:'lower_pile_tag', label:'Lower Pile Tag', type:'text'},
+        {key:'upper_pile_tag', label:'Upper Pile Tag', type:'text'},
+        {key:'design_n', label:'Design N', type:'number'},
+        {key:'design_e', label:'Design E', type:'number'},
+        {key:'status', label:'สถานะ', type:'select', required:true, options:['Pending','Completed','Corrected','Defected'], default:'Pending'},
+        {key:'rig', label:'RIG.', type:'select', options:['1','2','3','4','5','6','7','8','9']},
+        {key:'rig_code', label:'RIG. Code', type:'select', options:['22T15','18T15','6C19','4C19','2C19','16T15','6HL1','NO.3','NO.9']},
+        {key:'driving_time_start', label:'Driving Time (START)', type:'text', placeholder:'เช่น 9:28 AM'},
+        {key:'weld_inspection', label:'Weld Inspection', type:'select', options:['Accept','Reject']},
+        {key:'driving_time_finish', label:'Driving Time (FINISH)', type:'text', placeholder:'เช่น 10:41 AM'},
+        {key:'elevation_pile_top', label:'Elevation PILE TOP', type:'number'},
+        {key:'length_actual', label:'LENGTH(m.) — Actual', type:'number'},
+        {key:'elevation_pile_tip', label:'Elevation PILE TIP', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = Elevation PILE TOP − LENGTH(Actual)'},
+        {key:'piled_date', label:'วันที่ตอก', type:'date'},
+        {key:'sequence_no', label:'ลำดับการตอก', type:'number'},
+        {key:'remark', label:'REMARK', type:'textarea'},
+      ],
+      computeStats(rows){
+        const done = rows.filter(r=>r.status==='Completed').length;
+        const pending = rows.filter(r=>r.status==='Pending').length;
+        const corrected = rows.filter(r=>r.status==='Corrected').length;
+        return [{label:'ทั้งหมด',value:rows.length,cls:'c1'},{label:'ตอกแล้ว',value:done,cls:'c4'},{label:'รอตอก',value:pending,cls:'c2'},{label:'ตอกแซม',value:corrected,cls:'c3'}];
+      },
+      idLabel(f){ return 'PILE-' + (f.pile_number || ''); }
     },
   ];
 
@@ -638,20 +780,20 @@
     $('#modalCloseBtn').addEventListener('click', ()=> $('#modalBg').classList.remove('show'));
     modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
   }
-  function renderRecentFindingsSafety(list){
-    const container = document.getElementById('recentFindingsList');
+  function renderRecentFindingsSafety(list, containerId){
+    const container = document.getElementById(containerId || 'recentFindingsList');
     if(!container || !list.length) return;
     const today = todayISO();
     container.innerHTML = list.map(f=>{
       const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
-      const dayTag = f.finding_date === today ? 'วันนี้' : 'เมื่อวานนี้';
+      const dayTag = f.finding_date === today ? 'วันนี้ · ' : '';
       return `
       <div class="finding ${findingSevClassStatic(f)}" data-recent-id="${f.id}">
         <div class="stripe"></div>
         <div class="cover">${coverHtml}</div>
         <div class="body2">
-          <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${dayTag} · ${escapeHtml(f.finding_date||'')}</span></div>
+          <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${dayTag}${escapeHtml(f.finding_date||'')}</span></div>
           <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
           <div class="f-meta">
             <span class="pill loc">${escapeHtml(f.location||'-')}</span>
@@ -696,8 +838,8 @@
       });
     });
   }
-  function renderNotClosedFindings(list){
-    const container = document.getElementById('notClosedList');
+  function renderNotClosedFindings(list, containerId){
+    const container = document.getElementById(containerId || 'notClosedList');
     if(!container || !list.length) return;
     const today = todayISO();
     container.innerHTML = list.map(f=>{
@@ -825,20 +967,6 @@
         const catExtra = Object.keys(byCategory).filter(c => !categoryOrder.includes(c) && c !== 'ชื่นชม');
         const catOrdered = catKnownOrdered.concat(catExtra).map(c => [c, byCategory[c]]);
 
-        // หมวดหมู่ (Category) ประจำสัปดาห์นี้ ตัดรอบทุกวันจันทร์ เหมือนกัน — ไม่รวม "ชื่นชม"
-        const weekEndCat = mondayOfWeek(today);
-        const weekStartCat = addDays(weekEndCat, -6);
-        const byCategoryWeek = {};
-        data.forEach(f=>{
-          if(f.category === 'ชื่นชม') return;
-          if(f.finding_date && f.finding_date >= weekStartCat && f.finding_date <= weekEndCat){
-            const v = f.category || 'ไม่ระบุ';
-            byCategoryWeek[v] = (byCategoryWeek[v]||0) + 1;
-          }
-        });
-        const catKnownOrderedWeek = categoryOrder.filter(c => byCategoryWeek[c] != null);
-        const catExtraWeek = Object.keys(byCategoryWeek).filter(c => !categoryOrder.includes(c));
-        const catOrderedWeek = catKnownOrderedWeek.concat(catExtraWeek).map(c => [c, byCategoryWeek[c]]);
 
         // findings per week, week starts every Monday (ไม่รวมหมวด "ชื่นชม" — แยกไปกราฟ ชื่นชม ต่อสัปดาห์ ด้านล่าง)
         const byWeek = {};
@@ -856,12 +984,6 @@
           .filter(f => f.finding_date === today || f.finding_date === yesterday)
           .sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
 
-        // "ชื่นชม" (recognition) items for this week, week cut off every Monday
-        const weekEnd = mondayOfWeek(today);
-        const weekStart = addDays(weekEnd, -6);
-        const recognitionThisWeek = data
-          .filter(f => f.category === 'ชื่นชม' && f.finding_date >= weekStart && f.finding_date <= weekEnd)
-          .sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
 
         // all findings not yet Closed (Open / In Progress / Overdue), overdue first, then earliest due_date, then newest first
         const notClosedFindings = data
@@ -882,10 +1004,6 @@
           <div class="dash-section">
             <h3>Findings เมื่อวานนี้ &amp; วันนี้ (${escapeHtml(yesterday)} – ${escapeHtml(today)})</h3>
             <div id="recentFindingsList">${recentFindings.length ? '' : '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในช่วงเมื่อวานนี้และวันนี้</div>'}</div>
-          </div>
-          <div class="dash-section">
-            <h3>🎉 ชื่นชม สัปดาห์นี้ (${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}, ตัดรอบทุกวันจันทร์)</h3>
-            <div id="recognitionList">${recognitionThisWeek.length ? '' : '<div class="dash-empty" style="padding:20px;">ยังไม่มีรายการชื่นชมในสัปดาห์นี้</div>'}</div>
           </div>
           <div class="dash-section">
             <h3>Findings ที่ยังไม่ Closed ทั้งหมด (${notClosedFindings.length} รายการ)</h3>
@@ -909,14 +1027,10 @@
           <div class="dash-section"><h3>สถานะ (Status)</h3><div class="chart-wrap"><canvas id="chartSafetyStatus"></canvas></div></div>
           <div class="dash-section"><h3>ระดับความรุนแรง (Severity)</h3><div class="chart-wrap"><canvas id="chartSafetySeverity"></canvas></div></div>
           <div class="dash-section"><h3>หมวดหมู่ (Category)</h3><div class="chart-wrap"><canvas id="chartSafetyCategory"></canvas></div></div>
-          <div class="dash-section">
-            <h3>หมวดหมู่ (Category) ประจำสัปดาห์นี้ (${escapeHtml(weekStartCat)} – ${escapeHtml(weekEndCat)}, ตัดรอบทุกวันจันทร์)</h3>
-            ${catOrderedWeek.length ? '<div class="chart-wrap"><canvas id="chartSafetyCategoryWeek"></canvas></div>' : '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในสัปดาห์นี้</div>'}
-          </div>
           <div class="dash-section"><h3>พื้นที่ (Location)</h3><div class="chart-wrap"><canvas id="chartSafetyLocation"></canvas></div></div>
         `;
 
-        destroyChart('sm'); destroyChart('sw'); destroyChart('rw'); destroyChart('ss'); destroyChart('sv'); destroyChart('sc'); destroyChart('sl'); destroyChart('scw');
+        destroyChart('sm'); destroyChart('sw'); destroyChart('rw'); destroyChart('ss'); destroyChart('sv'); destroyChart('sc'); destroyChart('sl');
         chartInstances.sm = new Chart($('#chartSafetyMonth'), { type:'bar', data:{ labels: months, datasets:[{ label:'Findings', data: months.map(m=>byMonth[m]), backgroundColor:'#0EA394' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
         chartInstances.sw = new Chart($('#chartSafetyWeek'), { type:'bar', data:{ labels: weeks.map(weekLabel), datasets:[{ label:'Findings', data: weeks.map(w=>byWeek[w]), backgroundColor:'#8B5CF6' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
         chartInstances.rw = new Chart($('#chartRecognitionWeek'), { type:'bar', data:{ labels: weeksRecognition.map(weekLabel), datasets:[{ label:'ชื่นชม', data: weeksRecognition.map(w=>byWeekRecognition[w]), backgroundColor:'#DB2777' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
@@ -938,17 +1052,207 @@
         chartInstances.sv = new Chart($('#chartSafetySeverity'), { type:'bar', data:{ labels:sevOrder, datasets:[{ data:sevOrder.map(k=>bySeverity[k]), backgroundColor:['#16A34A','#F0A93B','#F97316','#DC2626','#9AA3B0'] }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
         $('#chartSafetyCategory').parentElement.style.height = Math.max(220, catOrdered.length * 32 + 40) + 'px';
         chartInstances.sc = new Chart($('#chartSafetyCategory'), { type:'bar', data:{ labels:catOrdered.map(x=>x[0]), datasets:[{ data:catOrdered.map(x=>x[1]), backgroundColor:'#2563EB' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
-        if(catOrderedWeek.length){
-          $('#chartSafetyCategoryWeek').parentElement.style.height = Math.max(220, catOrderedWeek.length * 32 + 40) + 'px';
-          chartInstances.scw = new Chart($('#chartSafetyCategoryWeek'), { type:'bar', data:{ labels:catOrderedWeek.map(x=>x[0]), datasets:[{ data:catOrderedWeek.map(x=>x[1]), backgroundColor:'#0891B2' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
-        }
         const locSorted = Object.entries(byLocation).sort((a,b)=>b[1]-a[1]);
         $('#chartSafetyLocation').parentElement.style.height = Math.max(220, locSorted.length * 34 + 40) + 'px';
         chartInstances.sl = new Chart($('#chartSafetyLocation'), { type:'bar', data:{ labels:locSorted.map(x=>x[0]), datasets:[{ data:locSorted.map(x=>x[1]), backgroundColor:'#F0A93B' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ ticks:{ autoSkip:false } } } } });
 
         renderRecentFindingsSafety(recentFindings);
-        renderRecognitionThisWeek(recognitionThisWeek);
         renderNotClosedFindings(notClosedFindings);
+      }
+    },
+    {
+      id:'dash_safety_weekly', label:'Dashboard Safety Weekly', icon:'🗓️', table:'findings',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let data;
+        try{
+          const res = await fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS });
+          if(!res.ok) throw new Error('fetch failed: ' + res.status);
+          data = await res.json();
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+
+        if(!data.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Findings</div>'; return; }
+
+        const today = todayISO();
+        const categoryField = MODULES.find(m=>m.id==='findings').fields.find(fl=>fl.key==='category');
+        const categoryOrder = (categoryField ? categoryField.options : []).filter(c => c !== 'ชื่นชม');
+
+        // เลือกสัปดาห์ที่จะดูข้อมูล — default = สัปดาห์ที่ผ่านมา (สัปดาห์ล่าสุดที่จบรอบแล้ว)
+        // ทุก Card ในหน้านี้ (Findings ในสัปดาห์ / ที่ยังไม่ Closed / KPI OPEN-IN PROGRESS-OVERDUE-CLOSED / ชื่นชม / หมวดหมู่) ผูกกับสัปดาห์ที่เลือกทั้งหมด
+        const safetyCurrentWeekEnd = mondayOfWeek(today);
+        const safetyDefaultWeekEnd = addDays(safetyCurrentWeekEnd, -7);
+        const safetyWeekOptionEnds = [];
+        for(let i=0;i<13;i++){ safetyWeekOptionEnds.push(addDays(safetyCurrentWeekEnd, -7*i)); }
+        function computeSafetyWeekScoped(weekEndIso){
+          const weekStartIso = addDays(weekEndIso, -6);
+          const weekData = data.filter(f => f.finding_date && f.finding_date >= weekStartIso && f.finding_date <= weekEndIso);
+          const weekDataExclRecognition = weekData.filter(f => f.category !== 'ชื่นชม');
+
+          const catMap = {};
+          weekDataExclRecognition.forEach(f=>{
+            const v = f.category || 'ไม่ระบุ';
+            catMap[v] = (catMap[v]||0) + 1;
+          });
+          const knownOrdered = categoryOrder.filter(c => catMap[c] != null);
+          const extra = Object.keys(catMap).filter(c => !categoryOrder.includes(c));
+          const catOrdered = knownOrdered.concat(extra).map(c => [c, catMap[c]]);
+
+          const recognitionList = weekData
+            .filter(f => f.category === 'ชื่นชม')
+            .sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
+          const recognitionTotalWeek = recognitionList.length;
+
+          const totalW = weekDataExclRecognition.length;
+          const openW = weekDataExclRecognition.filter(f=>f.status==='Open').length;
+          const inProgressW = weekDataExclRecognition.filter(f=>f.status==='In Progress').length;
+          const closedW = weekDataExclRecognition.filter(f=>f.status==='Closed').length;
+          const overdueW = weekDataExclRecognition.filter(f=>f.due_date && f.due_date < today && f.status !== 'Closed').length;
+          const closureRateW = totalW ? Math.round(closedW/totalW*100) : 0;
+          const closedWithDatesW = weekDataExclRecognition.filter(f=>f.status==='Closed' && f.finding_date && f.date_closed);
+          let avgDaysToCloseW = 'insufficient data';
+          if(closedWithDatesW.length){
+            const totalDaysW = closedWithDatesW.reduce((s,f)=>{
+              const d1 = new Date(f.finding_date), d2 = new Date(f.date_closed);
+              return s + Math.max(0, Math.round((d2-d1)/86400000));
+            }, 0);
+            avgDaysToCloseW = (totalDaysW/closedWithDatesW.length).toFixed(1) + ' วัน';
+          }
+
+          const notClosedListW = weekData
+            .filter(f => f.status !== 'Closed')
+            .sort((a,b)=>{
+              const aOverdue = a.due_date && a.due_date < today;
+              const bOverdue = b.due_date && b.due_date < today;
+              if(aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+              if(a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date);
+              if(a.due_date && !b.due_date) return -1;
+              if(!a.due_date && b.due_date) return 1;
+              return (b.finding_date||'').localeCompare(a.finding_date||'');
+            });
+          const recentListW = weekData.slice().sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
+
+          return {
+            weekStartIso, weekEndIso, catOrdered, recognitionList, recognitionTotalWeek,
+            totalW, openW, inProgressW, closedW, overdueW, closureRateW, avgDaysToCloseW,
+            notClosedListW, recentListW,
+          };
+        }
+
+        container.innerHTML = `
+          <div class="dash-section">
+            <div class="dash-weekpicker-row">
+              <label for="safetyWeekPicker">เลือกสัปดาห์ที่จะดูข้อมูล (ทุก Card ในหน้านี้ผูกกับสัปดาห์นี้ทั้งหมด)</label>
+              <select id="safetyWeekPicker" class="kpi-input">
+                ${safetyWeekOptionEnds.map((w,i)=>`<option value="${w}" ${w===safetyDefaultWeekEnd?'selected':''}>${weekLabel(w)}${i===0?' (สัปดาห์นี้ ยังไม่จบรอบ)':''}${w===safetyDefaultWeekEnd?' (สัปดาห์ที่ผ่านมา)':''}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="dash-section">
+            <h3 id="safetyRecentWeekTitle">Findings ในสัปดาห์ที่เลือก</h3>
+            <div id="recentFindingsListWeekly"></div>
+          </div>
+          <div class="dash-section">
+            <h3 id="safetyNotClosedWeekTitle">Findings ที่ยังไม่ Closed ในสัปดาห์ที่เลือก</h3>
+            <div id="notClosedListWeekly"></div>
+          </div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v" id="safetyOpenW" style="color:#B45309;">0</div><div class="l">OPEN</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyInProgressW" style="color:var(--progress);">0</div><div class="l">IN PROGRESS</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyOverdueW" style="color:var(--danger);">0</div><div class="l">OVERDUE</div><div class="f">due_date &lt; today, not closed</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyClosedW" style="color:var(--closed);">0</div><div class="l">CLOSED</div></div>
+          </div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v" id="safetyTotalW">0</div><div class="l">Total Findings</div><div class="f">ไม่รวมหมวด "ชื่นชม"</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyClosureRateW">0%</div><div class="l">Closure Rate</div><div class="f">closed ÷ total</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyAvgDaysW">-</div><div class="l">Avg. Days to Close</div><div class="f">avg(date_closed − finding_date)</div></div>
+            <div class="dash-kpi"><div class="v" id="safetyRecognitionCountW" style="color:#DB2777;">0</div><div class="l">🎉 ชื่นชม (สัปดาห์ที่เลือก)</div></div>
+          </div>
+          <div class="dash-section">
+            <h3 id="safetyRecognitionWeekTitle">🎉 ชื่นชม (ตัดรอบทุกวันจันทร์)</h3>
+            <div id="recognitionList"></div>
+          </div>
+          <div class="dash-section">
+            <h3 id="safetyCategoryWeekTitle">หมวดหมู่ (Category) ประจำสัปดาห์ (ตัดรอบทุกวันจันทร์)</h3>
+            <div id="categoryWeekBody"></div>
+          </div>
+        `;
+
+        function renderSafetyWeeklySections(weekEndIso){
+          const {
+            weekStartIso, catOrdered: catOrderedW, recognitionList, recognitionTotalWeek,
+            totalW, openW, inProgressW, closedW, overdueW, closureRateW, avgDaysToCloseW,
+            notClosedListW, recentListW,
+          } = computeSafetyWeekScoped(weekEndIso);
+          const weekRangeText = weekStartIso + ' – ' + weekEndIso;
+
+          $('#safetyRecentWeekTitle').textContent = 'Findings ในสัปดาห์ที่เลือก (' + weekRangeText + ')';
+          const recentContainer = $('#recentFindingsListWeekly');
+          if(!recentListW.length){
+            recentContainer.innerHTML = '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในสัปดาห์นี้</div>';
+          }else{
+            renderRecentFindingsSafety(recentListW, 'recentFindingsListWeekly');
+          }
+
+          $('#safetyNotClosedWeekTitle').textContent = 'Findings ที่ยังไม่ Closed ในสัปดาห์ที่เลือก (' + notClosedListW.length + ' รายการ)';
+          const notClosedContainer = $('#notClosedListWeekly');
+          if(!notClosedListW.length){
+            notClosedContainer.innerHTML = '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ที่ยังไม่ Closed ในสัปดาห์นี้</div>';
+          }else{
+            renderNotClosedFindings(notClosedListW, 'notClosedListWeekly');
+          }
+
+          $('#safetyOpenW').textContent = openW;
+          $('#safetyInProgressW').textContent = inProgressW;
+          $('#safetyOverdueW').textContent = overdueW;
+          $('#safetyClosedW').textContent = closedW;
+          $('#safetyTotalW').textContent = totalW;
+          $('#safetyClosureRateW').textContent = closureRateW + '%';
+          $('#safetyAvgDaysW').textContent = avgDaysToCloseW;
+          $('#safetyRecognitionCountW').textContent = recognitionTotalWeek;
+
+          $('#safetyRecognitionWeekTitle').textContent = '🎉 ชื่นชม (' + weekStartIso + ' – ' + weekEndIso + ', ตัดรอบทุกวันจันทร์)';
+          const recContainer = $('#recognitionList');
+          if(!recognitionList.length){
+            recContainer.innerHTML = '<div class="dash-empty" style="padding:20px;">ยังไม่มีรายการชื่นชมในสัปดาห์นี้</div>';
+          }else{
+            recContainer.innerHTML = recognitionList.map(f=>{
+              const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+              const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">🎉</div>`;
+              return `
+              <div class="finding sev-none" data-recognition-id="${f.id}">
+                <div class="stripe" style="background:#F0A93B;"></div>
+                <div class="cover">${coverHtml}</div>
+                <div class="body2">
+                  <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${escapeHtml(f.finding_date||'')}</span></div>
+                  <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+                  <div class="f-meta">
+                    <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+                    ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+                  </div>
+                </div>
+              </div>`;
+            }).join('');
+            recContainer.querySelectorAll('.finding').forEach(el => {
+              el.addEventListener('click', ()=>{
+                const f = recognitionList.find(x => String(x.id) === el.dataset.recognitionId);
+                if(f) openFindingDetailStatic(f);
+              });
+            });
+          }
+
+          $('#safetyCategoryWeekTitle').textContent = 'หมวดหมู่ (Category) (' + weekStartIso + ' – ' + weekEndIso + ', ตัดรอบทุกวันจันทร์)';
+          const catBody = $('#categoryWeekBody');
+          destroyChart('scw');
+          if(catOrderedW.length){
+            catBody.innerHTML = '<div class="chart-wrap" id="categoryWeekChartWrap"><canvas id="chartSafetyCategoryWeek"></canvas></div>';
+            $('#categoryWeekChartWrap').style.height = Math.max(220, catOrderedW.length * 32 + 40) + 'px';
+            chartInstances.scw = new Chart($('#chartSafetyCategoryWeek'), { type:'bar', data:{ labels:catOrderedW.map(x=>x[0]), datasets:[{ data:catOrderedW.map(x=>x[1]), backgroundColor:'#0891B2' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+          }else{
+            catBody.innerHTML = '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในสัปดาห์นี้</div>';
+          }
+        }
+        renderSafetyWeeklySections(safetyDefaultWeekEnd);
+        $('#safetyWeekPicker').addEventListener('change', (e)=> renderSafetyWeeklySections(e.target.value));
       }
     },
     {
@@ -974,13 +1278,20 @@
         ENV_CATEGORIES.forEach(c => { totalsByCat[c.key] = data.reduce((s,r)=> s + (Number(r[c.key])||0), 0); });
         const grandTotal = ENV_CATEGORIES.reduce((s,c)=> s + totalsByCat[c.key], 0);
 
-        // this week (ตัดรอบทุกวันจันทร์) per category, and this week's grand total
-        const weekEnd = mondayOfWeek(today);
-        const weekStart = addDays(weekEnd, -6);
-        const weekRows = data.filter(r => r.report_date >= weekStart && r.report_date <= weekEnd);
-        const weekTotalsByCat = {};
-        ENV_CATEGORIES.forEach(c => { weekTotalsByCat[c.key] = weekRows.reduce((s,r)=> s + (Number(r[c.key])||0), 0); });
-        const weekGrandTotal = ENV_CATEGORIES.reduce((s,c)=> s + weekTotalsByCat[c.key], 0);
+        // เลือกสัปดาห์ที่จะดูข้อมูล (ตัดรอบทุกวันจันทร์) — default = สัปดาห์ที่ผ่านมา (สัปดาห์ล่าสุดที่จบรอบแล้ว)
+        const envCurrentWeekEnd = mondayOfWeek(today);
+        const envDefaultWeekEnd = addDays(envCurrentWeekEnd, -7);
+        const envWeekOptionEnds = [];
+        for(let i=0;i<13;i++){ envWeekOptionEnds.push(addDays(envCurrentWeekEnd, -7*i)); }
+        function computeEnvWeekScoped(weekEndIso){
+          const weekStartIso = addDays(weekEndIso, -6);
+          const weekRows = data.filter(r => r.report_date >= weekStartIso && r.report_date <= weekEndIso);
+          const weekTotalsByCat = {};
+          ENV_CATEGORIES.forEach(c => { weekTotalsByCat[c.key] = weekRows.reduce((s,r)=> s + (Number(r[c.key])||0), 0); });
+          const weekGrandTotal = ENV_CATEGORIES.reduce((s,c)=> s + weekTotalsByCat[c.key], 0);
+          return { weekStartIso, weekEndIso, weekTotalsByCat, weekGrandTotal };
+        }
+        const { weekStartIso: weekStart, weekEndIso: weekEnd, weekTotalsByCat, weekGrandTotal } = computeEnvWeekScoped(envDefaultWeekEnd);
 
         // daily stacked chart — every recorded day
         const dayLabels = data.map(r=>r.report_date || '-');
@@ -995,33 +1306,42 @@
         });
         const weekKeys = Object.keys(byWeekCat).sort();
 
-        const rowsHtml = ENV_CATEGORIES.map(c => `
+        function envRowsHtml(weekTotalsByCatArg){
+          return ENV_CATEGORIES.map(c => `
           <tr>
             <td style="padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;color:var(--charcoal);white-space:nowrap;">${escapeHtml(c.label)}</td>
-            <td style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);">${Math.round(weekTotalsByCat[c.key]*100)/100}</td>
+            <td style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);">${Math.round(weekTotalsByCatArg[c.key]*100)/100}</td>
             <td style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700;color:var(--charcoal);">${Math.round(totalsByCat[c.key]*100)/100}</td>
           </tr>`).join('');
+        }
+        const rowsHtml = envRowsHtml(weekTotalsByCat);
 
         container.innerHTML = `
-          <div class="dash-note">คำนวณจากรายงานทั้งหมด ${total} รายการ ช่วง ${escapeHtml(eDateRangeText)} · สัปดาห์นี้ตัดรอบทุกวันจันทร์ (${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)})</div>
+          <div class="dash-note">คำนวณจากรายงานทั้งหมด ${total} รายการ ช่วง ${escapeHtml(eDateRangeText)}</div>
           <div class="dash-kpi-row">
             <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Reports</div></div>
             <div class="dash-kpi"><div class="v">${Math.round(grandTotal*100)/100}</div><div class="l">ขยะรวมทั้งหมด (Kg)</div></div>
-            <div class="dash-kpi"><div class="v">${Math.round(weekGrandTotal*100)/100}</div><div class="l">ขยะรวมสัปดาห์นี้ (Kg)</div></div>
+            <div class="dash-kpi"><div class="v" id="envWeekGrandTotal">${Math.round(weekGrandTotal*100)/100}</div><div class="l">ขยะรวมสัปดาห์ที่เลือก (Kg)</div><div class="f" id="envWeekRangeLabel">${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}</div></div>
             <div class="dash-kpi"><div class="v" style="font-size:14px;">${escapeHtml(eDateRangeText)}</div><div class="l">Date Range</div></div>
           </div>
           <div class="dash-section">
-            <h3>สรุปตามประเภทขยะ — สัปดาห์นี้ &amp; สะสมทั้งหมด</h3>
+            <div class="dash-weekpicker-row" style="margin-bottom:12px;">
+              <label for="envWeekPicker">เลือกสัปดาห์ที่จะดูข้อมูล</label>
+              <select id="envWeekPicker" class="kpi-input">
+                ${envWeekOptionEnds.map((w,i)=>`<option value="${w}" ${w===envDefaultWeekEnd?'selected':''}>${weekLabel(w)}${i===0?' (สัปดาห์นี้ ยังไม่จบรอบ)':''}${w===envDefaultWeekEnd?' (สัปดาห์ที่ผ่านมา)':''}</option>`).join('')}
+              </select>
+            </div>
+            <h3>สรุปตามประเภทขยะ — สัปดาห์ที่เลือก &amp; สะสมทั้งหมด</h3>
             <div style="overflow-x:auto;">
               <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:460px;">
                 <thead>
                   <tr style="background:#F7F9FB;">
                     <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">ประเภทขยะ</th>
-                    <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">สัปดาห์นี้ (Kg)</th>
+                    <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">สัปดาห์ที่เลือก (Kg)</th>
                     <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;color:var(--charcoal);">สะสมทั้งหมด (Kg)</th>
                   </tr>
                 </thead>
-                <tbody>${rowsHtml}</tbody>
+                <tbody id="envWeekTableBody">${rowsHtml}</tbody>
               </table>
             </div>
           </div>
@@ -1039,6 +1359,13 @@
           type:'bar',
           data:{ labels: weekKeys.map(weekLabel), datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: weekKeys.map(w=>Math.round((byWeekCat[w][c.key]||0)*100)/100), backgroundColor:c.color })) },
           options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+        });
+
+        $('#envWeekPicker').addEventListener('change', (e)=>{
+          const scoped = computeEnvWeekScoped(e.target.value);
+          $('#envWeekGrandTotal').textContent = Math.round(scoped.weekGrandTotal*100)/100;
+          $('#envWeekRangeLabel').textContent = scoped.weekStartIso + ' – ' + scoped.weekEndIso;
+          $('#envWeekTableBody').innerHTML = envRowsHtml(scoped.weekTotalsByCat);
         });
       }
     },
@@ -1058,13 +1385,50 @@
         const total = data.length;
         const manpowerPerRow = data.map(r => sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop));
         const equipmentPerRow = data.map(r => sumPersonnel(r.equipment));
+
+        // เครื่องจักรแยกตามประเภทรถ (ตาม position ที่กรอกในแต่ละวัน) — สีไม่ซ้ำแม้มีหลายประเภท
+        function colorForIndex(i){
+          if(i < CHART_COLORS.length) return CHART_COLORS[i];
+          const hue = (i * 47) % 360;
+          return `hsl(${hue}, 65%, 55%)`;
+        }
+        const equipTypeSet = new Set();
+        data.forEach(r=>{
+          (Array.isArray(r.equipment) ? r.equipment : []).forEach(it=>{
+            const name = (it.position || '').trim() || 'ไม่ระบุ';
+            equipTypeSet.add(name);
+          });
+        });
+        const equipTypes = Array.from(equipTypeSet);
+        const equipByTypePerDay = data.map(r=>{
+          const m = {};
+          (Array.isArray(r.equipment) ? r.equipment : []).forEach(it=>{
+            const name = (it.position || '').trim() || 'ไม่ระบุ';
+            m[name] = (m[name]||0) + (parseInt(it.count,10)||0);
+          });
+          return m;
+        });
         const avgManpower = (manpowerPerRow.reduce((a,b)=>a+b,0) / total).toFixed(1);
         const avgEquipment = (equipmentPerRow.reduce((a,b)=>a+b,0) / total).toFixed(1);
         const dates = data.map(r=>r.report_date).filter(Boolean).sort();
         const dateRangeText = dates.length ? (dates[0] + ' → ' + dates[dates.length-1]) : 'insufficient data';
 
+        // สภาพอากาศ — นับรวมทั้ง 4 ช่วงเวลาของทุกวัน (ก่อนนี้นับแค่ 1 ค่าต่อวัน)
         const weatherCount = {};
-        data.forEach(r=>{ const w = r.weather || 'ไม่ระบุ'; weatherCount[w] = (weatherCount[w]||0)+1; });
+        data.forEach(r=>{
+          WEATHER_PERIODS.forEach(p=>{
+            const w = r[p.key] || 'ไม่ระบุ';
+            weatherCount[w] = (weatherCount[w]||0)+1;
+          });
+        });
+
+        // นาฬิกาอากาศ — เลือกดูวันไหนก็ได้ default = รายงานล่าสุดที่มีข้อมูล
+        const weatherDates = data.map(r=>r.report_date).filter(Boolean).sort();
+        const weatherDefaultDate = weatherDates.length ? weatherDates[weatherDates.length-1] : null;
+        function weatherClockData(reportDate){
+          const row = data.find(r => r.report_date === reportDate) || {};
+          return WEATHER_CLOCK_ORDER.map(p => ({ period: p.label, weather: row[p.key] || 'ไม่ระบุ' }));
+        }
 
         const labels = data.map(r=>r.report_date || '-');
         const repcoSeries = data.map(r=>sumPersonnel(r.repco_personnel));
@@ -1081,10 +1445,22 @@
           </div>
           <div class="dash-section"><h3>แนวโน้มกำลังคน (Manpower Trend)</h3><div class="chart-wrap"><canvas id="chartDailyManpower"></canvas></div></div>
           <div class="dash-section"><h3>จำนวนเครื่องจักรต่อวัน</h3><div class="chart-wrap"><canvas id="chartDailyEquip"></canvas></div></div>
-          <div class="dash-section"><h3>สภาพอากาศ</h3><div class="chart-wrap"><canvas id="chartDailyWeather"></canvas></div></div>
+          <div class="dash-section"><h3>เครื่องจักรแยกตามประเภทรถ</h3><div class="chart-wrap" id="equipTypesChartWrap"><canvas id="chartDailyEquipTypes"></canvas></div></div>
+          <div class="dash-section"><h3>สภาพอากาศ (สรุปทั้งหมด — นับรวม 4 ช่วงเวลา/วัน)</h3><div class="chart-wrap"><canvas id="chartDailyWeather"></canvas></div></div>
+          <div class="dash-section">
+            <div class="dash-weekpicker-row" style="margin-bottom:12px;">
+              <label for="weatherClockDatePicker">🕐 นาฬิกาอากาศ — เลือกวันที่ต้องการดู</label>
+              <select id="weatherClockDatePicker" class="kpi-input">
+                ${weatherDates.slice().reverse().map(d=>`<option value="${d}" ${d===weatherDefaultDate?'selected':''}>${d}</option>`).join('')}
+              </select>
+            </div>
+            <h3 style="margin-bottom:6px;">สภาพอากาศรายวัน แบ่งตามช่วงเวลา (คล้ายนาฬิกา)</h3>
+            <div class="chart-wrap" style="max-width:340px;margin:0 auto;"><canvas id="chartWeatherClock"></canvas></div>
+            <div class="dash-note" id="weatherClockLegend" style="margin-top:12px;"></div>
+          </div>
         `;
 
-        destroyChart('dm'); destroyChart('de'); destroyChart('dw');
+        destroyChart('dm'); destroyChart('de'); destroyChart('det'); destroyChart('dw'); destroyChart('wc');
         chartInstances.dm = new Chart($('#chartDailyManpower'), {
           type:'bar',
           data:{ labels, datasets:[
@@ -1095,8 +1471,37 @@
           options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
         });
         chartInstances.de = new Chart($('#chartDailyEquip'), { type:'line', data:{ labels, datasets:[{ label:'Equipment qty', data:equipmentPerRow, borderColor:'#F0A93B', backgroundColor:'rgba(240,169,59,.15)', fill:true, tension:.25 }] }, options:{ responsive:true, maintainAspectRatio:false } });
+        $('#equipTypesChartWrap').style.height = Math.max(240, 220 + Math.ceil(equipTypes.length/4)*22) + 'px';
+        chartInstances.det = new Chart($('#chartDailyEquipTypes'), {
+          type:'bar',
+          data:{ labels, datasets: equipTypes.map((t,i) => ({ label:t, data: equipByTypePerDay.map(m=>m[t]||0), backgroundColor: colorForIndex(i) })) },
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } } }
+        });
         const wLabels = Object.keys(weatherCount);
-        chartInstances.dw = new Chart($('#chartDailyWeather'), { type:'doughnut', data:{ labels:wLabels, datasets:[{ data:wLabels.map(k=>weatherCount[k]), backgroundColor:CHART_COLORS }] }, options:{ responsive:true, maintainAspectRatio:false } });
+        chartInstances.dw = new Chart($('#chartDailyWeather'), { type:'doughnut', data:{ labels:wLabels, datasets:[{ data:wLabels.map(k=>weatherCount[k]), backgroundColor:wLabels.map(weatherColor) }] }, options:{ responsive:true, maintainAspectRatio:false } });
+
+        function renderWeatherClock(reportDate){
+          const slices = weatherClockData(reportDate);
+          destroyChart('wc');
+          chartInstances.wc = new Chart($('#chartWeatherClock'), {
+            type:'pie',
+            data:{ labels: slices.map(s=>s.period), datasets:[{ data:[1,1,1,1], backgroundColor: slices.map(s=>weatherColor(s.weather)), borderColor:'#fff', borderWidth:2 }] },
+            options:{
+              responsive:true, maintainAspectRatio:true,
+              plugins:{
+                legend:{ display:false },
+                tooltip:{ callbacks:{ label:(ctx)=> slices[ctx.dataIndex].period + ': ' + slices[ctx.dataIndex].weather } },
+                datalabels:{ color:'#1F2937', font:{ weight:'700', size:10 }, formatter:(v,ctx)=> slices[ctx.dataIndex].period }
+              }
+            },
+            plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+          });
+          $('#weatherClockLegend').innerHTML = slices.map(s=>`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;"><span style="width:10px;height:10px;border-radius:50%;background:${weatherColor(s.weather)};display:inline-block;"></span>${escapeHtml(s.period)}: ${escapeHtml(s.weather)}</span>`).join('');
+        }
+        if(weatherDefaultDate){
+          renderWeatherClock(weatherDefaultDate);
+          $('#weatherClockDatePicker').addEventListener('change', (e)=> renderWeatherClock(e.target.value));
+        }
       }
     },
     {
@@ -1245,9 +1650,482 @@
         }
       }
     },
+    {
+      id:'dash_piling', label:'Dashboard Piling', icon:'📊', table:'pile_reports',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let data;
+        try{
+          data = await fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=*');
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
 
+        if(!data.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Piling Report</div>'; return; }
+
+        const total = data.length; // รวมเสาเข็มแซม (raw row count)
+        // เสาเข็มแซม/ทดแทน (pile_number มี "/" เช่น 168/1) เป็นแถวที่เพิ่มขึ้นมาแก้ปัญหาเสาเข็มหลักที่ไม่ผ่าน
+        // ไม่ใช่ตำแหน่งที่ออกแบบไว้ตั้งแต่แรก — เวลาคิด % Progress จึงไม่ควรนับซ้ำเป็นตำแหน่งใหม่
+        const isReplacementPile = (r) => String(r.pile_number).includes('/');
+        const totalExclReplacement = data.filter(r => !isReplacementPile(r)).length;
+        const replacementCount = total - totalExclReplacement;
+        const STATUS_LIST = ['Completed','Pending','Corrected','Defected'];
+        const STATUS_COLORS = { Completed:'#16A34A', Pending:'#F0A93B', Corrected:'#2563EB', Defected:'#DC2626' };
+        const countBy = (arr, key) => arr.reduce((m,r)=>{ const k = r[key] || '(ไม่ระบุ)'; m[k] = (m[k]||0) + 1; return m; }, {});
+
+        const statusCounts = STATUS_LIST.map(s => data.filter(r=>r.status===s).length);
+        const completed = statusCounts[0], pending = statusCounts[1], corrected = statusCounts[2], defected = statusCounts[3];
+        const pctComplete = totalExclReplacement ? Math.round((completed / totalExclReplacement) * 1000) / 10 : 0;
+
+        // ---- by area ----
+        const areaKeys = Object.keys(countBy(data, 'area')).sort();
+        const areaProgressHtml = areaKeys.map(a=>{
+          // ไม่รวมเสาเข็มแซมในตัวหาร เพื่อไม่ให้ % Progress ของแต่ละพื้นที่ถูกนับตำแหน่งซ้ำ
+          const rowsForArea = data.filter(r => (r.area||'(ไม่ระบุ)') === a && !isReplacementPile(r));
+          const cnt = rowsForArea.length;
+          const done = rowsForArea.filter(r=>r.status==='Completed').length;
+          const pct = cnt ? Math.round((done/cnt)*1000)/10 : 0;
+          return `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div style="flex:0 0 52px;font-weight:700;color:var(--charcoal);font-size:13px;">${escapeHtml(a)}</div>
+            <div style="flex:1 1 auto;height:16px;background:#EEF1F4;border-radius:8px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2563EB,#0EA394);border-radius:8px;"></div>
+            </div>
+            <div style="flex:0 0 56px;text-align:right;font-weight:700;color:#2563EB;font-size:13px;">${pct}%</div>
+            <div style="flex:0 0 90px;text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;">${done} / ${cnt} ต้น</div>
+          </div>`;
+        }).join('');
+
+        // ---- weld inspection — among driven piles only ----
+        const drivenRows = data.filter(r => r.driving_time_start || r.rig || r.weld_inspection);
+        const weldAccept = drivenRows.filter(r=>r.weld_inspection==='Accept').length;
+        const weldPending = drivenRows.length - weldAccept;
+
+        // ---- daily production: per-day count (bar) + cumulative (line) ----
+        const byDate = {};
+        data.forEach(r => { if(r.piled_date){ byDate[r.piled_date] = (byDate[r.piled_date]||0) + 1; } });
+        const sortedDates = Object.keys(byDate).sort();
+        const dailyCounts = sortedDates.map(d => byDate[d]);
+        let running = 0;
+        const cumulative = sortedDates.map(d => { running += byDate[d]; return running; });
+        const pDates = sortedDates;
+        const dateRangeText = pDates.length ? (pDates[0] + ' → ' + pDates[pDates.length-1]) : 'ยังไม่มีวันที่ตอก';
+
+        // ---- rig utilization — by RIG. Code (matches the physical rig unit, not the RIG. index number) ----
+        const rigCodeMap = countBy(data.filter(r=>r.rig_code), 'rig_code');
+        const rigCodeKeys = Object.keys(rigCodeMap).sort();
+
+        // ---- pile type breakdown ----
+        const typeMap = countBy(data.filter(r=>r.type), 'type');
+        const typeKeys = Object.keys(typeMap).sort((a,b)=> typeMap[b]-typeMap[a]);
+
+        // ---- geographic distribution (design N/E coordinates) ----
+        // ทำสีให้เรียบง่าย: จัดกลุ่มตามสถานะเท่านั้น (ไม่แยกตามพื้นที่ด้วย) legend เหลือแค่ 4 สี อ่านง่ายขึ้นมาก
+        // ตำแหน่งบนกราฟเองแบ่งพื้นที่ให้เห็นอยู่แล้วโดยธรรมชาติ ไม่ต้องพึ่งสี/เส้นขอบแยกตามพื้นที่อีก
+        const geoPoints = data.filter(r => r.design_n != null && r.design_e != null && !(r.design_n === 0 && r.design_e === 0));
+        const geoDatasets = STATUS_LIST.map(status => {
+          const pts = geoPoints.filter(r => r.status === status);
+          if(!pts.length) return null;
+          return {
+            label: status,
+            data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id })),
+            backgroundColor: STATUS_COLORS[status],
+            pointRadius: status === 'Defected' ? 5 : 3,
+            pointHoverRadius: 7,
+            pointHoverBorderColor: '#111827',
+            pointHoverBorderWidth: 1.5,
+          };
+        }).filter(Boolean);
+
+        // ---- QC & Non-Conformance: เสาเข็มที่ตอกแซม (Corrected) และเสาเข็มที่เสีย/ใช้งานไม่ได้ (Defected) ----
+        const NONCONFORM_BADGE = { Corrected:'status-in-progress', Defected:'status-overdue' };
+        const nonConformRows = data.filter(r => r.status === 'Corrected' || r.status === 'Defected')
+          .sort((a,b)=> String(a.pile_number).localeCompare(String(b.pile_number), undefined, {numeric:true}));
+        const qcRowsHtml = nonConformRows.map(r => {
+          const pnStr = String(r.pile_number);
+          const hasReplacement = pnStr.includes('/');
+          const originalNo = pnStr.split('/')[0];
+          return `<tr>
+            <td style="padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap;">${escapeHtml(originalNo)}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.area||'-')}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid var(--line);">${escapeHtml(r.remark||'-')}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${hasReplacement ? escapeHtml(pnStr) : '-'}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;"><span class="pill ${NONCONFORM_BADGE[r.status] || 'status-overdue'}">${escapeHtml(r.status)}</span></td>
+          </tr>`;
+        }).join('') || '<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--muted);">ไม่มีรายการเสาเข็มตอกแซม/เสีย</td></tr>';
+
+        // ---- pilot test piles: remark mentions "Pilot pile" ----
+        const pilotRows = data.filter(r => r.remark && /pilot\s*pile/i.test(r.remark));
+        const pilotHtml = pilotRows.length
+          ? pilotRows.map(r => `<span class="pill loc">${escapeHtml(String(r.pile_number))} (${escapeHtml(r.remark)})</span>`).join(' ')
+          : '<span style="color:var(--muted);font-size:12.5px;">ไม่มีเสาเข็มทดสอบนำร่อง</span>';
+
+        container.innerHTML = `
+          <div class="dash-note">คำนวณจากเสาเข็มทั้งหมด ${total} ต้น · ช่วงวันที่ตอก ${escapeHtml(dateRangeText)}</div>
+          <div class="dash-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+            <div class="dash-kpi"><div class="v">${totalExclReplacement}</div><div class="l">Total Piles (ไม่รวมเสาเข็มแซม)</div><div class="f">${areaKeys.length} พื้นที่ · ใช้คิด % Progress</div></div>
+            <div class="dash-kpi"><div class="v" style="color:#9AA3B0;">${total}</div><div class="l">Total Piles (รวมเสาเข็มแซม)</div><div class="f">+${replacementCount} เสาเข็มแซม</div></div>
+            <div class="dash-kpi"><div class="v" style="color:#16A34A;">${completed}</div><div class="l">Completed (Driven)</div><div class="f">${pctComplete}%</div></div>
+            <div class="dash-kpi"><div class="v" style="color:#F0A93B;">${pending}</div><div class="l">รอตอก (Pending)</div></div>
+            <div class="dash-kpi"><div class="v" style="color:#2563EB;">${corrected}</div><div class="l">ตอกแซม (Corrected)</div></div>
+          </div>
+
+          <div id="pilingTabBar" style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin:16px 0;overflow-x:auto;">
+            <button type="button" class="piling-tab-btn" data-ptab="overview">ภาพรวม (Overview)</button>
+            <button type="button" class="piling-tab-btn" data-ptab="location">แผนที่ตำแหน่ง (Location Plot)</button>
+            <button type="button" class="piling-tab-btn" data-ptab="byarea">รายละเอียดตามพื้นที่ (By Area)</button>
+            <button type="button" class="piling-tab-btn" data-ptab="qc">QC &amp; Non-Conformance</button>
+          </div>
+
+          <div id="pilingPanelOverview">
+            <div class="dash-section">
+              <h3>ความก้าวหน้าตามพื้นที่ (Progress by Area)</h3>
+              ${areaProgressHtml}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div class="dash-section"><h3>สถานะตรวจสอบรอยเชื่อม (Weld Inspection)</h3><div class="chart-wrap" style="max-width:280px;margin:0 auto;"><canvas id="chartPileWeld"></canvas></div></div>
+              <div class="dash-section"><h3>สัดส่วนประเภทเสาเข็ม (Pile Type)</h3><div class="chart-wrap" style="max-width:280px;margin:0 auto;"><canvas id="chartPileType"></canvas></div></div>
+            </div>
+            <div class="dash-section"><h3>Daily Pile Driving Production</h3><div class="chart-wrap"><canvas id="chartPileDaily"></canvas></div></div>
+            <div class="dash-section"><h3>Rig Utilization (จำนวนเสาเข็มที่ตอกต่อ Rig)</h3><div class="chart-wrap"><canvas id="chartPileRig"></canvas></div></div>
+          </div>
+
+          <div id="pilingPanelLocation" hidden>
+            <div class="dash-section" id="pileGeoChartWrap">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <h3 style="margin:0;">Geographic Distribution — ตำแหน่งเสาเข็มตามพิกัดจริง (N/E)</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-ghost" id="btnGeoThisWeek">📅 This Week</button>
+                  <button type="button" class="btn btn-ghost" id="btnGeoLastWeek">📅 Last Week</button>
+                  <button type="button" class="btn btn-ghost" id="btnPileGeoFullscreen">⛶ เต็มจอ</button>
+                </div>
+              </div>
+              <div class="dash-note" style="margin-top:10px;">คลิกที่จุดเพื่อเปิดเสาเข็มต้นนั้นมากรอกข้อมูลใน Piling Report</div>
+              <div class="chart-wrap" id="pileGeoCanvasWrap" style="height:460px;"><canvas id="chartPileGeo"></canvas></div>
+              <div class="dash-kpi-row" style="margin-top:12px;" id="pileGeoKpiRow">
+                <div class="dash-kpi"><div class="v" id="pileGeoNRange">-</div><div class="l">N Range (m)</div></div>
+                <div class="dash-kpi"><div class="v" id="pileGeoERange">-</div><div class="l">E Range (m)</div></div>
+                <div class="dash-kpi"><div class="v" id="pileGeoAvgCoverage">-</div><div class="l">Avg Area Coverage (m²)</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="pilingPanelByArea" hidden>
+            <div class="dash-section">
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+                <label style="font-size:12.5px;color:var(--muted);">กรองตามพื้นที่:</label>
+                <select id="baAreaFilter" class="kpi-input" style="min-width:160px;">
+                  <option value="">ทุกพื้นที่ (All Areas)</option>
+                  ${areaKeys.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('')}
+                </select>
+                <input type="text" id="baSearchInput" placeholder="ค้นหาเลขเสาเข็ม..." style="flex:1 1 200px;min-width:160px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
+                <span id="baRecordCount" class="pill loc" style="white-space:nowrap;"></span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px;">
+                  <thead>
+                    <tr style="background:#F7F9FB;">
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">PILE NO.</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">AREA</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">TYPE</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">RIG</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">DRIVING DATE</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">WELD</th>
+                      <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">DEV. N (m)</th>
+                      <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">DEV. E (m)</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">REMARK</th>
+                    </tr>
+                  </thead>
+                  <tbody id="baTableBody"></tbody>
+                </table>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px;">
+                <span id="baPageLabel" style="font-size:12px;color:var(--muted);"></span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <select id="baPageSize" class="kpi-input" style="width:auto;">
+                    <option value="20">20 แถวต่อหน้า</option>
+                    <option value="50">50 แถวต่อหน้า</option>
+                    <option value="100">100 แถวต่อหน้า</option>
+                  </select>
+                  <button type="button" class="btn btn-ghost" id="baPrevPage">‹ ก่อนหน้า</button>
+                  <button type="button" class="btn btn-ghost" id="baNextPage">ถัดไป ›</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="pilingPanelQc" hidden>
+            <div class="dash-section">
+              <h3>Non-Conformance / Resupply Log</h3>
+              <div class="dash-note" style="margin-bottom:10px;">เสาเข็มที่ไม่ผ่านเกณฑ์ (ไม่ได้ Blow Count) และต้องส่งข้อมูลให้ผู้ออกแบบพิจารณาแบบราคาฐาน / ตอกแซม (Corrected) รวมถึงเสาเข็มที่เสีย/ใช้งานไม่ได้ (Defected)</div>
+              <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:640px;">
+                  <thead>
+                    <tr style="background:#F7F9FB;">
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">PILE NO.</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">AREA</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">รายละเอียดปัญหา</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">เสาเข็มตอกแซม</th>
+                      <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody>${qcRowsHtml}</tbody>
+                </table>
+              </div>
+            </div>
+            <div class="dash-section">
+              <h3>Pilot Test Piles</h3>
+              <div class="dash-note" style="margin-bottom:10px;">เสาเข็มทดสอบเพื่อสอบเทียบ Blow Count ก่อนเริ่มงานจริงในแต่ละพื้นที่</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">${pilotHtml}</div>
+            </div>
+          </div>
+        `;
+
+        // ---- tab switching ----
+        const pilingPanels = { overview:'#pilingPanelOverview', location:'#pilingPanelLocation', byarea:'#pilingPanelByArea', qc:'#pilingPanelQc' };
+        const pilingTabsRendered = { overview:false, location:false, byarea:false, qc:false };
+        function renderOverviewCharts(){
+          destroyChart('pw'); destroyChart('pt'); destroyChart('pd'); destroyChart('pr');
+          chartInstances.pw = new Chart($('#chartPileWeld'), {
+            type:'doughnut',
+            data:{ labels:['Accept','Pending Inspection'], datasets:[{ data:[weldAccept, weldPending], backgroundColor:['#16A34A','#EEF1F4'] }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+          });
+          chartInstances.pt = new Chart($('#chartPileType'), {
+            type:'doughnut',
+            data:{ labels: typeKeys, datasets:[{ data: typeKeys.map(k=>typeMap[k]), backgroundColor: typeKeys.map((k,i)=>CHART_COLORS[i % CHART_COLORS.length]) }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } } }
+          });
+          chartInstances.pd = new Chart($('#chartPileDaily'), {
+            data:{
+              labels: sortedDates,
+              datasets:[
+                { type:'bar', label:'จำนวนต่อวัน (Daily)', data: dailyCounts, backgroundColor:'#2563EB', yAxisID:'y' },
+                { type:'line', label:'สะสม (Cumulative)', data: cumulative, borderColor:'#0EA394', backgroundColor:'rgba(14,163,148,0.15)', fill:false, tension:0.25, yAxisID:'y1' },
+              ]
+            },
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              scales:{
+                y:{ beginAtZero:true, position:'left', title:{ display:true, text:'จำนวนต่อวัน' } },
+                y1:{ beginAtZero:true, position:'right', title:{ display:true, text:'สะสม' }, grid:{ drawOnChartArea:false } },
+              }
+            }
+          });
+          chartInstances.pr = new Chart($('#chartPileRig'), {
+            type:'bar',
+            data:{ labels: rigCodeKeys, datasets:[{ label:'จำนวนเสาเข็ม', data: rigCodeKeys.map(k=>rigCodeMap[k]), backgroundColor: CHART_COLORS[0] }] },
+            options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ beginAtZero:true } } }
+          });
+        }
+        async function openPileForEdit(record){
+          // ถ้ากำลังอยู่โหมดเต็มจอ ต้องออกจากเต็มจอก่อน ไม่งั้นฟอร์มที่สลับไปจะอยู่นอก element ที่เต็มจออยู่
+          // (มองไม่เห็น/กรอกไม่ได้) จนกว่าจะออกจากเต็มจอเองก่อน
+          const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+          if(document.fullscreenElement && exitFs){
+            await exitFs.call(document);
+          }
+          await switchModule('piling');
+          loadIntoForm(record);
+        }
+        // ---- This Week / Last Week highlight (Magenta) ----
+        function isoDate(d){
+          // ใช้ค่า local date components ตรงๆ ห้ามผ่าน toISOString() เพราะจะแปลงเป็น UTC ก่อน
+          // ทำให้วันที่เพี้ยนไป 1 วันสำหรับโซนเวลาที่เร็วกว่า UTC เช่น ไทย (UTC+7)
+          const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+          return y + '-' + m + '-' + dd;
+        }
+        function weekRangeStr(offsetWeeks){
+          const now = new Date();
+          const day = now.getDay(); // 0=Sun..6=Sat
+          const diffToMonday = (day === 0 ? -6 : 1 - day);
+          const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday + offsetWeeks*7);
+          const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+          return { start: isoDate(monday), end: isoDate(sunday) };
+        }
+        let geoHighlightThisWeek = false, geoHighlightLastWeek = false;
+        function geoPointToChartPoint(p){
+          return { x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id };
+        }
+        function buildGeoHighlightDatasets(){
+          const out = [];
+          if(!geoHighlightThisWeek && !geoHighlightLastWeek) return out;
+          // วันนี้/เมื่อวาน (เฉพาะตอนติ๊ก This Week) ให้ไฮไลท์สีน้ำเงินแยกจากสัปดาห์ที่เหลือ (สี Magenta)
+          const now = new Date();
+          const todayStr = isoDate(now);
+          const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          const yesterdayStr = isoDate(yesterday);
+          const blueIds = new Set();
+          if(geoHighlightThisWeek){
+            geoPoints.forEach(r => { if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); });
+          }
+          const ranges = [];
+          if(geoHighlightThisWeek) ranges.push(weekRangeStr(0));
+          if(geoHighlightLastWeek) ranges.push(weekRangeStr(-1));
+          const magentaPts = geoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
+          const bluePts = geoPoints.filter(r => blueIds.has(r.id));
+          if(magentaPts.length){
+            out.push({
+              label: 'ตอกในสัปดาห์ที่เลือก',
+              data: magentaPts.map(geoPointToChartPoint),
+              backgroundColor: '#D946EF', borderColor: '#9D174D', borderWidth: 1.5,
+              pointRadius: 7, pointHoverRadius: 9,
+            });
+          }
+          if(bluePts.length){
+            out.push({
+              label: 'ตอกวันนี้ / เมื่อวาน',
+              data: bluePts.map(geoPointToChartPoint),
+              backgroundColor: '#2563EB', borderColor: '#1E3A8A', borderWidth: 1.5,
+              pointRadius: 7, pointHoverRadius: 9,
+            });
+          }
+          return out;
+        }
+        function refreshGeoDatasets(){
+          if(!chartInstances.pg) return;
+          chartInstances.pg.data.datasets = geoDatasets.concat(buildGeoHighlightDatasets());
+          chartInstances.pg.update();
+        }
+        function renderLocationChart(){
+          destroyChart('pg');
+          chartInstances.pg = new Chart($('#chartPileGeo'), {
+            type:'scatter',
+            data:{ datasets: geoDatasets },
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              plugins:{
+                legend:{ position:'top' },
+                tooltip:{
+                  callbacks:{
+                    label: (ctx) => {
+                      const p = ctx.raw;
+                      return 'เสาเข็ม ' + p.pile_number + (p.area ? ' · ' + p.area : '') + ' · ' + ctx.dataset.label;
+                    }
+                  }
+                }
+              },
+              scales:{
+                x:{ title:{ display:true, text:'East (E) Coordinate' } },
+                y:{ title:{ display:true, text:'North (N) Coordinate' } },
+              },
+              onHover: (evt, elements) => {
+                if(evt.native && evt.native.target) evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+              },
+              onClick: (evt, elements) => {
+                if(!elements.length) return;
+                const el = elements[0];
+                const point = chartInstances.pg.data.datasets[el.datasetIndex].data[el.index];
+                const record = data.find(r => r.id === point.id);
+                if(record) openPileForEdit(record);
+                else showToast('ไม่พบข้อมูลเสาเข็มนี้แล้ว (อาจถูกลบไปก่อนหน้านี้)', true);
+              }
+            }
+          });
+          const btnThisWeek = document.getElementById('btnGeoThisWeek');
+          const btnLastWeek = document.getElementById('btnGeoLastWeek');
+          if(btnThisWeek && !btnThisWeek.dataset.wired){
+            btnThisWeek.dataset.wired = '1';
+            btnThisWeek.addEventListener('click', ()=>{
+              geoHighlightThisWeek = !geoHighlightThisWeek;
+              btnThisWeek.classList.toggle('active', geoHighlightThisWeek);
+              refreshGeoDatasets();
+            });
+          }
+          if(btnLastWeek && !btnLastWeek.dataset.wired){
+            btnLastWeek.dataset.wired = '1';
+            btnLastWeek.addEventListener('click', ()=>{
+              geoHighlightLastWeek = !geoHighlightLastWeek;
+              btnLastWeek.classList.toggle('active', geoHighlightLastWeek);
+              refreshGeoDatasets();
+            });
+          }
+          const fsBtn = document.getElementById('btnPileGeoFullscreen');
+          if(fsBtn && !fsBtn.dataset.wired){
+            fsBtn.dataset.wired = '1';
+            fsBtn.addEventListener('click', ()=>{
+              const wrap = document.getElementById('pileGeoChartWrap');
+              const reqFs = wrap.requestFullscreen || wrap.webkitRequestFullscreen || wrap.msRequestFullscreen;
+              const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+              if(!document.fullscreenElement){ reqFs.call(wrap); } else { exitFs.call(document); }
+            });
+            document.addEventListener('fullscreenchange', ()=>{
+              fsBtn.textContent = document.fullscreenElement ? '⤡ ออกจากเต็มจอ' : '⛶ เต็มจอ';
+              if(chartInstances.pg) setTimeout(()=> chartInstances.pg.resize(), 50);
+            });
+          }
+          if(geoPoints.length){
+            const nVals = geoPoints.map(p=>p.design_n), eVals = geoPoints.map(p=>p.design_e);
+            const nRangeVal = Math.max(...nVals) - Math.min(...nVals);
+            const eRangeVal = Math.max(...eVals) - Math.min(...eVals);
+            const areaCoverages = areaKeys.map(area => {
+              const pts = geoPoints.filter(r => (r.area||'(ไม่ระบุ)') === area);
+              if(pts.length < 2) return null;
+              const ns = pts.map(p=>p.design_n), es = pts.map(p=>p.design_e);
+              return (Math.max(...ns)-Math.min(...ns)) * (Math.max(...es)-Math.min(...es));
+            }).filter(v => v != null);
+            const avgCoverage = areaCoverages.length ? areaCoverages.reduce((a,b)=>a+b,0)/areaCoverages.length : 0;
+            $('#pileGeoNRange').textContent = nRangeVal.toFixed(2);
+            $('#pileGeoERange').textContent = eRangeVal.toFixed(2);
+            $('#pileGeoAvgCoverage').textContent = avgCoverage.toFixed(0);
+          }
+        }
+
+        // ---- By Area tab: filter + search + client-side pagination ----
+        let baFilterArea = '', baSearch = '', baPage = 1, baPageSize = 20;
+        function baFilteredRows(){
+          return data.filter(r =>
+            (!baFilterArea || r.area === baFilterArea) &&
+            (!baSearch || String(r.pile_number||'').toLowerCase().includes(baSearch.toLowerCase()))
+          );
+        }
+        function renderByAreaTable(){
+          const filtered = baFilteredRows();
+          const totalPages = Math.max(1, Math.ceil(filtered.length / baPageSize));
+          if(baPage > totalPages) baPage = totalPages;
+          if(baPage < 1) baPage = 1;
+          const startIdx = (baPage - 1) * baPageSize;
+          const pageRows = filtered.slice(startIdx, startIdx + baPageSize);
+          $('#baTableBody').innerHTML = pageRows.length ? pageRows.map(r => `
+            <tr>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap;">${escapeHtml(String(r.pile_number))}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.area||'-')}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.type||'-')}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.rig_code||'-')}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.piled_date||'-')}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${r.weld_inspection ? `<span class="pill ${r.weld_inspection==='Accept'?'status-closed':'status-overdue'}">${escapeHtml(r.weld_inspection)}</span>` : '-'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;">${r.deviation_n != null ? r.deviation_n : '-'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;">${r.deviation_e != null ? r.deviation_e : '-'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid var(--line);">${escapeHtml(r.remark||'-')}</td>
+            </tr>`).join('') : '<tr><td colspan="9" style="padding:14px;text-align:center;color:var(--muted);">ไม่พบรายการที่ตรงกับเงื่อนไข</td></tr>';
+          $('#baRecordCount').textContent = filtered.length.toLocaleString() + ' records';
+          const showFrom = filtered.length ? startIdx + 1 : 0;
+          const showTo = Math.min(startIdx + baPageSize, filtered.length);
+          $('#baPageLabel').textContent = `แสดง ${showFrom}-${showTo} จาก ${filtered.length.toLocaleString()} รายการ · หน้า ${baPage} / ${totalPages}`;
+          $('#baPrevPage').disabled = baPage <= 1;
+          $('#baNextPage').disabled = baPage >= totalPages;
+        }
+        function wireByAreaControls(){
+          $('#baAreaFilter').addEventListener('change', e=>{ baFilterArea = e.target.value; baPage = 1; renderByAreaTable(); });
+          $('#baSearchInput').addEventListener('input', e=>{ baSearch = e.target.value; baPage = 1; renderByAreaTable(); });
+          $('#baPageSize').addEventListener('change', e=>{ baPageSize = Number(e.target.value); baPage = 1; renderByAreaTable(); });
+          $('#baPrevPage').addEventListener('click', ()=>{ baPage -= 1; renderByAreaTable(); });
+          $('#baNextPage').addEventListener('click', ()=>{ baPage += 1; renderByAreaTable(); });
+        }
+
+        function switchPilingTab(name){
+          Object.keys(pilingPanels).forEach(k => { $(pilingPanels[k]).hidden = (k !== name); });
+          $$('#pilingTabBar .piling-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.ptab === name));
+          if(!pilingTabsRendered[name]){
+            if(name === 'overview') renderOverviewCharts();
+            else if(name === 'location') renderLocationChart();
+            else if(name === 'byarea'){ wireByAreaControls(); renderByAreaTable(); }
+            pilingTabsRendered[name] = true;
+          }
+        }
+        $$('#pilingTabBar .piling-tab-btn').forEach(b => b.addEventListener('click', ()=> switchPilingTab(b.dataset.ptab)));
+        switchPilingTab('overview');
+      }
+    },
   ];
-
   // ================= CUSTOM REPORTS (non-generic entry pages, listed under 📝 Report) =================
   // Safety KPI & Safe Days: a live-editable summary/counter page (not a per-day journal like the
   // other MODULES), so it renders its own form + save handlers instead of using the generic
@@ -1463,10 +2341,27 @@
 
   // ---------- Supabase REST ----------
   function restUrl(){ return SUPABASE_URL + '/rest/v1/' + activeModule.table; }
+  // PostgREST caps a plain select at the project's "Max Rows" setting (default 1000), so page
+  // through with the Range header until a page comes back short of the page size. Used by every
+  // fetch that can plausibly exceed 1000 rows (module lists and dashboards alike).
+  async function fetchAllRows(urlWithoutRange){
+    const PAGE_SIZE = 1000;
+    let all = [];
+    let offset = 0;
+    while(true){
+      const res = await fetch(urlWithoutRange, {
+        headers: { ...HEADERS, 'Range-Unit': 'items', 'Range': offset + '-' + (offset + PAGE_SIZE - 1) }
+      });
+      if(!res.ok) throw new Error('fetch failed: ' + res.status);
+      const page = await res.json();
+      all = all.concat(page);
+      if(page.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    return all;
+  }
   async function fetchAll(){
-    const res = await fetch(restUrl() + '?select=*&order=' + activeModule.dateField + '.desc', { headers: HEADERS });
-    if(!res.ok) throw new Error('fetch failed: ' + res.status);
-    rows = await res.json();
+    rows = await fetchAllRows(restUrl() + '?select=*&order=' + activeModule.dateField + '.desc');
   }
   async function insertRecord(record){
     const res = await fetch(restUrl(), { method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(record) });
@@ -1739,6 +2634,8 @@
     currentFilterStatus = 'all'; currentSearch = ''; $('#searchBox').value = '';
     renderModuleRow();
     renderFilterRow();
+    $('#tabPendingPiles').style.display = (activeModule.id === 'piling' || activeModule.id === 'piling_design') ? '' : 'none';
+    $('#btnPileMapJump').style.display = (activeModule.id === 'piling') ? '' : 'none';
     clearForm();
     switchTab('form');
     await refreshAndRender();
@@ -1781,23 +2678,25 @@
   }
   function renderFieldInput(f){
     const id = 'field_' + f.key;
+    const roStyle = ' style="background:#F7F9FB;color:var(--muted);"';
+    const ro = f.readOnly;
     if(f.type === 'select'){
-      return `<select id="${id}"><option value="">เลือก...</option>${f.options.map(o=>`<option>${escapeHtml(o)}</option>`).join('')}</select>`;
+      return `<select id="${id}"${ro ? (' disabled' + roStyle) : ''}><option value="">เลือก...</option>${f.options.map(o=>`<option>${escapeHtml(o)}</option>`).join('')}</select>`;
     } else if(f.type === 'textarea'){
-      return `<textarea id="${id}" placeholder="${escapeHtml(f.placeholder||'')}"></textarea>`;
+      return `<textarea id="${id}" placeholder="${escapeHtml(f.placeholder||'')}"${ro ? (' readonly' + roStyle) : ''}></textarea>`;
     } else if(f.type === 'date'){
-      return `<input type="date" id="${id}">`;
+      return `<input type="date" id="${id}"${ro ? (' readonly' + roStyle) : ''}>`;
     } else if(f.type === 'time'){
       return `<input type="time" id="${id}">`;
     } else if(f.type === 'number'){
-      return `<input type="number" step="any" id="${id}"${f.readOnly ? ' readonly style="background:#F7F9FB;color:var(--charcoal);font-weight:700;"' : ''}>`;
+      return `<input type="number" step="any" id="${id}"${ro ? ' readonly style="background:#F7F9FB;color:var(--charcoal);font-weight:700;"' : ''}>`;
     } else if(f.type === 'area-manpower-list'){
       return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มพื้นที่</button><div class="note">F = Foreman, S = Safety, W = Worker, O = Other</div>`;
     } else if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){
       const ph = f.itemPlaceholder || (f.type === 'text-list' ? 'Equipment' : 'Position');
       return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}" data-placeholder="${escapeHtml(ph)}">+ เพิ่มรายการ</button>`;
     } else {
-      return `<input type="text" id="${id}" placeholder="${escapeHtml(f.placeholder||'')}">`;
+      return `<input type="text" id="${id}" placeholder="${escapeHtml(f.placeholder||'')}"${ro ? (' readonly' + roStyle) : ''}>`;
     }
   }
 
@@ -1916,14 +2815,42 @@
     const wEl = document.getElementById('field_worker_count'); if(wEl) wEl.value = w;
     const oEl = document.getElementById('field_other_count'); if(oEl) oEl.value = o;
   }
+  // Piling: ฟังก์ชันคำนวณ Elevation PILE TIP / Deviation N,E แบบ standalone (เรียกได้ทั้งตอนพิมพ์สด
+  // และตอนโหลดรายการเดิมมาแก้ไข ที่ค่าถูกเซ็ตผ่าน setFieldValue โดยตรง ไม่ผ่าน event 'input')
+  function recomputePileTip(){
+    const topEl = document.getElementById('field_elevation_pile_top');
+    const lenEl = document.getElementById('field_length_actual');
+    const tipEl = document.getElementById('field_elevation_pile_tip');
+    if(!topEl || !lenEl || !tipEl) return;
+    const top = parseFloat(topEl.value), len = parseFloat(lenEl.value);
+    tipEl.value = (isFinite(top) && isFinite(len)) ? Math.round((top - len) * 1000) / 1000 : '';
+  }
+  function recomputePileDeviation(actualKey, designKey, devKey){
+    const actualEl = document.getElementById('field_' + actualKey);
+    const designEl = document.getElementById('field_' + designKey);
+    const devEl = document.getElementById('field_' + devKey);
+    if(!actualEl || !designEl || !devEl) return;
+    const a = parseFloat(actualEl.value), d = parseFloat(designEl.value);
+    devEl.value = (isFinite(a) && isFinite(d)) ? Math.round((a - d) * 1000) / 1000 : '';
+  }
+  function recomputeAllPilingCalcs(){
+    recomputePileTip();
+    recomputePileDeviation('n_actual','design_n','deviation_n');
+    recomputePileDeviation('e_actual','design_e','deviation_e');
+  }
   function renderFormFields(){
     const rowsHtml = chunkFieldsForLayout(activeModule.fields).map(group=>{
-      const inner = group.map(f => `
+      const inner = group.map(f => {
+        const isPileSearchField = ((activeModule.id === 'piling' || activeModule.id === 'piling_design') && f.key === 'pile_number');
+        return `
         <div class="field">
           <label>${escapeHtml(f.label)}${f.required ? '<span class="req">*</span>' : ''}</label>
-          ${renderFieldInput(f)}
+          ${isPileSearchField
+            ? `<div style="display:flex;gap:8px;"><div style="flex:1 1 auto;">${renderFieldInput(f)}</div><button type="button" id="btnSearchPileNumber" class="btn btn-ghost" style="flex:0 0 auto;">🔍 ค้นหา</button></div>`
+            : renderFieldInput(f)}
           ${f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : ''}
-        </div>`).join('');
+        </div>`;
+      }).join('');
       return group.length === 2 ? `<div class="two-col">${inner}</div>` : inner;
     }).join('');
     $('#dynamicFields').innerHTML = rowsHtml;
@@ -1938,6 +2865,34 @@
         updatePreviewNumber();
         if(!editingId) $('#field_due_date').value = addDays($('#field_finding_date').value || todayISO(), 7);
       });
+    }
+    if(activeModule.id === 'piling' || activeModule.id === 'piling_design'){
+      const topEl = document.getElementById('field_elevation_pile_top');
+      const lenEl = document.getElementById('field_length_actual');
+      if(topEl) topEl.addEventListener('input', recomputePileTip);
+      if(lenEl) lenEl.addEventListener('input', recomputePileTip);
+
+      const nActualEl = document.getElementById('field_n_actual');
+      const eActualEl = document.getElementById('field_e_actual');
+      if(nActualEl) nActualEl.addEventListener('input', ()=> recomputePileDeviation('n_actual','design_n','deviation_n'));
+      if(eActualEl) eActualEl.addEventListener('input', ()=> recomputePileDeviation('e_actual','design_e','deviation_e'));
+
+      const btnSearchPile = document.getElementById('btnSearchPileNumber');
+      if(btnSearchPile){
+        btnSearchPile.addEventListener('click', ()=>{
+          const pnEl = document.getElementById('field_pile_number');
+          const pn = pnEl ? pnEl.value.trim() : '';
+          if(!pn){ showToast('กรุณาพิมพ์เลขเสาเข็มที่ต้องการค้นหาก่อน', true); return; }
+          const found = rows.find(r => String(r.pile_number).trim().toLowerCase() === pn.toLowerCase());
+          if(found){
+            if(String(found.id) === String(editingId)) return; // already editing this one
+            loadIntoForm(found);
+            showToast('พบเสาเข็ม ' + pn + ' ในระบบ — เปิดมาให้แก้ไขแล้ว');
+          }else{
+            showToast('ไม่พบเลขเสาเข็ม ' + pn + ' ในระบบ — สามารถกรอกเป็นรายการใหม่ได้เลย', true);
+          }
+        });
+      }
     }
   }
   function getFieldValue(f){
@@ -1992,7 +2947,8 @@
     container.innerHTML = list.map(f=>{
       const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">${activeModule.icon}</div>`;
-      const badges = activeModule.badgeFields.map(bf => f[bf] ? `<span class="pill ${badgeClass(bf, f[bf])==='loc'?'loc':badgeClass(bf,f[bf])}">${escapeHtml(f[bf])}</span>` : '').join('');
+      const badges = activeModule.badgeFields.map(bf => f[bf] ? `<span class="pill ${badgeClass(bf, f[bf])==='loc'?'loc':badgeClass(bf,f[bf])}">${escapeHtml(f[bf])}</span>` : '').join('')
+        + (activeModule.renderExtraMeta ? activeModule.renderExtraMeta(f) : '');
       return `
       <div class="finding ${sevClass(f)}" data-id="${f.id}">
         <div class="stripe"></div>
@@ -2105,6 +3061,7 @@
     editingId = f.id; removedExistingUrls = [];
     renderFormFields();
     activeModule.fields.forEach(fl => setFieldValue(fl, f[fl.key]));
+    if(activeModule.id === 'piling' || activeModule.id === 'piling_design'){ recomputeAllPilingCalcs(); }
     $('#previewNum').textContent = activeModule.hasAutoNumber ? f[activeModule.numberField] : activeModule.idLabel(f);
     $('#formModeHint').textContent = 'แก้ไข: ' + activeModule.idLabel(f);
     $('#btnCopyPrev').style.display = 'none';
@@ -2145,7 +3102,13 @@
       activeModule.fields.forEach(f=>{
         let v = getFieldValue(f);
         if((f.type === 'date' || f.type === 'time') && !v) v = null;
-        if(f.type === 'number'){ v = (v === '' || v == null) ? 0 : Number(v); }
+        if(f.type === 'number'){
+          // ปกติช่องตัวเลขที่เว้นว่างจะถูกบันทึกเป็น 0 — แต่สำหรับ Piling (ทั้งสอง module) ฟิลด์ตัวเลข
+          // อย่าง design_n/design_e/deviation ฯลฯ ไม่ควรกลายเป็น 0 เพราะจะกลายเป็นพิกัดปลอมที่ (0,0)
+          // ในกราฟ Geographic Distribution ให้เก็บเป็น NULL แทนถ้าเว้นว่างไว้
+          const isPilingModule = (activeModule.id === 'piling' || activeModule.id === 'piling_design');
+          v = (v === '' || v == null) ? (isPilingModule ? null : 0) : Number(v);
+        }
         record[f.key] = v;
       });
       record.photo_urls = finalUrls;
@@ -2206,12 +3169,27 @@
   $('#btnCopyPrev').addEventListener('click', copyPreviousEntry);
 
   function switchTab(name){
+    const panelName = (name === 'list-pending') ? 'list' : name; // ปุ่ม "รอกรอกข้อมูลจริง" ใช้ panel รายการเดียวกับ list ทั่วไป
     $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-    $('#panel-form').hidden = name !== 'form';
-    $('#panel-list').hidden = name !== 'list';
-    if(name === 'list') refreshAndRender();
+    $('#panel-form').hidden = panelName !== 'form';
+    $('#panel-list').hidden = panelName !== 'list';
+    if(panelName === 'list') refreshAndRender();
   }
   $$('.tab-btn').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
+  $('#tabPendingPiles').addEventListener('click', ()=>{
+    // ตั้งตัวกรองสถานะเป็น Pending (เสาเข็มที่มี design/plan แล้วแต่ยังไม่มีผลตอกจริง) แล้วเรนเดอร์ซ้ำให้ชัวร์
+    currentFilterStatus = 'Pending';
+    $$('.chip').forEach(c => c.classList.toggle('active', c.dataset.status === 'Pending'));
+    renderList();
+  });
+  $('#btnPileMapJump').addEventListener('click', async ()=>{
+    // ไปที่ Dashboard Piling -> แท็บ Location Plot -> เปิดเต็มจอให้อัตโนมัติ (จำลองคลิกปุ่มที่มีอยู่แล้วในแดชบอร์ด)
+    await switchModule('dash_piling');
+    const locBtn = document.querySelector('#pilingTabBar .piling-tab-btn[data-ptab="location"]');
+    if(locBtn) locBtn.click();
+    const fsBtn = document.getElementById('btnPileGeoFullscreen');
+    if(fsBtn) fsBtn.click();
+  });
   $('#searchBox').addEventListener('input', (e)=>{ currentSearch = e.target.value; renderList(); });
   $('#btnRefresh').addEventListener('click', refreshAndRender);
 

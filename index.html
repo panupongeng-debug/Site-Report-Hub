@@ -15,22 +15,48 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--body);}
   body{-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:720px;margin:0 auto;min-height:100vh;background:var(--paper);}
-  .topbar{background:var(--paper-2);color:var(--ink);padding:16px 16px 12px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(20,30,60,.04);}
-  .topbar h1{font-family:var(--disp);font-size:17px;letter-spacing:0;margin:0 0 2px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--charcoal);}
-  .topbar h1 .tag{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);}
-  .topbar .sub{font-size:11.5px;color:var(--muted);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .wrap{display:flex;min-height:100vh;background:var(--paper);align-items:stretch;}
+  .main{flex:1;min-width:0;max-width:720px;margin:0 auto;width:100%;}
+  .topbar{background:var(--paper-2);color:var(--ink);padding:14px 16px 12px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(20,30,60,.04);}
   .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--closed);display:inline-block;margin-right:5px;}
   .conn-dot.off{background:var(--danger);}
 
-  .module-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:11px;padding-bottom:2px;}
-  .module-pill{
-    flex:0 0 auto;font-family:var(--disp);font-weight:600;font-size:12.5px;
-    padding:8px 13px;border-radius:8px;border:1.3px solid var(--line);
-    background:#F7F9FB;color:var(--muted);cursor:pointer;white-space:nowrap;
-    display:flex;align-items:center;gap:6px;
+  /* ---------- sidebar navigation ---------- */
+  .sidebar{
+    flex:0 0 226px;width:226px;background:var(--paper-2);border-right:1px solid var(--line);
+    position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;
+    display:flex;flex-direction:column;transition:width .18s ease;z-index:25;
   }
-  .module-pill.active{background:var(--charcoal);color:#fff;border-color:var(--charcoal);}
+  .sidebar.collapsed{flex:0 0 58px;width:58px;}
+  .sidebar-top{display:flex;align-items:center;gap:8px;padding:14px 12px;border-bottom:1px solid var(--line);}
+  .sidebar-toggle{flex:0 0 auto;width:30px;height:30px;border-radius:7px;border:1.3px solid var(--line);background:#F7F9FB;color:var(--charcoal);cursor:pointer;font-size:14px;line-height:1;}
+  .brand{display:flex;align-items:center;gap:8px;overflow:hidden;font-family:var(--disp);font-weight:700;font-size:14.5px;color:var(--charcoal);white-space:nowrap;}
+  .brand .tag{flex:0 0 auto;display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);}
+  .sidebar-conn{display:flex;align-items:center;padding:10px 14px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);}
+  .sidebar-group{padding:10px 0;border-bottom:1px solid var(--line);}
+  .sidebar-group:last-child{border-bottom:none;}
+  .sidebar-group-label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 14px 6px;white-space:nowrap;overflow:hidden;}
+  .nav-btn{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:none;
+    color:var(--muted);font-family:var(--disp);font-weight:600;font-size:13px;cursor:pointer;
+    padding:9px 14px;white-space:nowrap;overflow:hidden;border-left:3px solid transparent;
+  }
+  .nav-btn:hover{background:#F7F9FB;}
+  .nav-btn.active{background:#EEF3FB;color:var(--charcoal);border-left-color:var(--amber-deep);}
+  .nav-btn .ic{flex:0 0 auto;width:18px;text-align:center;font-size:14.5px;}
+  .nav-btn .lbl{overflow:hidden;text-overflow:ellipsis;}
+  .sidebar.collapsed .brand-label,
+  .sidebar.collapsed .sidebar-label,
+  .sidebar.collapsed .sidebar-group-label,
+  .sidebar.collapsed .nav-btn .lbl{display:none;}
+  .sidebar.collapsed .sidebar-top{justify-content:center;}
+  .sidebar.collapsed .brand{display:none;}
+  .sidebar.collapsed .sidebar-conn{justify-content:center;padding:10px 0;}
+  .sidebar.collapsed .nav-btn{justify-content:center;padding:9px 0;border-left:none;}
+  .sidebar.collapsed .nav-btn.active{border-left:none;box-shadow:inset 3px 0 0 var(--amber-deep);}
+  @media (max-width:760px){
+    .sidebar{position:fixed;left:0;top:0;box-shadow:2px 0 10px rgba(20,30,60,.12);}
+  }
 
   .stat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
   .stat-chip{flex:1 0 auto;min-width:74px;background:#F7F9FB;border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:left;}
@@ -79,6 +105,21 @@
   .list-row input[type="number"]{flex:0 0 62px;}
   .list-row .rm-row{flex:0 0 34px;background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);border-radius:7px;cursor:pointer;font-size:13px;}
   .list-add-btn{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--amber-deep);background:#F0FBF9;border:1.3px dashed var(--amber);border-radius:7px;padding:8px 12px;cursor:pointer;width:100%;justify-content:center;}
+  .lr-manpower-num{padding:10px 4px;text-align:center;}
+  .lr-manpower-num::-webkit-outer-spin-button, .lr-manpower-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .lr-manpower-num{-moz-appearance:textfield;}
+
+  .dash-kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  .dash-kpi{background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;}
+  .dash-kpi .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--charcoal);line-height:1.1;}
+  .dash-kpi .l{font-size:11px;color:var(--muted);margin-top:4px;}
+  .dash-kpi .f{font-size:9.5px;color:#9AA3B0;margin-top:3px;font-family:var(--mono);}
+  .dash-section{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .dash-section h3{font-size:13px;font-weight:700;color:var(--charcoal);margin:0 0 10px;}
+  .dash-section .chart-wrap{position:relative;height:220px;}
+  .dash-note{font-size:11px;color:var(--muted);background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-bottom:14px;}
+  .dash-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
+  @media (max-width:400px){.dash-kpi-row{grid-template-columns:1fr 1fr;}}
   .list-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;}
   .list-count{font-size:12px;color:var(--muted);}
   .toolbar-right{display:flex;gap:14px;align-items:center;}
@@ -132,10 +173,25 @@
 <body>
 <div class="wrap">
 
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <button class="sidebar-toggle" id="btnSidebarToggle" title="ย่อ/ขยายเมนู">☰</button>
+      <div class="brand"><span class="tag"></span><span class="brand-label">Site Reports Hub</span></div>
+    </div>
+    <div class="sidebar-conn"><span class="conn-dot" id="connDot"></span><span class="sidebar-label" id="connText">เชื่อมต่อ Supabase...</span></div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">📝 Report</div>
+      <div id="navReports"></div>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">📊 Dashboard</div>
+      <div id="navDashboards"></div>
+    </div>
+  </aside>
+
+  <div class="main">
+
   <div class="topbar">
-    <h1><span class="tag"></span>Site Reports Hub</h1>
-    <div class="sub"><span><span class="conn-dot" id="connDot"></span><span id="connText">เชื่อมต่อ Supabase...</span></span></div>
-    <div class="module-row" id="moduleRow"></div>
     <div class="stat-row" id="statRow"></div>
   </div>
   <!-- style reference: RISE PM Platform (navy/white, teal accent, flat corporate cards) -->
@@ -156,6 +212,7 @@
         </span>
       </div>
       <div class="form-grid" id="dynamicFields"></div>
+      <div id="concretePourSection"></div>
       <div class="form-grid" style="padding-top:0">
         <div class="field">
           <label>Photos — รูปหลักฐาน</label>
@@ -184,12 +241,20 @@
     <div id="listContainer"></div>
   </div>
 
+  <div class="panel" id="panel-dashboard" hidden>
+    <div id="dashboardContent"></div>
+  </div>
+
+  </div>
+
 </div>
 
 <div class="modal-bg" id="modalBg"><div class="modal" id="modalContent"></div></div>
 <div class="lightbox" id="lightbox"><button class="lb-close" id="lbClose">&times;</button><img id="lbImg" src=""></div>
 <div class="success-toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
 (function(){
   const SUPABASE_URL = "https://gkbqauxjariovuseoydi.supabase.co";
@@ -201,7 +266,16 @@
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-  function toISODate(d){ return d.toISOString().slice(0,10); }
+  // build the ISO date string from the Date object's LOCAL calendar fields, not toISOString()
+  // (which converts to UTC first) — using toISOString() shifts the date back by one whenever the
+  // browser's local timezone is ahead of UTC (e.g. Thailand, UTC+7), which was breaking every
+  // date computed via setDate() (addDays, mondayOfWeek, week labels, ...)
+  function toISODate(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
   function addDays(iso, n){ const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate()+n); return toISODate(d); }
   function todayISO(){ return toISODate(new Date()); }
   function slug(s){ return (s||'').toLowerCase().replace(/\s+/g,'-'); }
@@ -215,6 +289,22 @@
     const h = Math.floor(m/60), r = m%60;
     return r > 0 ? `${h} hrs ${r} min` : `${h} hrs`;
   }
+  // returns the Monday that CLOSES the week containing iso (the "ตัดรอบ" cutoff day),
+  // so weeks run Tuesday -> Monday: e.g. 2026-08-25..2026-08-31, 2026-09-01..2026-09-07, ...
+  // (a date that already falls on Monday belongs to the week ending that same day)
+  function mondayOfWeek(iso){
+    const d = new Date(iso + 'T00:00:00');
+    const day = d.getDay(); // 0=Sun..6=Sat, Mon=1
+    const diff = (1 - day + 7) % 7; // days forward to reach the closing Monday
+    d.setDate(d.getDate() + diff);
+    return toISODate(d);
+  }
+  // weekEndMonday is the cutoff Monday (as returned by mondayOfWeek); the week's start is 6 days before it
+  function weekLabel(weekEndMonday){
+    const startIso = addDays(weekEndMonday, -6);
+    const fmt = (iso) => { const [,m,dd] = iso.split('-'); return dd + '/' + m; };
+    return fmt(startIso) + '-' + fmt(weekEndMonday);
+  }
 
   // ================= MODULE DEFINITIONS =================
   const MODULES = [
@@ -227,7 +317,7 @@
       statusFilterField:'status', statusFilterOptions:['Open','In Progress','Closed','Overdue'],
       fields:[
         {key:'finding_date', label:'FindingDate — วันที่ตรวจพบ', type:'date', required:true},
-        {key:'location', label:'Location', type:'select', required:true, options:['Construction Site','Warehouse','Office','Workshop','All']},
+        {key:'location', label:'Location', type:'select', required:true, options:['Construction Site','Warehouse','Office','Workshop','ROAD & PAVING','WH-A','WH-B','อาคารอเนกประสงค์','อาคารซ่อมบำรุง','ห้องน้ำพนักงานขับรถ','โรงฉ่ำ','ป้อม รปภ.','All']},
         {key:'finding_type', label:'FindingType', type:'select', required:true, options:['Line Walk','Safety Audit','Inspection','Incident Report','Near Miss','Unsafe Finding']},
         {key:'category', label:'Category', type:'select', required:true, options:['PPE','Housekeeping','House Keeping & 5ส.','Electrical','Working at Height','Fire Safety','Chemical','Machine Guarding','Access way','Unsafe Condition','STD','Environment','Barricade Tag','Recognize','ประสานงาน','ชื่นชม','Other']},
         {key:'severity', label:'Severity', type:'select', required:true, options:['Low','Medium','High','Critical']},
@@ -299,6 +389,528 @@
       },
       idLabel(f){ return 'QC-' + (f.id ? f.id.slice(0,6) : ''); }
     },
+    {
+      id:'concrete', label:'Concrete Report', icon:'🧱', table:'concrete_reports',
+      dateField:'report_date', hasAutoNumber:false,
+      accentField:null, titleField:'remarks', badgeFields:[], badgeColorMap:{},
+      statusFilterField:null,
+      fields:[
+        {key:'report_date', label:'📅 Date', type:'date', required:true},
+        {key:'foreman_count', label:'Foreman', type:'number', readOnly:true, default:0, note:'รวมอัตโนมัติจากกำลังคนแยกตามพื้นที่ด้านล่าง'},
+        {key:'safety_count', label:'Safety', type:'number', readOnly:true, default:0, note:'รวมอัตโนมัติจากกำลังคนแยกตามพื้นที่ด้านล่าง'},
+        {key:'worker_count', label:'Worker', type:'number', readOnly:true, default:0, note:'รวมอัตโนมัติจากกำลังคนแยกตามพื้นที่ด้านล่าง'},
+        {key:'other_count', label:'Other', type:'number', readOnly:true, default:0, note:'รวมอัตโนมัติจากกำลังคนแยกตามพื้นที่ด้านล่าง'},
+        {key:'manpower_by_location', label:'👥 กำลังคนแยกตามพื้นที่', type:'area-manpower-list', default:[],
+          locationOptions:['ROAD & PAVING','WH-A','WH-B','อาคารอเนกประสงค์','อาคารซ่อมบำรุง','ห้องน้ำพนักงานขับรถ','โรงฉ่ำ','ป้อม รปภ.','Workshop','Other']},
+        {key:'remarks', label:'📝 หมายเหตุ', type:'textarea', placeholder:'บันทึกเพิ่มเติม...'},
+      ],
+      computeStats(rows){ return [{label:'รายงานทั้งหมด',value:rows.length,cls:'c1'}]; },
+      idLabel(f){ return 'CR-' + (f.id ? f.id.slice(0,6) : ''); }
+    },
+  ];
+
+  // ================= DASHBOARDS =================
+  const chartInstances = {};
+  function destroyChart(key){ if(chartInstances[key]){ chartInstances[key].destroy(); delete chartInstances[key]; } }
+  function sumPersonnel(arr){ return (Array.isArray(arr)?arr:[]).reduce((s,p)=> s + (parseInt(p.count,10)||0), 0); }
+  const CHART_COLORS = ['#0EA394','#2563EB','#F0A93B','#DC2626','#8B5CF6','#EC4899','#059669','#F97316'];
+
+  function findingSevClassStatic(f){
+    const map = {Low:'sev-low',Medium:'sev-medium',High:'sev-high',Critical:'sev-critical'};
+    return map[f.severity] || 'sev-none';
+  }
+  function findingBadgeClassStatic(status){
+    const map = {Open:'status-open','In Progress':'status-in-progress',Closed:'status-closed',Overdue:'status-overdue'};
+    return map[status] || 'loc';
+  }
+  function openFindingDetailStatic(f){
+    const findingsModule = MODULES.find(m=>m.id==='findings');
+    const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+    const fieldsHtml = findingsModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${formatFieldDisplay(fl, f[fl.key])}</div></div>`).join('');
+    const modal = $('#modalContent');
+    modal.innerHTML = `
+      <div class="modal-head"><h2>${escapeHtml(f.finding_number || '')}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+      <div class="form-grid">
+        ${fieldsHtml}
+        <div class="field"><label>Photos</label>
+          <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
+        </div>
+      </div>`;
+    $('#modalBg').classList.add('show');
+    $('#modalCloseBtn').addEventListener('click', ()=> $('#modalBg').classList.remove('show'));
+    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+  }
+  function renderRecentFindingsSafety(list){
+    const container = document.getElementById('recentFindingsList');
+    if(!container || !list.length) return;
+    const today = todayISO();
+    container.innerHTML = list.map(f=>{
+      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
+      const dayTag = f.finding_date === today ? 'วันนี้' : 'เมื่อวานนี้';
+      return `
+      <div class="finding ${findingSevClassStatic(f)}" data-recent-id="${f.id}">
+        <div class="stripe"></div>
+        <div class="cover">${coverHtml}</div>
+        <div class="body2">
+          <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${dayTag} · ${escapeHtml(f.finding_date||'')}</span></div>
+          <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+          <div class="f-meta">
+            <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+            <span class="pill ${findingBadgeClassStatic(f.status)}">${escapeHtml(f.status||'-')}</span>
+            <span class="pill loc">${escapeHtml(f.severity||'-')}</span>
+            ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    container.querySelectorAll('.finding').forEach(el => {
+      el.addEventListener('click', ()=>{
+        const f = list.find(x => String(x.id) === el.dataset.recentId);
+        if(f) openFindingDetailStatic(f);
+      });
+    });
+  }
+  function renderRecognitionThisWeek(list){
+    const container = document.getElementById('recognitionList');
+    if(!container || !list.length) return;
+    container.innerHTML = list.map(f=>{
+      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">🎉</div>`;
+      return `
+      <div class="finding sev-none" data-recognition-id="${f.id}">
+        <div class="stripe" style="background:#F0A93B;"></div>
+        <div class="cover">${coverHtml}</div>
+        <div class="body2">
+          <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${escapeHtml(f.finding_date||'')}</span></div>
+          <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+          <div class="f-meta">
+            <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+            ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    container.querySelectorAll('.finding').forEach(el => {
+      el.addEventListener('click', ()=>{
+        const f = list.find(x => String(x.id) === el.dataset.recognitionId);
+        if(f) openFindingDetailStatic(f);
+      });
+    });
+  }
+  function renderNotClosedFindings(list){
+    const container = document.getElementById('notClosedList');
+    if(!container || !list.length) return;
+    const today = todayISO();
+    container.innerHTML = list.map(f=>{
+      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
+      const isOverdue = f.due_date && f.due_date < today;
+      return `
+      <div class="finding ${findingSevClassStatic(f)}" data-notclosed-id="${f.id}">
+        <div class="stripe"></div>
+        <div class="cover">${coverHtml}</div>
+        <div class="body2">
+          <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date" style="${isOverdue ? 'color:var(--danger);font-weight:700;' : ''}">${escapeHtml(f.finding_date||'')}${f.due_date ? (' · Due ' + escapeHtml(f.due_date)) : ''}</span></div>
+          <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+          <div class="f-meta">
+            <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+            <span class="pill ${findingBadgeClassStatic(isOverdue ? 'Overdue' : f.status)}">${escapeHtml(isOverdue ? 'Overdue' : (f.status||'-'))}</span>
+            <span class="pill loc">${escapeHtml(f.severity||'-')}</span>
+            ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    container.querySelectorAll('.finding').forEach(el => {
+      el.addEventListener('click', ()=>{
+        const f = list.find(x => String(x.id) === el.dataset.notclosedId);
+        if(f) openFindingDetailStatic(f);
+      });
+    });
+  }
+
+  const DASHBOARDS = [
+    {
+      id:'dash_safety', label:'Dashboard Safety', icon:'📊', table:'findings',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let data;
+        try{
+          const res = await fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS });
+          if(!res.ok) throw new Error('fetch failed: ' + res.status);
+          data = await res.json();
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+
+        if(!data.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Findings</div>'; return; }
+
+        const today = todayISO();
+        // "ชื่นชม" (recognition) is a separate category, not a finding that needs to be tracked/closed —
+        // exclude it from the OPEN/IN PROGRESS/OVERDUE/CLOSED KPI cards and closure-rate stats below,
+        // and show its own total count in a dedicated card instead
+        const recognitionTotal = data.filter(f => f.category === 'ชื่นชม').length;
+        const dataExclRecognition = data.filter(f => f.category !== 'ชื่นชม');
+        const total = dataExclRecognition.length;
+        const open = dataExclRecognition.filter(f=>f.status==='Open').length;
+        const inProgress = dataExclRecognition.filter(f=>f.status==='In Progress').length;
+        const closed = dataExclRecognition.filter(f=>f.status==='Closed').length;
+        const overdue = dataExclRecognition.filter(f=>f.due_date && f.due_date < today && f.status !== 'Closed').length;
+        const closureRate = total ? Math.round(closed/total*100) : 0;
+        const closedWithDates = dataExclRecognition.filter(f=>f.status==='Closed' && f.finding_date && f.date_closed);
+        let avgDaysToClose = 'insufficient data';
+        if(closedWithDates.length){
+          const totalDays = closedWithDates.reduce((s,f)=>{
+            const d1 = new Date(f.finding_date), d2 = new Date(f.date_closed);
+            return s + Math.max(0, Math.round((d2-d1)/86400000));
+          }, 0);
+          avgDaysToClose = (totalDays/closedWithDates.length).toFixed(1) + ' วัน';
+        }
+
+        // group by month
+        const byMonth = {};
+        data.forEach(f=>{ if(f.finding_date){ const m = f.finding_date.slice(0,7); byMonth[m] = (byMonth[m]||0)+1; } });
+        const months = Object.keys(byMonth).sort();
+
+        // group by severity / category / location
+        function groupBy(key){
+          const g = {};
+          data.forEach(f=>{ const v = f[key] || 'ไม่ระบุ'; g[v] = (g[v]||0)+1; });
+          return g;
+        }
+        const bySeverity = groupBy('severity');
+        const byCategory = groupBy('category');
+        const byLocation = groupBy('location');
+        const byStatusEff = { Open:open, 'In Progress':inProgress, Overdue:overdue, Closed:closed };
+
+        // category order follows the original option order defined on the Findings form (not sorted by count)
+        // "ชื่นชม" (recognition) is shown as its own weekly list below, not mixed into this chart
+        const categoryField = MODULES.find(m=>m.id==='findings').fields.find(fl=>fl.key==='category');
+        const categoryOrder = (categoryField ? categoryField.options : []).filter(c => c !== 'ชื่นชม');
+        const catKnownOrdered = categoryOrder.filter(c => byCategory[c] != null);
+        const catExtra = Object.keys(byCategory).filter(c => !categoryOrder.includes(c) && c !== 'ชื่นชม');
+        const catOrdered = catKnownOrdered.concat(catExtra).map(c => [c, byCategory[c]]);
+
+        // หมวดหมู่ (Category) ประจำสัปดาห์นี้ ตัดรอบทุกวันจันทร์ เหมือนกัน — ไม่รวม "ชื่นชม"
+        const weekEndCat = mondayOfWeek(today);
+        const weekStartCat = addDays(weekEndCat, -6);
+        const byCategoryWeek = {};
+        data.forEach(f=>{
+          if(f.category === 'ชื่นชม') return;
+          if(f.finding_date && f.finding_date >= weekStartCat && f.finding_date <= weekEndCat){
+            const v = f.category || 'ไม่ระบุ';
+            byCategoryWeek[v] = (byCategoryWeek[v]||0) + 1;
+          }
+        });
+        const catKnownOrderedWeek = categoryOrder.filter(c => byCategoryWeek[c] != null);
+        const catExtraWeek = Object.keys(byCategoryWeek).filter(c => !categoryOrder.includes(c));
+        const catOrderedWeek = catKnownOrderedWeek.concat(catExtraWeek).map(c => [c, byCategoryWeek[c]]);
+
+        // findings per week, week starts every Monday
+        const byWeek = {};
+        data.forEach(f=>{ if(f.finding_date){ const w = mondayOfWeek(f.finding_date); byWeek[w] = (byWeek[w]||0)+1; } });
+        const weeks = Object.keys(byWeek).sort();
+
+        // findings from yesterday and today, with photos and details
+        const yesterday = addDays(today, -1);
+        const recentFindings = data
+          .filter(f => f.finding_date === today || f.finding_date === yesterday)
+          .sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
+
+        // "ชื่นชม" (recognition) items for this week, week cut off every Monday
+        const weekEnd = mondayOfWeek(today);
+        const weekStart = addDays(weekEnd, -6);
+        const recognitionThisWeek = data
+          .filter(f => f.category === 'ชื่นชม' && f.finding_date >= weekStart && f.finding_date <= weekEnd)
+          .sort((a,b)=> (b.finding_date||'').localeCompare(a.finding_date||''));
+
+        // all findings not yet Closed (Open / In Progress / Overdue), overdue first, then earliest due_date, then newest first
+        const notClosedFindings = data
+          .filter(f => f.status !== 'Closed')
+          .sort((a,b)=>{
+            const aOverdue = a.due_date && a.due_date < today;
+            const bOverdue = b.due_date && b.due_date < today;
+            if(aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+            if(a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date);
+            if(a.due_date && !b.due_date) return -1;
+            if(!a.due_date && b.due_date) return 1;
+            return (b.finding_date||'').localeCompare(a.finding_date||'');
+          });
+
+        container.innerHTML = `
+          <div class="dash-note">คำนวณจากข้อมูล Findings ทั้งหมด ${total} รายการ ณ เวลาที่โหลดหน้านี้ · Overdue = due_date ผ่านวันนี้และสถานะยังไม่ Closed</div>
+          <div class="dash-section">
+            <h3>Findings เมื่อวานนี้ &amp; วันนี้ (${escapeHtml(yesterday)} – ${escapeHtml(today)})</h3>
+            <div id="recentFindingsList">${recentFindings.length ? '' : '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในช่วงเมื่อวานนี้และวันนี้</div>'}</div>
+          </div>
+          <div class="dash-section">
+            <h3>🎉 ชื่นชม สัปดาห์นี้ (${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}, ตัดรอบทุกวันจันทร์)</h3>
+            <div id="recognitionList">${recognitionThisWeek.length ? '' : '<div class="dash-empty" style="padding:20px;">ยังไม่มีรายการชื่นชมในสัปดาห์นี้</div>'}</div>
+          </div>
+          <div class="dash-section">
+            <h3>Findings ที่ยังไม่ Closed ทั้งหมด (${notClosedFindings.length} รายการ)</h3>
+            <div id="notClosedList">${notClosedFindings.length ? '' : '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ที่ยังไม่ Closed</div>'}</div>
+          </div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v" style="color:#B45309;">${open}</div><div class="l">OPEN</div></div>
+            <div class="dash-kpi"><div class="v" style="color:var(--progress);">${inProgress}</div><div class="l">IN PROGRESS</div></div>
+            <div class="dash-kpi"><div class="v" style="color:var(--danger);">${overdue}</div><div class="l">OVERDUE</div><div class="f">due_date &lt; today, not closed</div></div>
+            <div class="dash-kpi"><div class="v" style="color:var(--closed);">${closed}</div><div class="l">CLOSED</div></div>
+          </div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Findings</div><div class="f">ไม่รวมหมวด "ชื่นชม"</div></div>
+            <div class="dash-kpi"><div class="v">${closureRate}%</div><div class="l">Closure Rate</div><div class="f">closed ÷ total</div></div>
+            <div class="dash-kpi"><div class="v">${avgDaysToClose}</div><div class="l">Avg. Days to Close</div><div class="f">avg(date_closed − finding_date)</div></div>
+            <div class="dash-kpi"><div class="v" style="color:#DB2777;">${recognitionTotal}</div><div class="l">🎉 ชื่นชม (ทั้งหมด)</div></div>
+          </div>
+          <div class="dash-section"><h3>แนวโน้มจำนวน Findings ต่อเดือน</h3><div class="chart-wrap"><canvas id="chartSafetyMonth"></canvas></div></div>
+          <div class="dash-section"><h3>แนวโน้มจำนวน Findings ต่อสัปดาห์ (ตัดรอบทุกวันจันทร์)</h3><div class="chart-wrap"><canvas id="chartSafetyWeek"></canvas></div></div>
+          <div class="dash-section"><h3>สถานะ (Status)</h3><div class="chart-wrap"><canvas id="chartSafetyStatus"></canvas></div></div>
+          <div class="dash-section"><h3>ระดับความรุนแรง (Severity)</h3><div class="chart-wrap"><canvas id="chartSafetySeverity"></canvas></div></div>
+          <div class="dash-section"><h3>หมวดหมู่ (Category)</h3><div class="chart-wrap"><canvas id="chartSafetyCategory"></canvas></div></div>
+          <div class="dash-section">
+            <h3>หมวดหมู่ (Category) ประจำสัปดาห์นี้ (${escapeHtml(weekStartCat)} – ${escapeHtml(weekEndCat)}, ตัดรอบทุกวันจันทร์)</h3>
+            ${catOrderedWeek.length ? '<div class="chart-wrap"><canvas id="chartSafetyCategoryWeek"></canvas></div>' : '<div class="dash-empty" style="padding:20px;">ไม่มี Findings ในสัปดาห์นี้</div>'}
+          </div>
+          <div class="dash-section"><h3>พื้นที่ (Location)</h3><div class="chart-wrap"><canvas id="chartSafetyLocation"></canvas></div></div>
+        `;
+
+        destroyChart('sm'); destroyChart('sw'); destroyChart('ss'); destroyChart('sv'); destroyChart('sc'); destroyChart('sl'); destroyChart('scw');
+        chartInstances.sm = new Chart($('#chartSafetyMonth'), { type:'bar', data:{ labels: months, datasets:[{ label:'Findings', data: months.map(m=>byMonth[m]), backgroundColor:'#0EA394' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+        chartInstances.sw = new Chart($('#chartSafetyWeek'), { type:'bar', data:{ labels: weeks.map(weekLabel), datasets:[{ label:'Findings', data: weeks.map(w=>byWeek[w]), backgroundColor:'#8B5CF6' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+        chartInstances.ss = new Chart($('#chartSafetyStatus'), {
+          type:'doughnut',
+          data:{ labels:Object.keys(byStatusEff), datasets:[{ data:Object.values(byStatusEff), backgroundColor:['#F0A93B','#2563EB','#DC2626','#16A34A'] }] },
+          options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{ position:'bottom' },
+              tooltip:{ callbacks:{ label:(ctx)=>{ const t = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = t ? Math.round(ctx.parsed/t*100) : 0; return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)'; } } },
+              datalabels:{ color:'#fff', font:{ weight:'700', size:12 }, formatter:(value, ctx)=>{ const t = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return t ? Math.round(value/t*100) + '%' : '0%'; } }
+            }
+          },
+          plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+        });
+        const sevOrder = ['Low','Medium','High','Critical','ไม่ระบุ'].filter(k=>bySeverity[k]!=null);
+        $('#chartSafetySeverity').parentElement.style.height = Math.max(220, sevOrder.length * 34 + 40) + 'px';
+        chartInstances.sv = new Chart($('#chartSafetySeverity'), { type:'bar', data:{ labels:sevOrder, datasets:[{ data:sevOrder.map(k=>bySeverity[k]), backgroundColor:['#16A34A','#F0A93B','#F97316','#DC2626','#9AA3B0'] }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+        $('#chartSafetyCategory').parentElement.style.height = Math.max(220, catOrdered.length * 32 + 40) + 'px';
+        chartInstances.sc = new Chart($('#chartSafetyCategory'), { type:'bar', data:{ labels:catOrdered.map(x=>x[0]), datasets:[{ data:catOrdered.map(x=>x[1]), backgroundColor:'#2563EB' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+        if(catOrderedWeek.length){
+          $('#chartSafetyCategoryWeek').parentElement.style.height = Math.max(220, catOrderedWeek.length * 32 + 40) + 'px';
+          chartInstances.scw = new Chart($('#chartSafetyCategoryWeek'), { type:'bar', data:{ labels:catOrderedWeek.map(x=>x[0]), datasets:[{ data:catOrderedWeek.map(x=>x[1]), backgroundColor:'#0891B2' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+        }
+        const locSorted = Object.entries(byLocation).sort((a,b)=>b[1]-a[1]);
+        $('#chartSafetyLocation').parentElement.style.height = Math.max(220, locSorted.length * 34 + 40) + 'px';
+        chartInstances.sl = new Chart($('#chartSafetyLocation'), { type:'bar', data:{ labels:locSorted.map(x=>x[0]), datasets:[{ data:locSorted.map(x=>x[1]), backgroundColor:'#F0A93B' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ ticks:{ autoSkip:false } } } } });
+
+        renderRecentFindingsSafety(recentFindings);
+        renderRecognitionThisWeek(recognitionThisWeek);
+        renderNotClosedFindings(notClosedFindings);
+      }
+    },
+    {
+      id:'dash_daily', label:'Dashboard Daily', icon:'📊', table:'daily_reports',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let data;
+        try{
+          const res = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*&order=report_date.asc', { headers: HEADERS });
+          if(!res.ok) throw new Error('fetch failed: ' + res.status);
+          data = await res.json();
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+
+        if(!data.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Daily Report</div>'; return; }
+
+        const total = data.length;
+        const manpowerPerRow = data.map(r => sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop));
+        const equipmentPerRow = data.map(r => sumPersonnel(r.equipment));
+        const avgManpower = (manpowerPerRow.reduce((a,b)=>a+b,0) / total).toFixed(1);
+        const avgEquipment = (equipmentPerRow.reduce((a,b)=>a+b,0) / total).toFixed(1);
+        const dates = data.map(r=>r.report_date).filter(Boolean).sort();
+        const dateRangeText = dates.length ? (dates[0] + ' → ' + dates[dates.length-1]) : 'insufficient data';
+
+        const weatherCount = {};
+        data.forEach(r=>{ const w = r.weather || 'ไม่ระบุ'; weatherCount[w] = (weatherCount[w]||0)+1; });
+
+        const labels = data.map(r=>r.report_date || '-');
+        const repcoSeries = data.map(r=>sumPersonnel(r.repco_personnel));
+        const siteSeries = data.map(r=>sumPersonnel(r.state_personnel_site));
+        const workshopSeries = data.map(r=>sumPersonnel(r.state_personnel_workshop));
+
+        container.innerHTML = `
+          <div class="dash-note">คำนวณจากรายงานประจำวันทั้งหมด ${total} รายการ ช่วง ${escapeHtml(dateRangeText)}</div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Reports</div></div>
+            <div class="dash-kpi"><div class="v">${avgManpower}</div><div class="l">Avg. Manpower / Day</div><div class="f">avg(REPCO+Site+Workshop)</div></div>
+            <div class="dash-kpi"><div class="v">${avgEquipment}</div><div class="l">Avg. Equipment / Day</div><div class="f">avg(sum of equipment qty)</div></div>
+            <div class="dash-kpi"><div class="v" style="font-size:14px;">${escapeHtml(dateRangeText)}</div><div class="l">Date Range</div></div>
+          </div>
+          <div class="dash-section"><h3>แนวโน้มกำลังคน (Manpower Trend)</h3><div class="chart-wrap"><canvas id="chartDailyManpower"></canvas></div></div>
+          <div class="dash-section"><h3>จำนวนเครื่องจักรต่อวัน</h3><div class="chart-wrap"><canvas id="chartDailyEquip"></canvas></div></div>
+          <div class="dash-section"><h3>สภาพอากาศ</h3><div class="chart-wrap"><canvas id="chartDailyWeather"></canvas></div></div>
+        `;
+
+        destroyChart('dm'); destroyChart('de'); destroyChart('dw');
+        chartInstances.dm = new Chart($('#chartDailyManpower'), {
+          type:'bar',
+          data:{ labels, datasets:[
+            { label:'REPCO', data:repcoSeries, backgroundColor:'#0EA394' },
+            { label:'State - Site', data:siteSeries, backgroundColor:'#2563EB' },
+            { label:'State - Workshop', data:workshopSeries, backgroundColor:'#F0A93B' },
+          ]},
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+        });
+        chartInstances.de = new Chart($('#chartDailyEquip'), { type:'line', data:{ labels, datasets:[{ label:'Equipment qty', data:equipmentPerRow, borderColor:'#F0A93B', backgroundColor:'rgba(240,169,59,.15)', fill:true, tension:.25 }] }, options:{ responsive:true, maintainAspectRatio:false } });
+        const wLabels = Object.keys(weatherCount);
+        chartInstances.dw = new Chart($('#chartDailyWeather'), { type:'doughnut', data:{ labels:wLabels, datasets:[{ data:wLabels.map(k=>weatherCount[k]), backgroundColor:CHART_COLORS }] }, options:{ responsive:true, maintainAspectRatio:false } });
+      }
+    },
+    {
+      id:'dash_concrete', label:'Dashboard Concrete', icon:'📊', table:'concrete_reports',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let reportsData, summaryData, pourEntriesRaw;
+        try{
+          const [r1, r2, r3] = await Promise.all([
+            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=*&order=report_date.asc', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
+          ]);
+          if(!r1.ok) throw new Error('fetch reports failed: ' + r1.status);
+          if(!r2.ok) throw new Error('fetch area summary failed: ' + r2.status);
+          if(!r3.ok) throw new Error('fetch pour entries failed: ' + r3.status);
+          reportsData = await r1.json();
+          summaryData = await r2.json();
+          pourEntriesRaw = await r3.json();
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+
+        if(!reportsData.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Concrete Report</div>'; return; }
+
+        const total = reportsData.length;
+        const cDates = reportsData.map(r=>r.report_date).filter(Boolean).sort();
+        const cDateRangeText = cDates.length ? (cDates[0] + ' → ' + cDates[cDates.length-1]) : 'insufficient data';
+        const cManpowerPerRow = reportsData.map(r => (r.foreman_count||0) + (r.safety_count||0) + (r.worker_count||0) + (r.other_count||0));
+        const cAvgManpower = (cManpowerPerRow.reduce((a,b)=>a+b,0) / total).toFixed(1);
+
+        // total m3 poured overall = sum of every "today" pour entry recorded in the summary view
+        const totalPoured = summaryData.reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
+
+        // poured per day
+        const byDate = {};
+        summaryData.forEach(r=>{ if(r.report_date){ byDate[r.report_date] = (byDate[r.report_date]||0) + (Number(r.today_m3)||0); } });
+        const sortedDates = Object.keys(byDate).sort();
+
+        // latest snapshot per structure item -> cumulative total & plan, for "by location" + "completion" charts
+        const latestByItem = {};
+        summaryData.forEach(r=>{
+          const cur = latestByItem[r.structure_item_id];
+          if(!cur || r.report_date > cur.report_date) latestByItem[r.structure_item_id] = r;
+        });
+        const latestRows = Object.values(latestByItem);
+
+        const byLocationTotal = {};
+        latestRows.forEach(r=>{ byLocationTotal[r.location] = (byLocationTotal[r.location]||0) + (Number(r.total_m3)||0); });
+        const locEntries = Object.entries(byLocationTotal).sort((a,b)=>b[1]-a[1]);
+
+        const withPlan = latestRows.filter(r=> r.plan_m3 != null && r.plan_m3 > 0);
+        const completionByLocation = {}, completionCountByLocation = {};
+        withPlan.forEach(r=>{
+          completionByLocation[r.location] = (completionByLocation[r.location]||0) + (Number(r.finished_pct)||0);
+          completionCountByLocation[r.location] = (completionCountByLocation[r.location]||0) + 1;
+        });
+        const completionEntries = Object.keys(completionByLocation).map(loc => [loc, Math.round(completionByLocation[loc]/completionCountByLocation[loc])]);
+
+        const planNote = withPlan.length ? '' : '<div class="dash-note">ยังไม่ได้กำหนดปริมาณตามแผน (plan_m3) ในตาราง concrete_structure_items จึงยังคำนวณ % ความสำเร็จเทียบแผนไม่ได้ — อัปเดตแผนได้ที่ Supabase</div>';
+
+        // ---- Area × Floor breakdown: total poured (all-time, every floor) + % of that area's plan ----
+        const itemMeta = {}; // structure_item_id -> {location, plan_m3}
+        summaryData.forEach(r=>{ itemMeta[r.structure_item_id] = { location: r.location, plan_m3: r.plan_m3 }; });
+        const byAreaFloor = {}, byAreaPoured = {}, byAreaPlan = {};
+        const seenPlanItem = {};
+        pourEntriesRaw.forEach(pe=>{
+          const meta = itemMeta[pe.structure_item_id];
+          if(!meta) return;
+          const loc = meta.location, fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
+          byAreaFloor[loc] = byAreaFloor[loc] || {};
+          byAreaFloor[loc][fl] = (byAreaFloor[loc][fl] || 0) + vol;
+          byAreaPoured[loc] = (byAreaPoured[loc] || 0) + vol;
+        });
+        Object.keys(itemMeta).forEach(itemId=>{
+          const meta = itemMeta[itemId];
+          const dedupeKey = meta.location + '::' + itemId;
+          if(seenPlanItem[dedupeKey]) return;
+          seenPlanItem[dedupeKey] = true;
+          byAreaPlan[meta.location] = (byAreaPlan[meta.location] || 0) + (Number(meta.plan_m3) || 0);
+        });
+        const areaFloorLocations = Object.keys(byAreaFloor).sort((a,b)=> (byAreaPoured[b]||0) - (byAreaPoured[a]||0));
+        const areaFloorTableHtml = !areaFloorLocations.length ? '<div class="dash-empty">ยังไม่มีข้อมูลการเทคอนกรีต</div>' : `
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px;">
+              <thead>
+                <tr style="background:#F7F9FB;">
+                  <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">พื้นที่</th>
+                  ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">${escapeHtml(fl)}</th>`).join('')}
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;color:var(--charcoal);">Total (m³)</th>
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Plan (m³)</th>
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">% สำเร็จ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${areaFloorLocations.map(loc=>{
+                  const poured = byAreaPoured[loc] || 0;
+                  const plan = byAreaPlan[loc] || 0;
+                  const pct = plan > 0 ? Math.round(poured/plan*100) : null;
+                  return `<tr>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--line);font-weight:600;color:var(--charcoal);white-space:nowrap;">${escapeHtml(loc)}</td>
+                    ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);">${(byAreaFloor[loc][fl]!=null) ? Math.round(byAreaFloor[loc][fl]*100)/100 : '-'}</td>`).join('')}
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:var(--charcoal);">${Math.round(poured*100)/100}</td>
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);color:var(--muted);">${plan > 0 ? (Math.round(plan*100)/100) : '-'}</td>
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:${pct==null?'var(--muted)':(pct>=100?'var(--closed)':'var(--progress)')};">${pct==null ? '-' : pct + '%'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+
+        container.innerHTML = `
+          <div class="dash-note">คำนวณจากรายงานทั้งหมด ${total} รายการ ช่วง ${escapeHtml(cDateRangeText)}</div>
+          <div class="dash-kpi-row">
+            <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Reports</div></div>
+            <div class="dash-kpi"><div class="v">${totalPoured.toFixed(1)}</div><div class="l">Total Poured (m³)</div></div>
+            <div class="dash-kpi"><div class="v">${cAvgManpower}</div><div class="l">Avg. Manpower / Day</div></div>
+            <div class="dash-kpi"><div class="v" style="font-size:14px;">${escapeHtml(cDateRangeText)}</div><div class="l">Date Range</div></div>
+          </div>
+          ${planNote}
+          <div class="dash-section"><h3>ปริมาณคอนกรีตที่เทต่อวัน (m³)</h3><div class="chart-wrap"><canvas id="chartConcreteDaily"></canvas></div></div>
+          <div class="dash-section"><h3>กำลังคน (Manpower Trend)</h3><div class="chart-wrap"><canvas id="chartConcreteManpower"></canvas></div></div>
+          <div class="dash-section"><h3>ยอดสะสมแยกตามพื้นที่ (m³)</h3><div class="chart-wrap"><canvas id="chartConcreteLocation"></canvas></div></div>
+          <div class="dash-section"><h3>ปริมาณคอนกรีตแยกตาม พื้นที่ × ชั้น (m³) พร้อม % ที่เทไปแล้ว</h3>${areaFloorTableHtml}</div>
+          ${withPlan.length ? '<div class="dash-section"><h3>% ความสำเร็จเทียบแผน แยกตามพื้นที่</h3><div class="chart-wrap"><canvas id="chartConcreteCompletion"></canvas></div></div>' : ''}
+        `;
+
+        destroyChart('cd'); destroyChart('cm'); destroyChart('cl'); destroyChart('cc');
+        chartInstances.cd = new Chart($('#chartConcreteDaily'), { type:'bar', data:{ labels: sortedDates, datasets:[{ label:'m³', data: sortedDates.map(d=>Math.round(byDate[d]*100)/100), backgroundColor:'#0EA394' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+
+        const mLabels = reportsData.map(r=>r.report_date);
+        chartInstances.cm = new Chart($('#chartConcreteManpower'), {
+          type:'bar',
+          data:{ labels: mLabels, datasets:[
+            { label:'Foreman', data: reportsData.map(r=>r.foreman_count||0), backgroundColor:'#0EA394' },
+            { label:'Safety', data: reportsData.map(r=>r.safety_count||0), backgroundColor:'#2563EB' },
+            { label:'Worker', data: reportsData.map(r=>r.worker_count||0), backgroundColor:'#F0A93B' },
+            { label:'Other', data: reportsData.map(r=>r.other_count||0), backgroundColor:'#8B5CF6' },
+          ]},
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+        });
+
+        $('#chartConcreteLocation').parentElement.style.height = Math.max(220, locEntries.length * 34 + 40) + 'px';
+        chartInstances.cl = new Chart($('#chartConcreteLocation'), { type:'bar', data:{ labels: locEntries.map(x=>x[0]), datasets:[{ data: locEntries.map(x=>Math.round(x[1]*100)/100), backgroundColor:'#2563EB' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+
+        if(withPlan.length){
+          chartInstances.cc = new Chart($('#chartConcreteCompletion'), { type:'bar', data:{ labels: completionEntries.map(x=>x[0]), datasets:[{ data: completionEntries.map(x=>x[1]), backgroundColor:'#16A34A' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=> ctx.parsed.x + '%' } } }, scales:{ x:{ max:100 }, y:{ ticks:{ autoSkip:false } } } } });
+        }
+      }
+    },
   ];
 
   let activeModule = MODULES[0];
@@ -326,12 +938,153 @@
   async function updateRecord(id, record){
     const res = await fetch(restUrl() + '?id=eq.' + id, { method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(record) });
     if(!res.ok) throw new Error('update failed: ' + res.status + ' ' + await res.text());
-    return (await res.json())[0];
+    const data = await res.json();
+    if(!data.length) throw new Error('ไม่พบรายการนี้แล้ว (อาจถูกลบไปก่อนหน้านี้) กรุณากดรีเฟรชแล้วลองใหม่');
+    return data[0];
   }
   async function deleteRecord(id){
     const res = await fetch(restUrl() + '?id=eq.' + id, { method:'DELETE', headers: HEADERS });
     if(!res.ok) throw new Error('delete failed: ' + res.status);
   }
+  // ---------- concrete report: structure-item master list + daily pour entries ----------
+  let structureItemsCache = null;
+  async function loadStructureItems(){
+    if(structureItemsCache) return structureItemsCache;
+    const res = await fetch(SUPABASE_URL + '/rest/v1/concrete_structure_items?select=*&is_active=eq.true&order=sort_order.asc', { headers: HEADERS });
+    if(!res.ok) throw new Error('load structure items failed: ' + res.status);
+    structureItemsCache = await res.json();
+    return structureItemsCache;
+  }
+  const CONCRETE_FLOOR_OPTIONS = ['Basement','1st Floor','2nd Floor','3rd Floor','Roof'];
+  async function fetchPourEntriesForReport(reportId){
+    try{
+      const res = await fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=structure_item_id,floor,poured_today_m3&report_id=eq.' + reportId, { headers: HEADERS });
+      if(!res.ok) throw new Error('fetch pour entries failed: ' + res.status);
+      const data = await res.json();
+      const map = {};
+      data.forEach(d => { map[d.structure_item_id] = { volume: d.poured_today_m3, floor: d.floor }; });
+      return map;
+    }catch(e){ console.error(e); return {}; }
+  }
+  async function replacePourEntries(reportId, entries){
+    // full replace on every save: avoids leaving a stale row behind when the Floor of an
+    // existing entry is changed between edits (a different floor is a different unique key)
+    const delRes = await fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?report_id=eq.' + reportId, { method:'DELETE', headers: HEADERS });
+    if(!delRes.ok) throw new Error('clear pour entries failed: ' + delRes.status);
+    if(!entries.length) return;
+    const payload = entries.map(e => ({ report_id: reportId, structure_item_id: e.structure_item_id, floor: e.floor, poured_today_m3: e.poured_today_m3 }));
+    const res = await fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries', {
+      method:'POST', headers:{ ...HEADERS, 'Prefer':'return=representation' }, body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('save pour entries failed: ' + res.status + ' ' + await res.text());
+  }
+  async function renderConcretePourSection(existingEntriesByItemId){
+    const container = document.getElementById('concretePourSection');
+    if(!container) return;
+    if(activeModule.id !== 'concrete'){ container.innerHTML = ''; return; }
+    container.innerHTML = '<div class="dash-empty" style="padding:10px 0;">กำลังโหลดรายการงาน...</div>';
+    let items;
+    try{ items = await loadStructureItems(); }
+    catch(e){ container.innerHTML = '<div class="dash-empty">โหลดรายการงานไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+    if(!items.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีรายการงาน (concrete_structure_items) กรุณาเพิ่มข้อมูลใน Supabase ก่อน</div>'; return; }
+    const byLoc = {};
+    items.forEach(it => { (byLoc[it.location] = byLoc[it.location] || []).push(it); });
+    const entries = existingEntriesByItemId || {};
+    container.innerHTML = `
+      <div class="field" style="padding:0 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;">
+        <label style="flex:1;">🧱 ปริมาณคอนกรีตที่เทวันนี้ ต่อรายการงาน (m³) — เลือกชั้นที่เท, เว้นว่างได้หากยังไม่เท</label>
+        <button type="button" id="btnEditPlan" class="copy-prev-btn" style="flex:0 0 auto;white-space:nowrap;">📐 แก้ไขแผนงาน (Plan)</button>
+      </div>
+      <div style="padding:0 16px;">
+        ${Object.keys(byLoc).map(loc => `
+          <div class="tagcard">
+            <div class="tag-head"><span class="num">${escapeHtml(loc)}</span></div>
+            <div class="form-grid" style="padding:10px 14px;gap:8px;">
+              ${byLoc[loc].map(it => {
+                const ex = entries[it.id];
+                const vol = ex && ex.volume != null ? ex.volume : '';
+                const fl = ex && ex.floor ? ex.floor : CONCRETE_FLOOR_OPTIONS[0];
+                return `
+                <div class="list-row">
+                  <input type="text" value="${escapeHtml(it.structure_name)}" disabled style="flex:2 1 auto;min-width:0;background:#F7F9FB;color:var(--muted);">
+                  <select class="pour-floor" data-item-id="${it.id}" style="flex:0 0 112px;">
+                    ${CONCRETE_FLOOR_OPTIONS.map(o=>`<option ${o===fl?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+                  </select>
+                  <input type="number" step="any" class="pour-input" data-item-id="${it.id}" placeholder="m³" value="${vol}" style="flex:0 0 78px;">
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+    `;
+    const editPlanBtn = document.getElementById('btnEditPlan');
+    if(editPlanBtn) editPlanBtn.addEventListener('click', openPlanEditor);
+  }
+
+  // ---------- concrete report: edit plan_m3 (project plan quantity) per structure item ----------
+  async function openPlanEditor(){
+    structureItemsCache = null; // always re-fetch the latest plan values before editing
+    let items;
+    try{ items = await loadStructureItems(); }
+    catch(e){ showToast('โหลดรายการงานไม่สำเร็จ: ' + e.message, true); return; }
+    const byLoc = {};
+    items.forEach(it => { (byLoc[it.location] = byLoc[it.location] || []).push(it); });
+    const modal = $('#modalContent');
+    modal.innerHTML = `
+      <div class="modal-head"><h2>📐 แก้ไขแผนงาน (Plan) — ปริมาณรวมตามแผนทั้งโครงการ (m³)</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+      <div class="form-grid">
+        ${Object.keys(byLoc).map(loc => `
+          <div class="tagcard">
+            <div class="tag-head"><span class="num">${escapeHtml(loc)}</span></div>
+            <div class="form-grid" style="padding:10px 14px;gap:8px;">
+              ${byLoc[loc].map(it => `
+                <div class="list-row">
+                  <input type="text" value="${escapeHtml(it.structure_name)}" disabled style="flex:2 1 auto;min-width:0;background:#F7F9FB;color:var(--muted);">
+                  <input type="number" step="any" min="0" class="plan-input" data-item-id="${it.id}" placeholder="Plan m³" value="${it.plan_m3 != null ? it.plan_m3 : ''}" style="flex:0 0 100px;">
+                </div>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnSavePlan">บันทึกแผนงาน</button>
+        <button class="btn btn-ghost" id="btnCancelPlan">ยกเลิก</button>
+      </div>`;
+    $('#modalBg').classList.add('show');
+    $('#modalCloseBtn').addEventListener('click', closeModal);
+    $('#btnCancelPlan').addEventListener('click', closeModal);
+    $('#btnSavePlan').addEventListener('click', savePlanEditor);
+  }
+  async function savePlanEditor(){
+    const btn = $('#btnSavePlan'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>กำลังบันทึก...';
+    try{
+      const inputs = Array.from(document.querySelectorAll('.plan-input'));
+      for(const inp of inputs){
+        const val = inp.value === '' ? null : Number(inp.value);
+        const res = await fetch(SUPABASE_URL + '/rest/v1/concrete_structure_items?id=eq.' + inp.dataset.itemId, {
+          method:'PATCH', headers:{ ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify({ plan_m3: val })
+        });
+        if(!res.ok) throw new Error('update plan failed: ' + res.status + ' ' + await res.text());
+      }
+      structureItemsCache = null; // force re-fetch next time it's needed
+      closeModal();
+      showToast('บันทึกแผนงานสำเร็จ');
+      // preserve whatever the user had already typed into the pour form (not saved yet)
+      // instead of wiping it when the pour section re-renders with the updated plan values
+      const preserved = {};
+      document.querySelectorAll('.pour-input').forEach(inp => {
+        if(inp.value === '') return;
+        const row = inp.closest('.list-row');
+        const floorSel = row ? row.querySelector('.pour-floor') : null;
+        preserved[inp.dataset.itemId] = { volume: inp.value, floor: floorSel ? floorSel.value : CONCRETE_FLOOR_OPTIONS[0] };
+      });
+      await renderConcretePourSection(preserved);
+    }catch(e){
+      console.error(e); showToast('บันทึกแผนงานไม่สำเร็จ: ' + e.message, true);
+    }finally{
+      btn.disabled = false; btn.textContent = 'บันทึกแผนงาน';
+    }
+  }
+
   async function uploadPhotoBlob(folderPrefix, blob, filename){
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const path = activeModule.id + '/' + folderPrefix + '/' + Date.now() + '_' + safeName;
@@ -404,12 +1157,31 @@
   $('#lbClose').addEventListener('click', ()=> $('#lightbox').classList.remove('show'));
   $('#lightbox').addEventListener('click', (e)=>{ if(e.target.id === 'lightbox') $('#lightbox').classList.remove('show'); });
 
-  // ---------- module switcher ----------
+  // ---------- sidebar navigation (Report / Dashboard, separated) ----------
+  function navBtnHtml(m){
+    return `<button class="nav-btn ${m.id===activeModule.id?'active':''}" data-id="${m.id}" title="${escapeHtml(m.label)}"><span class="ic">${m.icon}</span><span class="lbl">${escapeHtml(m.label)}</span></button>`;
+  }
   function renderModuleRow(){
-    $('#moduleRow').innerHTML = MODULES.map(m => `<button class="module-pill ${m.id===activeModule.id?'active':''}" data-id="${m.id}">${m.icon} ${escapeHtml(m.label)}</button>`).join('');
-    $$('.module-pill').forEach(btn => btn.addEventListener('click', ()=> switchModule(btn.dataset.id)));
+    $('#navReports').innerHTML = MODULES.map(navBtnHtml).join('');
+    $('#navDashboards').innerHTML = DASHBOARDS.map(navBtnHtml).join('');
+    $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=> switchModule(btn.dataset.id)));
   }
   async function switchModule(id){
+    const isDash = id.startsWith('dash_');
+    if(isDash){
+      const dash = DASHBOARDS.find(d => d.id === id);
+      activeModule = dash;
+      renderModuleRow();
+      $('.tabs').style.display = 'none';
+      $('#panel-form').hidden = true;
+      $('#panel-list').hidden = true;
+      $('#panel-dashboard').hidden = false;
+      $('#statRow').innerHTML = '';
+      await dash.render($('#dashboardContent'));
+      return;
+    }
+    $('.tabs').style.display = '';
+    $('#panel-dashboard').hidden = true;
     activeModule = MODULES.find(m => m.id === id) || MODULES[0];
     currentFilterStatus = 'all'; currentSearch = ''; $('#searchBox').value = '';
     renderModuleRow();
@@ -418,6 +1190,20 @@
     switchTab('form');
     await refreshAndRender();
   }
+  // ---------- sidebar collapse/expand toggle (persists per-browser) ----------
+  function setSidebarCollapsed(collapsed){
+    $('#sidebar').classList.toggle('collapsed', collapsed);
+    try{ localStorage.setItem('srh_sidebar_collapsed', collapsed ? '1' : '0'); }catch(e){}
+  }
+  $('#btnSidebarToggle').addEventListener('click', ()=>{
+    setSidebarCollapsed(!$('#sidebar').classList.contains('collapsed'));
+  });
+  (function initSidebar(){
+    let saved = null;
+    try{ saved = localStorage.getItem('srh_sidebar_collapsed'); }catch(e){}
+    if(saved === null){ saved = (window.innerWidth < 760) ? '1' : '0'; }
+    setSidebarCollapsed(saved === '1');
+  })();
   function renderFilterRow(){
     let html = '<button class="chip active" data-status="all">ทั้งหมด</button>';
     if(activeModule.statusFilterField){
@@ -450,7 +1236,11 @@
       return `<input type="date" id="${id}">`;
     } else if(f.type === 'time'){
       return `<input type="time" id="${id}">`;
-    } else if(f.type === 'personnel-list' || f.type === 'text-list'){
+    } else if(f.type === 'number'){
+      return `<input type="number" step="any" id="${id}"${f.readOnly ? ' readonly style="background:#F7F9FB;color:var(--charcoal);font-weight:700;"' : ''}>`;
+    } else if(f.type === 'area-manpower-list'){
+      return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มพื้นที่</button><div class="note">F = Foreman, S = Safety, W = Worker, O = Other</div>`;
+    } else if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){
       const ph = f.itemPlaceholder || (f.type === 'text-list' ? 'Equipment' : 'Position');
       return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}" data-placeholder="${escapeHtml(ph)}">+ เพิ่มรายการ</button>`;
     } else {
@@ -463,12 +1253,14 @@
     if(!container) return;
     const rowId = uid();
     const ph = placeholder || (listType === 'text-list' ? 'Equipment' : 'Position');
-    if(listType === 'personnel-list'){
-      const pos = (value && value.position) || '', cnt = (value && value.count != null) ? value.count : 1;
+    if(listType === 'personnel-list' || listType === 'volume-list'){
+      const pos = (value && value.position) || '';
+      const cnt = (value && value.count != null) ? value.count : (listType === 'volume-list' ? '' : 1);
+      const numAttrs = listType === 'volume-list' ? 'step="any"' : 'min="0"';
       container.insertAdjacentHTML('beforeend', `
         <div class="list-row" data-row="${rowId}">
           <input type="text" class="lr-pos" value="${escapeHtml(pos)}" placeholder="${escapeHtml(ph)}">
-          <input type="number" min="0" class="lr-count" value="${escapeHtml(String(cnt))}">
+          <input type="number" ${numAttrs} class="lr-count" value="${escapeHtml(String(cnt))}">
           <button type="button" class="rm-row" data-row="${rowId}">✕</button>
         </div>`);
     } else {
@@ -486,10 +1278,12 @@
   function getListValue(key, listType){
     const container = document.getElementById('field_' + key);
     if(!container) return [];
-    if(listType === 'personnel-list'){
+    if(listType === 'personnel-list' || listType === 'volume-list'){
       return Array.from(container.querySelectorAll('.list-row')).map(row => ({
         position: row.querySelector('.lr-pos').value.trim(),
-        count: parseInt(row.querySelector('.lr-count').value, 10) || 0
+        count: listType === 'volume-list'
+          ? (parseFloat(row.querySelector('.lr-count').value) || 0)
+          : (parseInt(row.querySelector('.lr-count').value, 10) || 0)
       })).filter(r => r.position);
     } else {
       return Array.from(container.querySelectorAll('.list-row')).map(row => row.querySelector('.lr-text').value.trim()).filter(Boolean);
@@ -500,6 +1294,74 @@
     if(!container) return;
     container.innerHTML = '';
     (arr && arr.length ? arr : []).forEach(v => addListRow(key, listType, v, placeholder));
+  }
+  // ---------- area-manpower-list: per-area Foreman/Safety/Worker breakdown ----------
+  function areaManpowerOptionsFor(key){
+    const f = activeModule.fields.find(fl => fl.key === key);
+    return (f && f.locationOptions) || [];
+  }
+  function addAreaManpowerRow(key, value){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    const rowId = uid();
+    const options = areaManpowerOptionsFor(key);
+    const loc = (value && value.location) || '';
+    const foreman = (value && value.foreman != null) ? value.foreman : '';
+    const safety = (value && value.safety != null) ? value.safety : '';
+    const worker = (value && value.worker != null) ? value.worker : '';
+    const other = (value && value.other != null) ? value.other : '';
+    container.insertAdjacentHTML('beforeend', `
+      <div class="list-row" data-row="${rowId}">
+        <select class="lr-loc" style="flex:1.6 1 auto;min-width:0;">
+          <option value="">เลือกพื้นที่...</option>
+          ${options.map(o=>`<option ${o===loc?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+        </select>
+        <input type="number" min="0" class="lr-manpower-num lr-foreman" placeholder="F" value="${escapeHtml(String(foreman))}" style="flex:0 0 58px;">
+        <input type="number" min="0" class="lr-manpower-num lr-safety" placeholder="S" value="${escapeHtml(String(safety))}" style="flex:0 0 58px;">
+        <input type="number" min="0" class="lr-manpower-num lr-worker" placeholder="W" value="${escapeHtml(String(worker))}" style="flex:0 0 58px;">
+        <input type="number" min="0" class="lr-manpower-num lr-other" placeholder="O" value="${escapeHtml(String(other))}" style="flex:0 0 58px;">
+        <button type="button" class="rm-row" data-row="${rowId}">✕</button>
+      </div>`);
+    const row = container.querySelector(`.list-row[data-row="${rowId}"]`);
+    row.querySelector('.rm-row').addEventListener('click', ()=>{ row.remove(); recomputeManpowerTotals(); });
+    row.querySelectorAll('.lr-foreman,.lr-safety,.lr-worker,.lr-other').forEach(inp => inp.addEventListener('input', recomputeManpowerTotals));
+  }
+  function getAreaManpowerValue(key){
+    const container = document.getElementById('field_' + key);
+    if(!container) return [];
+    return Array.from(container.querySelectorAll('.list-row')).map(row => ({
+      location: row.querySelector('.lr-loc').value,
+      foreman: parseInt(row.querySelector('.lr-foreman').value, 10) || 0,
+      safety: parseInt(row.querySelector('.lr-safety').value, 10) || 0,
+      worker: parseInt(row.querySelector('.lr-worker').value, 10) || 0,
+      other: parseInt(row.querySelector('.lr-other').value, 10) || 0,
+    })).filter(r => r.location);
+  }
+  function setAreaManpowerValue(key, arr){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    container.innerHTML = '';
+    (arr && arr.length ? arr : []).forEach(v => addAreaManpowerRow(key, v));
+    // only recompute (overwrite) the F/S/W/O totals when there is an area breakdown to sum —
+    // otherwise leave whatever totals were already set (e.g. legacy records saved before this
+    // per-area breakdown existed) untouched instead of zeroing them out
+    if(arr && arr.length) recomputeManpowerTotals();
+  }
+  function recomputeManpowerTotals(){
+    if(activeModule.id !== 'concrete') return;
+    const container = document.getElementById('field_manpower_by_location');
+    if(!container) return;
+    let f = 0, s = 0, w = 0, o = 0;
+    container.querySelectorAll('.list-row').forEach(row=>{
+      f += parseInt(row.querySelector('.lr-foreman').value, 10) || 0;
+      s += parseInt(row.querySelector('.lr-safety').value, 10) || 0;
+      w += parseInt(row.querySelector('.lr-worker').value, 10) || 0;
+      o += parseInt(row.querySelector('.lr-other').value, 10) || 0;
+    });
+    const fEl = document.getElementById('field_foreman_count'); if(fEl) fEl.value = f;
+    const sEl = document.getElementById('field_safety_count'); if(sEl) sEl.value = s;
+    const wEl = document.getElementById('field_worker_count'); if(wEl) wEl.value = w;
+    const oEl = document.getElementById('field_other_count'); if(oEl) oEl.value = o;
   }
   function renderFormFields(){
     const rowsHtml = chunkFieldsForLayout(activeModule.fields).map(group=>{
@@ -513,7 +1375,10 @@
     }).join('');
     $('#dynamicFields').innerHTML = rowsHtml;
     $$('.list-add-btn').forEach(btn => btn.addEventListener('click', ()=>{
-      addListRow(btn.dataset.key, btn.dataset.listtype, btn.dataset.listtype === 'personnel-list' ? {position:'',count:1} : '', btn.dataset.placeholder);
+      const lt = btn.dataset.listtype;
+      if(lt === 'area-manpower-list'){ addAreaManpowerRow(btn.dataset.key, {}); recomputeManpowerTotals(); return; }
+      const def = lt === 'personnel-list' ? {position:'',count:1} : (lt === 'volume-list' ? {position:'',count:''} : '');
+      addListRow(btn.dataset.key, lt, def, btn.dataset.placeholder);
     }));
     if(activeModule.id === 'findings'){
       $('#field_finding_date').addEventListener('change', ()=>{
@@ -523,14 +1388,16 @@
     }
   }
   function getFieldValue(f){
-    if(f.type === 'personnel-list' || f.type === 'text-list') return getListValue(f.key, f.type);
+    if(f.type === 'area-manpower-list') return getAreaManpowerValue(f.key);
+    if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list') return getListValue(f.key, f.type);
     const el = document.getElementById('field_' + f.key);
     if(!el) return '';
     return el.value.trim ? el.value.trim() : el.value;
   }
   function setFieldValue(f, val){
-    if(f.type === 'personnel-list' || f.type === 'text-list'){ setListValue(f.key, f.type, val, f.itemPlaceholder); return; }
-    const el = document.getElementById('field_' + f.key); if(el) el.value = val || '';
+    if(f.type === 'area-manpower-list'){ setAreaManpowerValue(f.key, val); return; }
+    if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){ setListValue(f.key, f.type, val, f.itemPlaceholder); return; }
+    const el = document.getElementById('field_' + f.key); if(el) el.value = (val === undefined || val === null) ? '' : val;
   }
 
   function updatePreviewNumber(){
@@ -604,6 +1471,16 @@
       if(!arr.length) return '-';
       return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join(', ');
     }
+    if(f.type === 'volume-list'){
+      const arr = Array.isArray(val) ? val : [];
+      if(!arr.length) return '-';
+      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))} m³`).join(', ');
+    }
+    if(f.type === 'area-manpower-list'){
+      const arr = Array.isArray(val) ? val : [];
+      if(!arr.length) return '-';
+      return arr.map(p => `${escapeHtml(p.location)} (F:${p.foreman||0} S:${p.safety||0} W:${p.worker||0} O:${p.other||0})`).join(', ');
+    }
     if(f.type === 'text-list'){
       const arr = Array.isArray(val) ? val : [];
       return arr.length ? arr.map(escapeHtml).join(', ') : '-';
@@ -656,7 +1533,7 @@
     renderFormFields();
     activeModule.fields.forEach(f=>{
       if(f.type === 'date' && f.key === activeModule.dateField) setFieldValue(f, todayISO());
-      else if(f.default) setFieldValue(f, f.default);
+      else if(f.default !== undefined) setFieldValue(f, f.default);
     });
     if(activeModule.id === 'findings'){
       setFieldValue({key:'due_date'}, addDays(todayISO(), 7));
@@ -667,6 +1544,8 @@
     $('#validationMsg').classList.remove('show');
     $('#photoStatus').textContent = '';
     renderPhotoGrid();
+    if(activeModule.id === 'concrete'){ renderConcretePourSection({}); }
+    else{ const sec = document.getElementById('concretePourSection'); if(sec) sec.innerHTML = ''; }
   }
 
   function loadIntoForm(f){
@@ -680,6 +1559,11 @@
     pendingPhotos = urls.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
     $('#photoStatus').textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป (เดิม)') : '';
     renderPhotoGrid();
+    if(activeModule.id === 'concrete'){
+      fetchPourEntriesForReport(f.id).then(map => renderConcretePourSection(map));
+    }else{
+      const sec = document.getElementById('concretePourSection'); if(sec) sec.innerHTML = '';
+    }
     switchTab('form');
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -708,6 +1592,7 @@
       activeModule.fields.forEach(f=>{
         let v = getFieldValue(f);
         if((f.type === 'date' || f.type === 'time') && !v) v = null;
+        if(f.type === 'number'){ v = (v === '' || v == null) ? 0 : Number(v); }
         record[f.key] = v;
       });
       record.photo_urls = finalUrls;
@@ -717,9 +1602,20 @@
         record.finding_number = rows.find(f=>f.id===editingId).finding_number;
       }
 
-      let label;
+      let label, savedId = editingId;
       if(editingId){ await updateRecord(editingId, record); label = activeModule.hasAutoNumber ? record.finding_number : activeModule.idLabel({...record, id:editingId}); }
-      else{ const created = await insertRecord(record); label = activeModule.hasAutoNumber ? record.finding_number : activeModule.idLabel(created); }
+      else{ const created = await insertRecord(record); label = activeModule.hasAutoNumber ? record.finding_number : activeModule.idLabel(created); savedId = created.id; }
+
+      if(activeModule.id === 'concrete'){
+        const pourEntries = Array.from(document.querySelectorAll('.pour-input'))
+          .filter(inp => inp.value !== '')
+          .map(inp => {
+            const row = inp.closest('.list-row');
+            const floorSel = row ? row.querySelector('.pour-floor') : null;
+            return { structure_item_id: inp.dataset.itemId, floor: floorSel ? floorSel.value : CONCRETE_FLOOR_OPTIONS[0], poured_today_m3: Number(inp.value) || 0 };
+          });
+        await replacePourEntries(savedId, pourEntries);
+      }
 
       showToast((editingId ? 'บันทึกการแก้ไขแล้ว: ' : 'บันทึกสำเร็จ: ') + label);
       clearForm();
@@ -776,7 +1672,8 @@
         if(h === 'photo_urls'){ v = Array.isArray(f[h]) ? f[h].join(';') : ''; }
         else{
           const fdef = fieldByKey[h];
-          if(fdef && fdef.type === 'personnel-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.position}:${p.count}`).join(' | '); }
+          if(fdef && fdef.type === 'area-manpower-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.location}:F${p.foreman},S${p.safety},W${p.worker},O${p.other}`).join(' | '); }
+          else if(fdef && (fdef.type === 'personnel-list' || fdef.type === 'volume-list')){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.position}:${p.count}`).join(' | '); }
           else if(fdef && fdef.type === 'text-list'){ v = (Array.isArray(f[h])?f[h]:[]).join(' | '); }
           else{ v = f[h] ?? ''; }
         }

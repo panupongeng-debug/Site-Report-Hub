@@ -3143,16 +3143,17 @@
   }
   async function bulkApplyField(fieldKey, value, label){
     if(bulkSelectedIds.size === 0){ showToast('กรุณาเลือกเสาเข็มก่อน', true); return; }
-    if(value === '' || value === null || value === undefined){ showToast('กรุณากรอกค่าที่ต้องการกำหนดก่อน', true); return; }
+    const isClear = (value === '' || value === null || value === undefined);
+    const valueToSave = isClear ? null : value;
     const ids = Array.from(bulkSelectedIds);
     try{
       const res = await fetch(restUrl() + '?id=in.(' + ids.join(',') + ')', {
-        method:'PATCH', headers:{...HEADERS,'Prefer':'return=minimal'}, body: JSON.stringify({ [fieldKey]: value })
+        method:'PATCH', headers:{...HEADERS,'Prefer':'return=minimal'}, body: JSON.stringify({ [fieldKey]: valueToSave })
       });
       if(!res.ok) throw new Error('PATCH failed: ' + res.status);
-      rows.forEach(r => { if(bulkSelectedIds.has(String(r.id))) r[fieldKey] = value; });
+      rows.forEach(r => { if(bulkSelectedIds.has(String(r.id))) r[fieldKey] = valueToSave; });
       renderBulkAssignTable();
-      showToast('กำหนด ' + label + ' ให้ ' + ids.length + ' ต้นแล้ว');
+      showToast((isClear ? 'ล้างค่า ' : 'กำหนด ') + label + (isClear ? ' ของ ' : ' ให้ ') + ids.length + ' ต้นแล้ว');
     }catch(e){
       console.error(e);
       showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);

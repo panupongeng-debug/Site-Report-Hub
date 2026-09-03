@@ -278,6 +278,7 @@
     <button class="tab-btn active" data-tab="form">+ บันทึกใหม่</button>
     <button class="tab-btn" data-tab="list">รายการทั้งหมด</button>
     <button class="tab-btn" data-tab="list-pending" id="tabPendingPiles" style="display:none;">🕓 รอกรอกข้อมูลจริง</button>
+    <button class="tab-btn" data-tab="bulk" id="tabBulkAssign" style="display:none;">📋 กรอกกลุ่ม</button>
     <button class="btn btn-ghost" id="btnPileMapJump" style="display:none;margin:6px 0 6px auto;align-self:center;">🗺️ Map</button>
   </div>
 
@@ -319,6 +320,49 @@
       </span>
     </div>
     <div id="listContainer"></div>
+  </div>
+
+  <div class="panel" id="panel-bulk" hidden>
+    <div class="dash-note">เลือกเสาเข็มหลายต้นจากตารางด้านล่าง (กรองแบบ Excel ได้ที่ช่องค้นหา/พื้นที่/สถานะ) แล้วกำหนดค่า RFI No. / วันผลิต / วันส่งเสาเข็ม ให้ทีเดียวกันทั้งหมด</div>
+    <div class="filter-row" style="margin-bottom:10px;flex-wrap:wrap;">
+      <input type="text" id="bulkSearchBox" class="search-box" placeholder="ค้นหาเลขเสาเข็ม..." style="margin-bottom:0;flex:2 1 200px;">
+      <select id="bulkAreaFilter" class="kpi-input" style="flex:1 1 140px;max-width:200px;"><option value="">ทุกพื้นที่</option></select>
+      <select id="bulkStatusFilter" class="kpi-input" style="flex:1 1 120px;max-width:160px;">
+        <option value="">ทุกสถานะ</option>
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="Corrected">Corrected</option>
+        <option value="Defected">Defected</option>
+      </select>
+    </div>
+    <div class="dash-section" style="margin-bottom:14px;">
+      <h3>กำหนดค่าให้เสาเข็มที่เลือก (<span id="bulkSelCount">0</span> ต้น)</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+        <div class="field" style="flex:1 1 170px;margin:0;"><label>RFI No.</label><input type="text" id="bulkRfiInput" placeholder="เช่น RFI-102"></div>
+        <button type="button" class="btn-add" id="btnBulkApplyRfi">กำหนด RFI No.</button>
+        <div class="field" style="flex:1 1 170px;margin:0;"><label>Pile Production Day</label><input type="date" id="bulkProdInput"></div>
+        <button type="button" class="btn-add" id="btnBulkApplyProd">กำหนดวันผลิต</button>
+        <div class="field" style="flex:1 1 170px;margin:0;"><label>Pile Delivery Day</label><input type="date" id="bulkDeliveryInput"></div>
+        <button type="button" class="btn-add" id="btnBulkApplyDelivery">กำหนดวันส่ง</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:640px;">
+        <thead>
+          <tr>
+            <th style="padding:8px 10px;border-bottom:1.3px solid var(--line);"><input type="checkbox" id="bulkSelectAll"></th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Pile No.</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Area</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Status</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">RFI No.</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Production Day</th>
+            <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Delivery Day</th>
+          </tr>
+        </thead>
+        <tbody id="bulkTableBody"></tbody>
+      </table>
+    </div>
+    <div class="list-count" id="bulkListCount" style="margin-top:8px;"></div>
   </div>
 
   <div class="panel" id="panel-dashboard" hidden>
@@ -424,6 +468,11 @@
   ];
 
   // ================= MODULE DEFINITIONS =================
+  // RIG. <-> RIG. Code: 1 rig = 1 code เสมอ เลือกช่องใดช่องหนึ่งอีกช่องจะเปลี่ยนตามอัตโนมัติ
+  const RIG_RIG_CODE_MAP = [
+    ['1','22T15'], ['2','18T15'], ['3','6C19'], ['4','4C19'], ['5','2C19'],
+    ['6','16T15'], ['7','NO.3'], ['8','6HL1'], ['9','NO.9'],
+  ];
   const MODULES = [
     {
       id:'findings', label:'Safety Findings', icon:'⚠️', table:'findings',
@@ -581,10 +630,10 @@
         {key:'elevation_pile_top', label:'Elevation PILE TOP', type:'number'},
         {key:'length_actual', label:'LENGTH(m.) — Actual', type:'number'},
         {key:'elevation_pile_tip', label:'Elevation PILE TIP', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = Elevation PILE TOP − LENGTH(Actual)'},
-        {key:'n_actual', label:'N (Actual)', type:'number'},
-        {key:'e_actual', label:'E (Actual)', type:'number'},
-        {key:'deviation_n', label:'Deviation N (m)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = N(Actual) − Design N'},
-        {key:'deviation_e', label:'Deviation E (m)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = E(Actual) − Design E'},
+        {key:'deviation_n', label:'Deviation N (m)', type:'number', note:'กรอกค่าที่วัดได้จากหน้างาน'},
+        {key:'deviation_e', label:'Deviation E (m)', type:'number', note:'กรอกค่าที่วัดได้จากหน้างาน'},
+        {key:'n_actual', label:'N (Actual)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = Design N + Deviation N'},
+        {key:'e_actual', label:'E (Actual)', type:'number', readOnly:true, note:'คำนวณอัตโนมัติ = Design E + Deviation E'},
         {key:'piled_date', label:'วันที่ตอก', type:'date'},
         {key:'sequence_no', label:'ลำดับการตอก', type:'number'},
         {key:'remark', label:'REMARK', type:'textarea'},
@@ -2381,6 +2430,9 @@
   let pendingPhotos = [];
   let removedExistingUrls = [];
   let currentFilterStatus = 'all';
+  // ---------- Piling: กรอกกลุ่ม (bulk assign RFI No. / Production Day / Delivery Day) ----------
+  let bulkSelectedIds = new Set();
+  let bulkSearch = '', bulkAreaFilter = '', bulkStatusFilter = '';
   let currentSearch = '';
 
   function setConn(ok, text){ $('#connDot').classList.toggle('off', !ok); $('#connText').textContent = text; }
@@ -2684,6 +2736,7 @@
     renderModuleRow();
     renderFilterRow();
     $('#tabPendingPiles').style.display = (activeModule.id === 'piling' || activeModule.id === 'piling_design') ? '' : 'none';
+    $('#tabBulkAssign').style.display = (activeModule.id === 'piling' || activeModule.id === 'piling_design') ? '' : 'none';
     $('#btnPileMapJump').style.display = (activeModule.id === 'piling') ? '' : 'none';
     clearForm();
     switchTab('form');
@@ -2877,18 +2930,18 @@
     const top = parseFloat(topEl.value), len = parseFloat(lenEl.value);
     tipEl.value = (isFinite(top) && isFinite(len)) ? Math.round((top - len) * 1000) / 1000 : '';
   }
-  function recomputePileDeviation(actualKey, designKey, devKey){
-    const actualEl = document.getElementById('field_' + actualKey);
-    const designEl = document.getElementById('field_' + designKey);
+  function recomputePileActualFromDeviation(devKey, designKey, actualKey){
     const devEl = document.getElementById('field_' + devKey);
-    if(!actualEl || !designEl || !devEl) return;
-    const a = parseFloat(actualEl.value), d = parseFloat(designEl.value);
-    devEl.value = (isFinite(a) && isFinite(d)) ? Math.round((a - d) * 1000) / 1000 : '';
+    const designEl = document.getElementById('field_' + designKey);
+    const actualEl = document.getElementById('field_' + actualKey);
+    if(!devEl || !designEl || !actualEl) return;
+    const dev = parseFloat(devEl.value), d = parseFloat(designEl.value);
+    actualEl.value = (isFinite(dev) && isFinite(d)) ? Math.round((d + dev) * 1000) / 1000 : '';
   }
   function recomputeAllPilingCalcs(){
     recomputePileTip();
-    recomputePileDeviation('n_actual','design_n','deviation_n');
-    recomputePileDeviation('e_actual','design_e','deviation_e');
+    recomputePileActualFromDeviation('deviation_n','design_n','n_actual');
+    recomputePileActualFromDeviation('deviation_e','design_e','e_actual');
   }
   function renderFormFields(){
     const rowsHtml = chunkFieldsForLayout(activeModule.fields).map(group=>{
@@ -2924,10 +2977,23 @@
       if(topEl) topEl.addEventListener('input', recomputePileTip);
       if(lenEl) lenEl.addEventListener('input', recomputePileTip);
 
-      const nActualEl = document.getElementById('field_n_actual');
-      const eActualEl = document.getElementById('field_e_actual');
-      if(nActualEl) nActualEl.addEventListener('input', ()=> recomputePileDeviation('n_actual','design_n','deviation_n'));
-      if(eActualEl) eActualEl.addEventListener('input', ()=> recomputePileDeviation('e_actual','design_e','deviation_e'));
+      const devNEl = document.getElementById('field_deviation_n');
+      const devEEl = document.getElementById('field_deviation_e');
+      if(devNEl) devNEl.addEventListener('input', ()=> recomputePileActualFromDeviation('deviation_n','design_n','n_actual'));
+      if(devEEl) devEEl.addEventListener('input', ()=> recomputePileActualFromDeviation('deviation_e','design_e','e_actual'));
+
+      const rigEl = document.getElementById('field_rig');
+      const rigCodeEl = document.getElementById('field_rig_code');
+      if(rigEl && rigCodeEl){
+        rigEl.addEventListener('change', ()=>{
+          const m = RIG_RIG_CODE_MAP.find(p => p[0] === rigEl.value);
+          if(m) rigCodeEl.value = m[1];
+        });
+        rigCodeEl.addEventListener('change', ()=>{
+          const m = RIG_RIG_CODE_MAP.find(p => p[1] === rigCodeEl.value);
+          if(m) rigEl.value = m[0];
+        });
+      }
 
       const btnSearchPile = document.getElementById('btnSearchPileNumber');
       if(btnSearchPile){
@@ -3025,6 +3091,93 @@
       showToast('โหลดข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต', true);
     }
   }
+
+  // ---------- Piling: กรอกกลุ่ม (bulk assign RFI No. / Production Day / Delivery Day) ----------
+  function bulkFilteredRows(){
+    if(!(activeModule.id === 'piling' || activeModule.id === 'piling_design')) return [];
+    const s = bulkSearch.trim().toLowerCase();
+    return rows.filter(r=>{
+      if(s && !String(r.pile_number||'').toLowerCase().includes(s)) return false;
+      if(bulkAreaFilter && (r.area||'') !== bulkAreaFilter) return false;
+      if(bulkStatusFilter && (r.status||'') !== bulkStatusFilter) return false;
+      return true;
+    }).sort((a,b)=> String(a.pile_number).localeCompare(String(b.pile_number), undefined, {numeric:true}));
+  }
+  function renderBulkAreaFilterOptions(){
+    const sel = document.getElementById('bulkAreaFilter');
+    if(!sel) return;
+    const areas = Array.from(new Set(rows.map(r=>r.area).filter(Boolean))).sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">ทุกพื้นที่</option>' + areas.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+    sel.value = areas.includes(cur) ? cur : '';
+  }
+  function renderBulkAssignTable(){
+    if(!document.getElementById('panel-bulk') || document.getElementById('panel-bulk').hidden) return;
+    renderBulkAreaFilterOptions();
+    const filtered = bulkFilteredRows();
+    const tbody = document.getElementById('bulkTableBody');
+    tbody.innerHTML = filtered.map(r => `
+      <tr>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);"><input type="checkbox" class="bulk-row-check" data-id="${r.id}" ${bulkSelectedIds.has(String(r.id)) ? 'checked' : ''}></td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap;">${escapeHtml(String(r.pile_number||''))}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.area||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.status||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.rfi_no||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.pile_production_day||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;">${escapeHtml(r.pile_delivery_day||'-')}</td>
+      </tr>`).join('') || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted);">ไม่พบเสาเข็มตามตัวกรอง</td></tr>';
+    $$('.bulk-row-check').forEach(cb => cb.addEventListener('change', ()=>{
+      if(cb.checked) bulkSelectedIds.add(cb.dataset.id); else bulkSelectedIds.delete(cb.dataset.id);
+      updateBulkSelCount();
+    }));
+    const allChecked = filtered.length > 0 && filtered.every(r => bulkSelectedIds.has(String(r.id)));
+    const selectAllCb = document.getElementById('bulkSelectAll');
+    if(selectAllCb) selectAllCb.checked = allChecked;
+    document.getElementById('bulkListCount').textContent = filtered.length + ' รายการ (จากทั้งหมด ' + rows.length + ')';
+    updateBulkSelCount();
+  }
+  function updateBulkSelCount(){
+    const el = document.getElementById('bulkSelCount');
+    if(el) el.textContent = bulkSelectedIds.size;
+  }
+  async function bulkApplyField(fieldKey, value, label){
+    if(bulkSelectedIds.size === 0){ showToast('กรุณาเลือกเสาเข็มก่อน', true); return; }
+    if(value === '' || value === null || value === undefined){ showToast('กรุณากรอกค่าที่ต้องการกำหนดก่อน', true); return; }
+    const ids = Array.from(bulkSelectedIds);
+    try{
+      const res = await fetch(restUrl() + '?id=in.(' + ids.join(',') + ')', {
+        method:'PATCH', headers:{...HEADERS,'Prefer':'return=minimal'}, body: JSON.stringify({ [fieldKey]: value })
+      });
+      if(!res.ok) throw new Error('PATCH failed: ' + res.status);
+      rows.forEach(r => { if(bulkSelectedIds.has(String(r.id))) r[fieldKey] = value; });
+      renderBulkAssignTable();
+      showToast('กำหนด ' + label + ' ให้ ' + ids.length + ' ต้นแล้ว');
+    }catch(e){
+      console.error(e);
+      showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
+    }
+  }
+  (function wireBulkAssignUI(){
+    const search = document.getElementById('bulkSearchBox');
+    const areaSel = document.getElementById('bulkAreaFilter');
+    const statusSel = document.getElementById('bulkStatusFilter');
+    const selectAllCb = document.getElementById('bulkSelectAll');
+    if(search) search.addEventListener('input', ()=>{ bulkSearch = search.value; renderBulkAssignTable(); });
+    if(areaSel) areaSel.addEventListener('change', ()=>{ bulkAreaFilter = areaSel.value; renderBulkAssignTable(); });
+    if(statusSel) statusSel.addEventListener('change', ()=>{ bulkStatusFilter = statusSel.value; renderBulkAssignTable(); });
+    if(selectAllCb) selectAllCb.addEventListener('change', ()=>{
+      const filtered = bulkFilteredRows();
+      if(selectAllCb.checked) filtered.forEach(r => bulkSelectedIds.add(String(r.id)));
+      else filtered.forEach(r => bulkSelectedIds.delete(String(r.id)));
+      renderBulkAssignTable();
+    });
+    const btnRfi = document.getElementById('btnBulkApplyRfi');
+    const btnProd = document.getElementById('btnBulkApplyProd');
+    const btnDelivery = document.getElementById('btnBulkApplyDelivery');
+    if(btnRfi) btnRfi.addEventListener('click', ()=> bulkApplyField('rfi_no', document.getElementById('bulkRfiInput').value.trim(), 'RFI No.'));
+    if(btnProd) btnProd.addEventListener('click', ()=> bulkApplyField('pile_production_day', document.getElementById('bulkProdInput').value, 'Pile Production Day'));
+    if(btnDelivery) btnDelivery.addEventListener('click', ()=> bulkApplyField('pile_delivery_day', document.getElementById('bulkDeliveryInput').value, 'Pile Delivery Day'));
+  })();
 
   function formatFieldDisplay(f, val){
     if(f.type === 'personnel-list'){
@@ -3225,7 +3378,9 @@
     $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     $('#panel-form').hidden = panelName !== 'form';
     $('#panel-list').hidden = panelName !== 'list';
+    $('#panel-bulk').hidden = panelName !== 'bulk';
     if(panelName === 'list') refreshAndRender();
+    if(panelName === 'bulk') refreshAndRender().then(renderBulkAssignTable);
   }
   $$('.tab-btn').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
   $('#tabPendingPiles').addEventListener('click', ()=>{

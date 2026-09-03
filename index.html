@@ -59,7 +59,10 @@
   .sidebar.collapsed .nav-btn.active{border-left:none;box-shadow:inset 3px 0 0 var(--amber-deep);}
   @media (max-width:760px){
     .sidebar{position:fixed;left:0;top:0;box-shadow:2px 0 10px rgba(20,30,60,.12);}
+    .main{margin-left:58px;}
   }
+  .sidebar-backdrop{display:none;}
+  .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:24;}
 
   .stat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
   .stat-chip{flex:1 0 auto;min-width:74px;background:#F7F9FB;border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:left;}
@@ -95,6 +98,7 @@
   .btn-primary{background:var(--amber);color:#fff;}
   .btn-ghost{background:none;border:1.3px solid var(--line);color:var(--charcoal);flex:0 0 auto;}
   .btn-ghost.active{background:#D946EF;border-color:#D946EF;color:#fff;}
+  .btn-ghost.active-soon{background:#F0A93B;border-color:#F0A93B;color:#1a1a1a;}
   .btn-danger{background:none;border:1.3px solid var(--danger);color:var(--danger);}
   .validation{margin:0 16px 14px;padding:10px 12px;border-radius:7px;font-size:12.5px;background:#FEF2F2;color:var(--danger);border:1px solid #FECACA;display:none;}
   .validation.show{display:block;}
@@ -226,6 +230,20 @@
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   @media (max-width:400px){.two-col{grid-template-columns:1fr;}}
+
+  /* ---------- extra mobile responsiveness ---------- */
+  @media (max-width:640px){
+    [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
+    .pyramid-wrap{grid-template-columns:1fr;}
+  }
+  @media (max-width:480px){
+    [style*="minmax(150px,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(120px,1fr)) !important;}
+    .list-row{flex-wrap:wrap;}
+    .list-row .lr-loc{flex:1 1 100% !important;}
+    .list-row input[type="number"]{flex:1 1 70px !important;}
+    .stat-chip{min-width:62px;padding:7px 8px;}
+    .she-icon-card{flex:1 0 78px;min-width:78px;padding:10px 6px;}
+  }
 </style>
 </head>
 <body>
@@ -247,6 +265,7 @@
       <div id="navDashboards"></div>
     </div>
   </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
   <div class="main">
 
@@ -1726,7 +1745,7 @@
           if(!pts.length) return null;
           return {
             label: status,
-            data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id })),
+            data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id, piled_date: p.piled_date || null, plan_date: p.plan_date || null })),
             backgroundColor: STATUS_COLORS[status],
             pointRadius: status === 'Defected' ? 5 : 3,
             pointHoverRadius: 7,
@@ -1795,6 +1814,7 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button type="button" class="btn btn-ghost" id="btnGeoThisWeek">📅 This Week</button>
                   <button type="button" class="btn btn-ghost" id="btnGeoLastWeek">📅 Last Week</button>
+                  <button type="button" class="btn btn-ghost" id="btnGeoSoon">🟡 Soon</button>
                   <button type="button" class="btn btn-ghost" id="btnPileGeoFullscreen">⛶ เต็มจอ</button>
                 </div>
               </div>
@@ -1941,42 +1961,56 @@
           const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
           return { start: isoDate(monday), end: isoDate(sunday) };
         }
-        let geoHighlightThisWeek = false, geoHighlightLastWeek = false;
+        let geoHighlightThisWeek = false, geoHighlightLastWeek = false, geoHighlightSoon = false;
         function geoPointToChartPoint(p){
-          return { x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id };
+          return { x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id, piled_date: p.piled_date || null, plan_date: p.plan_date || null };
         }
         function buildGeoHighlightDatasets(){
           const out = [];
-          if(!geoHighlightThisWeek && !geoHighlightLastWeek) return out;
-          // วันนี้/เมื่อวาน (เฉพาะตอนติ๊ก This Week) ให้ไฮไลท์สีน้ำเงินแยกจากสัปดาห์ที่เหลือ (สี Magenta)
-          const now = new Date();
-          const todayStr = isoDate(now);
-          const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-          const yesterdayStr = isoDate(yesterday);
-          const blueIds = new Set();
-          if(geoHighlightThisWeek){
-            geoPoints.forEach(r => { if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); });
+          if(geoHighlightThisWeek || geoHighlightLastWeek){
+            // วันนี้/เมื่อวาน (เฉพาะตอนติ๊ก This Week) ให้ไฮไลท์สีน้ำเงินแยกจากสัปดาห์ที่เหลือ (สี Magenta)
+            const now = new Date();
+            const todayStr = isoDate(now);
+            const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+            const yesterdayStr = isoDate(yesterday);
+            const blueIds = new Set();
+            if(geoHighlightThisWeek){
+              geoPoints.forEach(r => { if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); });
+            }
+            const ranges = [];
+            if(geoHighlightThisWeek) ranges.push(weekRangeStr(0));
+            if(geoHighlightLastWeek) ranges.push(weekRangeStr(-1));
+            const magentaPts = geoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
+            const bluePts = geoPoints.filter(r => blueIds.has(r.id));
+            if(magentaPts.length){
+              out.push({
+                label: 'ตอกในสัปดาห์ที่เลือก',
+                data: magentaPts.map(geoPointToChartPoint),
+                backgroundColor: '#D946EF', borderColor: '#9D174D', borderWidth: 1.5,
+                pointRadius: 7, pointHoverRadius: 9,
+              });
+            }
+            if(bluePts.length){
+              out.push({
+                label: 'ตอกวันนี้ / เมื่อวาน',
+                data: bluePts.map(geoPointToChartPoint),
+                backgroundColor: '#2563EB', borderColor: '#1E3A8A', borderWidth: 1.5,
+                pointRadius: 7, pointHoverRadius: 9,
+              });
+            }
           }
-          const ranges = [];
-          if(geoHighlightThisWeek) ranges.push(weekRangeStr(0));
-          if(geoHighlightLastWeek) ranges.push(weekRangeStr(-1));
-          const magentaPts = geoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
-          const bluePts = geoPoints.filter(r => blueIds.has(r.id));
-          if(magentaPts.length){
-            out.push({
-              label: 'ตอกในสัปดาห์ที่เลือก',
-              data: magentaPts.map(geoPointToChartPoint),
-              backgroundColor: '#D946EF', borderColor: '#9D174D', borderWidth: 1.5,
-              pointRadius: 7, pointHoverRadius: 9,
-            });
-          }
-          if(bluePts.length){
-            out.push({
-              label: 'ตอกวันนี้ / เมื่อวาน',
-              data: bluePts.map(geoPointToChartPoint),
-              backgroundColor: '#2563EB', borderColor: '#1E3A8A', borderWidth: 1.5,
-              pointRadius: 7, pointHoverRadius: 9,
-            });
+          if(geoHighlightSoon){
+            // เสาเข็มที่ยังไม่ได้ตอกจริง (ไม่มี piled_date) แต่มีแผนวันที่ตอก (plan_date) อยู่ในสัปดาห์นี้หรือสัปดาห์หน้า
+            const thisWeek = weekRangeStr(0), nextWeek = weekRangeStr(1);
+            const soonPts = geoPoints.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
+            if(soonPts.length){
+              out.push({
+                label: 'แผนตอกเร็วๆ นี้ (สัปดาห์นี้-หน้า)',
+                data: soonPts.map(geoPointToChartPoint),
+                backgroundColor: '#F0A93B', borderColor: '#B7791F', borderWidth: 1.5,
+                pointRadius: 7, pointHoverRadius: 9,
+              });
+            }
           }
           return out;
         }
@@ -1998,7 +2032,10 @@
                   callbacks:{
                     label: (ctx) => {
                       const p = ctx.raw;
-                      return 'เสาเข็ม ' + p.pile_number + (p.area ? ' · ' + p.area : '') + ' · ' + ctx.dataset.label;
+                      let line = 'เสาเข็ม ' + p.pile_number + (p.area ? ' · ' + p.area : '') + ' · ' + ctx.dataset.label;
+                      if(p.piled_date) line += ' · ตอกวันที่ ' + p.piled_date;
+                      else if(p.plan_date) line += ' · แผนวันที่ตอก ' + p.plan_date;
+                      return line;
                     }
                   }
                 }
@@ -2022,6 +2059,7 @@
           });
           const btnThisWeek = document.getElementById('btnGeoThisWeek');
           const btnLastWeek = document.getElementById('btnGeoLastWeek');
+          const btnSoon = document.getElementById('btnGeoSoon');
           if(btnThisWeek && !btnThisWeek.dataset.wired){
             btnThisWeek.dataset.wired = '1';
             btnThisWeek.addEventListener('click', ()=>{
@@ -2035,6 +2073,14 @@
             btnLastWeek.addEventListener('click', ()=>{
               geoHighlightLastWeek = !geoHighlightLastWeek;
               btnLastWeek.classList.toggle('active', geoHighlightLastWeek);
+              refreshGeoDatasets();
+            });
+          }
+          if(btnSoon && !btnSoon.dataset.wired){
+            btnSoon.dataset.wired = '1';
+            btnSoon.addEventListener('click', ()=>{
+              geoHighlightSoon = !geoHighlightSoon;
+              btnSoon.classList.toggle('active-soon', geoHighlightSoon);
               refreshGeoDatasets();
             });
           }
@@ -2597,7 +2643,10 @@
   function renderModuleRow(){
     $('#navReports').innerHTML = MODULES.map(navBtnHtml).join('') + CUSTOM_REPORTS.map(navBtnHtml).join('');
     $('#navDashboards').innerHTML = DASHBOARDS.map(navBtnHtml).join('');
-    $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=> switchModule(btn.dataset.id)));
+    $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=>{
+      switchModule(btn.dataset.id);
+      if(window.innerWidth <= 760) setSidebarCollapsed(true);
+    }));
   }
   async function switchModule(id){
     const isDash = id.startsWith('dash_');
@@ -2643,11 +2692,14 @@
   // ---------- sidebar collapse/expand toggle (persists per-browser) ----------
   function setSidebarCollapsed(collapsed){
     $('#sidebar').classList.toggle('collapsed', collapsed);
+    const bd = document.getElementById('sidebarBackdrop');
+    if(bd) bd.classList.toggle('show', !collapsed && window.innerWidth <= 760);
     try{ localStorage.setItem('srh_sidebar_collapsed', collapsed ? '1' : '0'); }catch(e){}
   }
   $('#btnSidebarToggle').addEventListener('click', ()=>{
     setSidebarCollapsed(!$('#sidebar').classList.contains('collapsed'));
   });
+  { const bd = document.getElementById('sidebarBackdrop'); if(bd) bd.addEventListener('click', ()=> setSidebarCollapsed(true)); }
   (function initSidebar(){
     let saved = null;
     try{ saved = localStorage.getItem('srh_sidebar_collapsed'); }catch(e){}

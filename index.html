@@ -3204,6 +3204,54 @@
     return escapeHtml(val || '-');
   }
 
+  function formatPersonnelListPlain(val){
+    const arr = Array.isArray(val) ? val : [];
+    if(!arr.length) return '-';
+    return arr.map(p => `${p.position}: ${p.count}`).join(', ');
+  }
+  function buildDailyReportCopyText(f){
+    const dur = calcDuration(f.time_start, f.time_end);
+    const lines = [
+      '📋 Daily Report' + (f.id ? ' — DR-' + f.id.slice(0,6) : ''),
+      '📅 วันที่: ' + (f.report_date || '-'),
+      '📍 พื้นที่: ' + (f.location || '-'),
+      '🕖 เวลาทำงาน: ' + (f.time_start || '--') + ' – ' + (f.time_end || '--') + ' (' + dur + ')',
+      '🏢 โครงการ: ' + (f.project_name || '-'),
+      '',
+      '🌤️ สภาพอากาศ',
+      '  06:00–09:00: ' + (f.weather_0609 || 'ไม่ระบุ'),
+      '  09:00–12:00: ' + (f.weather_0912 || 'ไม่ระบุ'),
+      '  12:00–15:00: ' + (f.weather_1215 || 'ไม่ระบุ'),
+      '  15:00–18:00: ' + (f.weather_1518 || 'ไม่ระบุ'),
+      '',
+      '👨‍💼 REPCO Personnel: ' + formatPersonnelListPlain(f.repco_personnel),
+      '👥 State Personnel (พื้นที่ก่อสร้าง): ' + formatPersonnelListPlain(f.state_personnel_site),
+      '👥 State Personnel (Workshop): ' + formatPersonnelListPlain(f.state_personnel_workshop),
+      '🚜 เครื่องจักร/อุปกรณ์: ' + formatPersonnelListPlain(f.equipment),
+      '',
+      '🎯 กิจกรรม/เป้าหมายวันนี้:',
+      (f.activities || '-'),
+      '',
+      '📊 สรุปความก้าวหน้า:',
+      (f.progress_summary || '-'),
+    ];
+    return lines.join('\n');
+  }
+  async function copyTextToClipboard(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        return true;
+      }catch(e2){ return false; }
+    }
+  }
   function openDetail(id){
     const f = rows.find(x => String(x.id) === String(id));
     if(!f) return;
@@ -3211,8 +3259,11 @@
     const fieldsHtml = activeModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${formatFieldDisplay(fl, f[fl.key])}</div></div>`).join('');
     const extraHtml = activeModule.detailExtra ? activeModule.detailExtra(f) : '';
     const modal = $('#modalContent');
+    const copyBtnHtml = (activeModule.id === 'daily')
+      ? `<button class="modal-close" id="btnCopyDailyReport" title="คัดลอกข้อมูลสำหรับส่งไลน์" style="font-size:16px;">📋</button>`
+      : '';
     modal.innerHTML = `
-      <div class="modal-head"><h2>${escapeHtml(activeModule.idLabel(f))}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+      <div class="modal-head"><h2>${escapeHtml(activeModule.idLabel(f))}</h2><div style="display:flex;gap:2px;align-items:center;">${copyBtnHtml}<button class="modal-close" id="modalCloseBtn">&times;</button></div></div>
       <div class="form-grid">
         ${fieldsHtml}
         ${extraHtml}
@@ -3226,6 +3277,11 @@
       </div>`;
     $('#modalBg').classList.add('show');
     $('#modalCloseBtn').addEventListener('click', closeModal);
+    const btnCopyDaily = document.getElementById('btnCopyDailyReport');
+    if(btnCopyDaily) btnCopyDaily.addEventListener('click', async ()=>{
+      const ok = await copyTextToClipboard(buildDailyReportCopyText(f));
+      showToast(ok ? 'คัดลอกข้อมูลแล้ว — ไปวางส่งใน LINE ได้เลย' : 'คัดลอกไม่สำเร็จ ลองใหม่อีกครั้ง', !ok);
+    });
     $('#btnEditThis').addEventListener('click', ()=>{ closeModal(); loadIntoForm(f); });
     $('#btnDeleteThis').addEventListener('click', ()=> deleteFinding(f.id));
     modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));

@@ -1511,7 +1511,7 @@
             <div class="dash-kpi"><div class="v">${avgEquipment}</div><div class="l">Avg. Equipment / Day</div><div class="f">avg(sum of equipment qty)</div></div>
             <div class="dash-kpi"><div class="v" style="font-size:14px;">${escapeHtml(dateRangeText)}</div><div class="l">Date Range</div></div>
           </div>
-          <div class="dash-section"><h3>แนวโน้มกำลังคน (Manpower Trend)</h3><div class="chart-wrap"><canvas id="chartDailyManpower"></canvas></div></div>
+          <div class="dash-section"><h3>แนวโน้มกำลังคน (Manpower Trend) — แยกประเภท และคนทำงานรวมทั้งหมดต่อวัน</h3><div class="chart-wrap"><canvas id="chartDailyManpower"></canvas></div></div>
           <div class="dash-section"><h3>จำนวนเครื่องจักรต่อวัน</h3><div class="chart-wrap"><canvas id="chartDailyEquip"></canvas></div></div>
           <div class="dash-section"><h3>เครื่องจักรแยกตามประเภทรถ</h3><div class="chart-wrap" id="equipTypesChartWrap"><canvas id="chartDailyEquipTypes"></canvas></div></div>
           <div class="dash-section"><h3>สภาพอากาศ (สรุปทั้งหมด — นับรวม 4 ช่วงเวลา/วัน)</h3><div class="chart-wrap"><canvas id="chartDailyWeather"></canvas></div></div>
@@ -1532,11 +1532,12 @@
         chartInstances.dm = new Chart($('#chartDailyManpower'), {
           type:'bar',
           data:{ labels, datasets:[
-            { label:'REPCO', data:repcoSeries, backgroundColor:'#0EA394' },
-            { label:'State - Site', data:siteSeries, backgroundColor:'#2563EB' },
-            { label:'State - Workshop', data:workshopSeries, backgroundColor:'#F0A93B' },
+            { label:'REPCO', data:repcoSeries, backgroundColor:'#0EA394', stack:'manpower' },
+            { label:'State - Site', data:siteSeries, backgroundColor:'#2563EB', stack:'manpower' },
+            { label:'State - Workshop', data:workshopSeries, backgroundColor:'#F0A93B', stack:'manpower' },
+            { label:'รวมทั้งหมด (Total)', type:'line', data:manpowerPerRow, borderColor:'#DC2626', backgroundColor:'#DC2626', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#DC2626', tension:.25, fill:false, order:-1, stack:'total-line' },
           ]},
-          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } } }
         });
         chartInstances.de = new Chart($('#chartDailyEquip'), { type:'line', data:{ labels, datasets:[{ label:'Equipment qty', data:equipmentPerRow, borderColor:'#F0A93B', backgroundColor:'rgba(240,169,59,.15)', fill:true, tension:.25 }] }, options:{ responsive:true, maintainAspectRatio:false } });
         $('#equipTypesChartWrap').style.height = Math.max(240, 220 + Math.ceil(equipTypes.length/4)*22) + 'px';

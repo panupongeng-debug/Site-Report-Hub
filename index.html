@@ -231,6 +231,31 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   @media (max-width:400px){.two-col{grid-template-columns:1fr;}}
 
+  /* ---------- Daily Brief (slide presentation for the morning meeting) ---------- */
+  .brief-stage{position:relative;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:28px;min-height:520px;display:flex;flex-direction:column;}
+  .brief-slide-head{display:flex;align-items:center;gap:14px;margin-bottom:24px;}
+  .brief-slide-head .ic{font-size:32px;flex:0 0 auto;}
+  .brief-slide-head h1{font-family:var(--disp);font-size:24px;margin:0;color:var(--charcoal);}
+  .brief-slide-head .sub{font-size:13px;color:var(--muted);margin-top:2px;}
+  .brief-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;}
+  .brief-kpi{background:#F7F9FB;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+  .brief-kpi .lbl{font-size:12.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;}
+  .brief-kpi .cmp{display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;}
+  .brief-kpi .cmp .v{font-family:var(--mono);font-weight:800;font-size:30px;color:var(--charcoal);display:block;}
+  .brief-kpi .cmp .t{font-size:11px;color:var(--muted);display:block;margin-top:3px;}
+  .brief-nav{display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding-top:16px;border-top:1px solid var(--line);}
+  .brief-dots{display:flex;gap:7px;}
+  .brief-dot{width:9px;height:9px;border-radius:50%;background:var(--line);cursor:pointer;border:none;}
+  .brief-dot.active{background:var(--amber-deep);}
+  #briefStage:fullscreen, #briefStage:-webkit-full-screen{background:var(--paper);padding:56px 64px;justify-content:center;border-radius:0;}
+  #briefStage:fullscreen .brief-slide-head h1, #briefStage:-webkit-full-screen .brief-slide-head h1{font-size:42px;}
+  #briefStage:fullscreen .brief-slide-head .ic, #briefStage:-webkit-full-screen .brief-slide-head .ic{font-size:48px;}
+  #briefStage:fullscreen .brief-slide-head .sub, #briefStage:-webkit-full-screen .brief-slide-head .sub{font-size:18px;}
+  #briefStage:fullscreen .brief-kpi .lbl, #briefStage:-webkit-full-screen .brief-kpi .lbl{font-size:15px;}
+  #briefStage:fullscreen .brief-kpi .cmp .v, #briefStage:-webkit-full-screen .brief-kpi .cmp .v{font-size:52px;}
+  #briefStage:fullscreen .brief-kpi .cmp .t, #briefStage:-webkit-full-screen .brief-kpi .cmp .t{font-size:15px;}
+  #briefStage:fullscreen .dash-note, #briefStage:-webkit-full-screen .dash-note{font-size:15px;}
+
   /* ---------- extra mobile responsiveness ---------- */
   @media (max-width:640px){
     [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
@@ -1413,20 +1438,55 @@
               </table>
             </div>
           </div>
+          <div class="dash-section">
+            <div class="dash-weekpicker-row" style="margin-bottom:12px;">
+              <label>ช่วงเวลาที่ต้องการดูกราฟ</label>
+              <input type="date" id="envChartRangeStart" class="kpi-input" style="max-width:150px;" min="${escapeHtml(eDates[0]||'')}" max="${escapeHtml(eDates[eDates.length-1]||'')}" value="${escapeHtml(eDates[0]||'')}">
+              <span style="color:var(--muted);">ถึง</span>
+              <input type="date" id="envChartRangeEnd" class="kpi-input" style="max-width:150px;" min="${escapeHtml(eDates[0]||'')}" max="${escapeHtml(eDates[eDates.length-1]||'')}" value="${escapeHtml(eDates[eDates.length-1]||'')}">
+              <button type="button" class="chip" id="envChartRangeReset">ทั้งหมด</button>
+            </div>
+          </div>
           <div class="dash-section"><h3>ปริมาณขยะต่อวัน แยกตามประเภท (Kg)</h3><div class="chart-wrap"><canvas id="chartEnvDaily"></canvas></div></div>
           <div class="dash-section"><h3>ปริมาณขยะต่อสัปดาห์ แยกตามประเภท (Kg, ตัดรอบทุกวันจันทร์)</h3><div class="chart-wrap"><canvas id="chartEnvWeek"></canvas></div></div>
         `;
 
-        destroyChart('ed'); destroyChart('ew');
-        chartInstances.ed = new Chart($('#chartEnvDaily'), {
-          type:'bar',
-          data:{ labels: dayLabels, datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: data.map(r=>Number(r[c.key])||0), backgroundColor:c.color })) },
-          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
-        });
-        chartInstances.ew = new Chart($('#chartEnvWeek'), {
-          type:'bar',
-          data:{ labels: weekKeys.map(weekLabel), datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: weekKeys.map(w=>Math.round((byWeekCat[w][c.key]||0)*100)/100), backgroundColor:c.color })) },
-          options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+        function renderEnvCharts(startIso, endIso){
+          const scopedData = data.filter(r => r.report_date && r.report_date >= startIso && r.report_date <= endIso);
+          const scopedDayLabels = scopedData.map(r=>r.report_date || '-');
+          const scopedByWeekCat = {};
+          scopedData.forEach(r=>{
+            if(!r.report_date) return;
+            const w = mondayOfWeek(r.report_date);
+            scopedByWeekCat[w] = scopedByWeekCat[w] || {};
+            ENV_CATEGORIES.forEach(c => { scopedByWeekCat[w][c.key] = (scopedByWeekCat[w][c.key]||0) + (Number(r[c.key])||0); });
+          });
+          const scopedWeekKeys = Object.keys(scopedByWeekCat).sort();
+          destroyChart('ed'); destroyChart('ew');
+          chartInstances.ed = new Chart($('#chartEnvDaily'), {
+            type:'bar',
+            data:{ labels: scopedDayLabels, datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: scopedData.map(r=>Number(r[c.key])||0), backgroundColor:c.color })) },
+            options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+          });
+          chartInstances.ew = new Chart($('#chartEnvWeek'), {
+            type:'bar',
+            data:{ labels: scopedWeekKeys.map(weekLabel), datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: scopedWeekKeys.map(w=>Math.round((scopedByWeekCat[w][c.key]||0)*100)/100), backgroundColor:c.color })) },
+            options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true } } }
+          });
+        }
+        renderEnvCharts(eDates[0]||'', eDates[eDates.length-1]||'');
+
+        function applyEnvRangePicker(){
+          const s = $('#envChartRangeStart').value, e = $('#envChartRangeEnd').value;
+          if(!s || !e || s > e){ showToast('ช่วงวันที่ไม่ถูกต้อง', true); return; }
+          renderEnvCharts(s, e);
+        }
+        $('#envChartRangeStart').addEventListener('change', applyEnvRangePicker);
+        $('#envChartRangeEnd').addEventListener('change', applyEnvRangePicker);
+        $('#envChartRangeReset').addEventListener('click', ()=>{
+          $('#envChartRangeStart').value = eDates[0]||'';
+          $('#envChartRangeEnd').value = eDates[eDates.length-1]||'';
+          renderEnvCharts(eDates[0]||'', eDates[eDates.length-1]||'');
         });
 
         $('#envWeekPicker').addEventListener('change', (e)=>{
@@ -2219,6 +2279,297 @@
         }
         $$('#pilingTabBar .piling-tab-btn').forEach(b => b.addEventListener('click', ()=> switchPilingTab(b.dataset.ptab)));
         switchPilingTab('overview');
+      }
+    },
+    {
+      id:'dash_brief', label:'สรุปประจำวัน (นำเสนอ)', icon:'🖥️', table:null,
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        const today = todayISO();
+        const yesterday = addDays(today, -1);
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], kpiCategories=[], hseSettings=null;
+        try{
+          const [r1,r2,r3,r4,r5,r6] = await Promise.all([
+            fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=report_date,today_m3', { headers: HEADERS }),
+            fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,design_n,design_e,area'),
+          ]);
+          if(r1.ok) findingsData = await r1.json();
+          if(r2.ok) envData = await r2.json();
+          if(r3.ok) dailyData = await r3.json();
+          if(r4.ok) concreteReportsData = await r4.json();
+          if(r5.ok) concreteSummaryData = await r5.json();
+          pileData = r6 || [];
+          try{ kpiCategories = await fetchSafetyKpiCategories(); }catch(e){ kpiCategories = []; }
+          try{ hseSettings = await fetchSafetyHseSettings(); }catch(e){ hseSettings = null; }
+        }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
+
+        function briefKpiCard(label, todayVal, yestVal, unit){
+          return `<div class="brief-kpi">
+            <div class="lbl">${escapeHtml(label)}</div>
+            <div class="cmp">
+              <div><span class="v">${todayVal}</span><span class="t">วันนี้ (${escapeHtml(today)})</span></div>
+              <div><span class="v" style="color:var(--muted);font-size:22px;">${yestVal}</span><span class="t">เมื่อวาน (${escapeHtml(yesterday)})</span></div>
+            </div>
+            ${unit ? `<div class="t" style="margin-top:8px;">${escapeHtml(unit)}</div>` : ''}
+          </div>`;
+        }
+        function briefFindingListHtml(list, emptyText){
+          if(!list.length) return `<div class="dash-note" style="margin-top:10px;">${escapeHtml(emptyText)}</div>`;
+          return list.map(f=>{
+            const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+            const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
+            return `
+            <div class="finding ${findingSevClassStatic(f)}" data-brief-finding-id="${f.id}">
+              <div class="stripe"></div>
+              <div class="cover">${coverHtml}</div>
+              <div class="body2">
+                <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${escapeHtml(f.finding_date||'')}</span></div>
+                <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+                <div class="f-meta">
+                  <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+                  <span class="pill ${findingBadgeClassStatic(f.status)}">${escapeHtml(f.status||'-')}</span>
+                  <span class="pill loc">${escapeHtml(f.severity||'-')}</span>
+                  ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+                </div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+        function wireBriefFindingClicks(containerId, list){
+          const el = document.getElementById(containerId);
+          if(!el) return;
+          el.querySelectorAll('.finding').forEach(node => {
+            node.addEventListener('click', ()=>{
+              const f = list.find(x => String(x.id) === node.dataset.briefFindingId);
+              if(f) openFindingDetailStatic(f);
+            });
+          });
+        }
+
+        // ---- Slide 1: Cover ----
+        const isReplacementPile = (r) => String(r.pile_number).includes('/');
+        const pileTotalExclRepl = pileData.filter(r=>!isReplacementPile(r)).length;
+        const pileCompleted = pileData.filter(r=>r.status==='Completed').length;
+        const pilePct = pileTotalExclRepl ? Math.round((pileCompleted/pileTotalExclRepl)*1000)/10 : 0;
+        const ltiWeekCount = Number(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)').week_actual) || 0;
+        const safeDays = hseSettings && hseSettings.start_date ? daysBetweenInclusive(hseSettings.start_date, today) : 0;
+        const slideCover = {
+          title:'Cover',
+          html:`
+          <div class="brief-slide-head" style="margin-bottom:30px;">
+            <div class="ic">🏗️</div>
+            <div><h1>RISE Project — สรุปประจำวัน</h1><div class="sub">ประชุมก่อนเริ่มงาน · ${escapeHtml(today)}</div></div>
+          </div>
+          <div class="brief-grid">
+            <div class="brief-kpi"><div class="lbl">Safe Working Day</div><div class="cmp"><div><span class="v">${safeDays}</span><span class="t">วัน ไม่เกิด LTI</span></div></div></div>
+            <div class="brief-kpi"><div class="lbl">ความคืบหน้างานเสาเข็ม</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted}/${pileTotalExclRepl} ต้น</span></div></div></div>
+          </div>
+          <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`
+        };
+
+        // ---- Slide 2: Safety (with full finding details + photos) ----
+        const findByDate = (d) => findingsData.filter(f => f.finding_date === d);
+        const closedByDate = (d) => findingsData.filter(f => f.date_closed === d);
+        const foundToday = findByDate(today), foundYest = findByDate(yesterday);
+        const closedToday = closedByDate(today), closedYest = closedByDate(yesterday);
+        const highCritToday = foundToday.filter(f => f.severity === 'High' || f.severity === 'Critical');
+        const slideSafety = {
+          title:'Safety',
+          html:`
+          <div class="brief-slide-head"><div class="ic">🦺</div><div><h1>Safety</h1><div class="sub">Findings &amp; Safe Days</div></div></div>
+          <div class="brief-grid" style="margin-bottom:16px;">
+            ${briefKpiCard('พบ Finding ใหม่', foundToday.length, foundYest.length, 'รายการ')}
+            ${briefKpiCard('ปิด Finding ได้', closedToday.length, closedYest.length, 'รายการ')}
+            ${briefKpiCard('Finding ระดับ High/Critical (วันนี้)', highCritToday.length, '-', 'รายการ')}
+          </div>
+          <div style="margin-bottom:16px;">${renderSafeDayCardHtml(hseSettings, ltiWeekCount)}</div>
+          <div style="overflow-y:auto;max-height:340px;">
+            <h3 style="margin:14px 0 8px;">🆕 พบ Finding ใหม่ วันนี้</h3>
+            <div id="briefFindNewList">${briefFindingListHtml(foundToday, 'ไม่มี Finding ใหม่วันนี้')}</div>
+            <h3 style="margin:16px 0 8px;">✅ ปิด Finding ได้ วันนี้</h3>
+            <div id="briefFindClosedList">${briefFindingListHtml(closedToday, 'ยังไม่มี Finding ที่ปิดวันนี้')}</div>
+            <h3 style="margin:16px 0 8px;">🔴 Finding ระดับ High/Critical วันนี้</h3>
+            <div id="briefFindHighList">${briefFindingListHtml(highCritToday, 'ไม่มี Finding ระดับ High/Critical วันนี้')}</div>
+          </div>`,
+          afterRender(){
+            wireBriefFindingClicks('briefFindNewList', foundToday);
+            wireBriefFindingClicks('briefFindClosedList', closedToday);
+            wireBriefFindingClicks('briefFindHighList', highCritToday);
+          }
+        };
+
+        // ---- Slide 3: Environment (weekly, Monday-cutoff, full data + photos) ----
+        const envWeekEnd = mondayOfWeek(today);
+        const envWeekStart = addDays(envWeekEnd, -6);
+        const envWeekRows = envData.filter(r => r.report_date && r.report_date >= envWeekStart && r.report_date <= today).sort((a,b)=> a.report_date < b.report_date ? -1 : 1);
+        const envSum = (r) => ENV_CATEGORIES.reduce((s,c)=> s + (Number(r[c.key])||0), 0);
+        const envByDate = (d) => envData.find(r => r.report_date === d) || {};
+        const envToday = envByDate(today), envYest = envByDate(yesterday);
+        const envWeekCardHtml = !envWeekRows.length ? '<div class="dash-note" style="margin-top:10px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์นี้</div>' : envWeekRows.map(r=>{
+          const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+          return `
+          <div class="dash-section" style="margin-bottom:10px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+              <span style="font-weight:700;color:var(--charcoal);font-family:var(--mono);">${escapeHtml(r.report_date)}</span>
+              <span style="font-family:var(--mono);font-weight:700;color:var(--charcoal);">${Math.round(envSum(r)*100)/100} Kg รวม</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              ${ENV_CATEGORIES.map(c=>`<span class="pill loc">${escapeHtml(c.label)}: ${Math.round((Number(r[c.key])||0)*100)/100}</span>`).join('')}
+            </div>
+            ${r.remarks ? `<div class="dash-note" style="margin-bottom:8px;">📝 ${escapeHtml(r.remarks)}</div>` : ''}
+            ${urls.length ? `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>` : ''}
+          </div>`;
+        }).join('');
+        const slideEnv = {
+          title:'Environment',
+          html:`
+          <div class="brief-slide-head"><div class="ic">♻️</div><div><h1>Environment</h1><div class="sub">ปริมาณขยะแยกตามประเภท (Kg) · สัปดาห์ ${escapeHtml(envWeekStart)} – ${escapeHtml(today)}</div></div></div>
+          <div class="brief-grid" style="margin-bottom:16px;">
+            ${briefKpiCard('ขยะรวมทั้งหมด', Math.round(envSum(envToday)*100)/100, Math.round(envSum(envYest)*100)/100, 'Kg')}
+            ${ENV_CATEGORIES.map(c => briefKpiCard(c.label, Math.round((Number(envToday[c.key])||0)*100)/100, Math.round((Number(envYest[c.key])||0)*100)/100, 'Kg')).join('')}
+          </div>
+          <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์นี้ (ตัดรอบวันจันทร์)</h3>
+          <div style="overflow-y:auto;max-height:320px;">${envWeekCardHtml}</div>`,
+          afterRender(){
+            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+          }
+        };
+
+        // ---- Slide 4: Daily Report (manpower / equipment / weather / activities / progress / photos) ----
+        const dailyByDate = (d) => dailyData.find(r => r.report_date === d) || null;
+        const dToday = dailyByDate(today), dYest = dailyByDate(yesterday);
+        const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop)) : 0;
+        const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
+        const weatherLine = (r) => r ? [r.weather_0609,r.weather_0912,r.weather_1215,r.weather_1518].filter(Boolean).join(' / ') : '-';
+        function dailyDetailBlockHtml(label, r){
+          if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)}</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
+          const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+          return `
+          <div class="dash-section" style="margin-bottom:10px;">
+            <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||'')})</div>
+            <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
+            <div style="margin-bottom:6px;"><b>🎯 กิจกรรม:</b> ${escapeHtml(r.activities || '-')}</div>
+            <div style="margin-bottom:8px;"><b>📊 Progress:</b> ${escapeHtml(r.progress_summary || '-')}</div>
+            ${urls.length ? `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>` : '<div class="dash-note">ไม่มีรูปภาพ</div>'}
+          </div>`;
+        }
+        const slideDaily = {
+          title:'Daily Report',
+          html:`
+          <div class="brief-slide-head"><div class="ic">📋</div><div><h1>Daily Report</h1><div class="sub">กำลังคน · เครื่องจักร · กิจกรรม · Progress · รูปภาพ</div></div></div>
+          <div class="brief-grid" style="margin-bottom:16px;">
+            ${briefKpiCard('กำลังคนรวม', manpowerOf(dToday), manpowerOf(dYest), 'คน')}
+            ${briefKpiCard('เครื่องจักร/อุปกรณ์', equipOf(dToday), equipOf(dYest), 'รายการ (รวมจำนวน)')}
+          </div>
+          <div style="overflow-y:auto;max-height:340px;">
+            ${dailyDetailBlockHtml('วันนี้', dToday)}
+            ${dailyDetailBlockHtml('เมื่อวาน', dYest)}
+          </div>`,
+          afterRender(){
+            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+          }
+        };
+
+        // ---- Slide 5: Piling progress (+ Geographic Distribution scatter) ----
+        const pileByDate = (d) => pileData.filter(r => r.piled_date === d).length;
+        const pilePending = pileData.filter(r=>r.status==='Pending').length;
+        const pileCorrected = pileData.filter(r=>r.status==='Corrected').length;
+        const BRIEF_STATUS_LIST = ['Completed','Pending','Corrected','Defected'];
+        const BRIEF_STATUS_COLORS = { Completed:'#16A34A', Pending:'#F0A93B', Corrected:'#2563EB', Defected:'#DC2626' };
+        const briefGeoPoints = pileData.filter(r => r.design_n != null && r.design_e != null);
+        const slidePiling = {
+          title:'งานเสาเข็ม',
+          html:`
+          <div class="brief-slide-head"><div class="ic">🔨</div><div><h1>ความคืบหน้างานเสาเข็ม</h1><div class="sub">Piling Progress &amp; Geographic Distribution</div></div></div>
+          <div class="brief-grid" style="margin-bottom:14px;">
+            ${briefKpiCard('ตอกเสาเข็มได้', pileByDate(today), pileByDate(yesterday), 'ต้น')}
+            <div class="brief-kpi"><div class="lbl">สะสมทั้งหมด (ไม่รวมเสาเข็มแซม)</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted} / ${pileTotalExclRepl} ต้น</span></div></div></div>
+            <div class="brief-kpi"><div class="lbl">รอตอก / ตอกแซม</div><div class="cmp"><div><span class="v">${pilePending}</span><span class="t">รอตอก</span></div><div><span class="v" style="color:var(--muted);font-size:22px;">${pileCorrected}</span><span class="t">ตอกแซม</span></div></div></div>
+          </div>
+          <h3 style="margin:10px 0 8px;">🗺️ Geographic Distribution — ตำแหน่งเสาเข็มตามพิกัดจริง (N/E)</h3>
+          <div class="chart-wrap" style="height:320px;"><canvas id="briefPileGeoChart"></canvas></div>`,
+          afterRender(){
+            destroyChart('briefPg');
+            const geoDatasets = BRIEF_STATUS_LIST.map(status => {
+              const pts = briefGeoPoints.filter(r => r.status === status);
+              if(!pts.length) return null;
+              return {
+                label: status,
+                data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area||'(ไม่ระบุ)' })),
+                backgroundColor: BRIEF_STATUS_COLORS[status],
+                pointRadius: status === 'Defected' ? 5 : 3,
+                pointHoverRadius: 7,
+              };
+            }).filter(Boolean);
+            const canvas = document.getElementById('briefPileGeoChart');
+            if(!canvas) return;
+            chartInstances.briefPg = new Chart(canvas, {
+              type:'scatter',
+              data:{ datasets: geoDatasets },
+              options:{
+                responsive:true, maintainAspectRatio:false,
+                scales:{ x:{ title:{ display:true, text:'E' } }, y:{ title:{ display:true, text:'N' } } },
+                plugins:{ tooltip:{ callbacks:{ label:(ctx)=> 'เสาเข็ม ' + ctx.raw.pile_number + (ctx.raw.area ? ' · ' + ctx.raw.area : '') + ' · ' + ctx.dataset.label } } }
+              }
+            });
+          }
+        };
+
+        // ---- Slide 6: Concrete ----
+        const concByDate = (d) => concreteSummaryData.filter(r=>r.report_date===d).reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
+        const concReportByDate = (d) => concreteReportsData.find(r=>r.report_date===d) || null;
+        const concManpowerOf = (r) => r ? ((r.foreman_count||0)+(r.safety_count||0)+(r.worker_count||0)+(r.other_count||0)) : 0;
+        const slideConcrete = {
+          title:'งานคอนกรีต',
+          html:`
+          <div class="brief-slide-head"><div class="ic">🧱</div><div><h1>งานคอนกรีต</h1><div class="sub">ปริมาณเทคอนกรีต · กำลังคน</div></div></div>
+          <div class="brief-grid">
+            ${briefKpiCard('ปริมาณเทคอนกรีต', Math.round(concByDate(today)*100)/100, Math.round(concByDate(yesterday)*100)/100, 'm³')}
+            ${briefKpiCard('กำลังคนงานคอนกรีต', concManpowerOf(concReportByDate(today)), concManpowerOf(concReportByDate(yesterday)), 'คน')}
+          </div>
+          ${(!concReportByDate(today)) ? '<div class="dash-note" style="margin-top:14px;">⚠️ ยังไม่มีการกรอก Concrete Report ของวันนี้</div>' : ''}`
+        };
+
+        const slides = [slideCover, slideSafety, slideEnv, slideDaily, slidePiling, slideConcrete];
+
+        container.innerHTML = `
+          <div id="briefStage" class="brief-stage">
+            <div id="briefSlideBody" style="flex:1;"></div>
+            <div class="brief-nav">
+              <button type="button" class="btn btn-ghost" id="briefPrev">‹ ก่อนหน้า</button>
+              <div class="brief-dots" id="briefDots"></div>
+              <span style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-ghost" id="briefFullscreen">⛶ เต็มจอ</button>
+                <button type="button" class="btn btn-ghost" id="briefNext">ถัดไป ›</button>
+              </span>
+            </div>
+          </div>`;
+
+        let briefIdx = 0;
+        function renderBriefSlide(){
+          document.getElementById('briefSlideBody').innerHTML = slides[briefIdx].html;
+          document.getElementById('briefDots').innerHTML = slides.map((s,i)=>`<span class="brief-dot ${i===briefIdx?'active':''}" data-i="${i}" title="${escapeHtml(s.title)}"></span>`).join('');
+          document.querySelectorAll('.brief-dot').forEach(d => d.addEventListener('click', ()=>{ briefIdx = Number(d.dataset.i); renderBriefSlide(); }));
+          if(slides[briefIdx].afterRender) slides[briefIdx].afterRender();
+        }
+        renderBriefSlide();
+        document.getElementById('briefPrev').addEventListener('click', ()=>{ briefIdx = (briefIdx - 1 + slides.length) % slides.length; renderBriefSlide(); });
+        document.getElementById('briefNext').addEventListener('click', ()=>{ briefIdx = (briefIdx + 1) % slides.length; renderBriefSlide(); });
+        document.addEventListener('keydown', function briefKeyNav(e){
+          if(!document.getElementById('briefStage')){ document.removeEventListener('keydown', briefKeyNav); return; }
+          if(e.key === 'ArrowRight') document.getElementById('briefNext').click();
+          if(e.key === 'ArrowLeft') document.getElementById('briefPrev').click();
+        });
+        document.getElementById('briefFullscreen').addEventListener('click', ()=>{
+          const el = document.getElementById('briefStage');
+          const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+          if(reqFs) reqFs.call(el);
+        });
       }
     },
   ];

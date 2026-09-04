@@ -17,6 +17,7 @@
   body{-webkit-font-smoothing:antialiased;}
   .wrap{display:flex;min-height:100vh;background:var(--paper);align-items:stretch;}
   .main{flex:1;min-width:0;max-width:720px;margin:0 auto;width:100%;}
+  .main.wide{max-width:1600px;}
   .topbar{background:var(--paper-2);color:var(--ink);padding:14px 16px 12px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(20,30,60,.04);}
   .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--closed);display:inline-block;margin-right:5px;}
   .conn-dot.off{background:var(--danger);}
@@ -90,6 +91,15 @@
   .field input, .field select, .field textarea{width:100%;font-family:var(--body);font-size:14.5px;color:var(--ink);background:#fff;border:1.3px solid var(--line);border-radius:7px;padding:10px 11px;outline:none;}
   .field textarea{resize:vertical;min-height:56px;}
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber-deep);box-shadow:0 0 0 3px rgba(14,163,148,.12);}
+  .detail-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px 20px;align-content:start;}
+  .detail-field{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .detail-field.full{grid-column:1/-1;}
+  .detail-field label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .detail-field .val{font-size:14.5px;color:var(--ink);line-height:1.5;word-break:break-word;}
+  .detail-field .val.empty{color:var(--muted);}
+  .detail-field .val-box{background:#F7F9FB;border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:13.5px;line-height:1.55;color:var(--ink);white-space:pre-wrap;word-break:break-word;}
+  .detail-photos{grid-column:1/-1;}
+  .detail-photos .photo-grid{margin-top:2px;}
   .field .note{font-size:11px;color:var(--muted);margin-top:4px;}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .btn-row{display:flex;gap:10px;padding:2px 16px 18px;}
@@ -128,6 +138,8 @@
   .dash-section{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
   #pileGeoChartWrap:fullscreen, #pileGeoChartWrap:-webkit-full-screen{background:#fff;padding:20px;display:flex;flex-direction:column;overflow:auto;}
   #pileGeoChartWrap:fullscreen #pileGeoCanvasWrap, #pileGeoChartWrap:-webkit-full-screen #pileGeoCanvasWrap{height:calc(100vh - 180px) !important;flex:1 1 auto;}
+  #briefPileGeoWrap:fullscreen, #briefPileGeoWrap:-webkit-full-screen{background:#fff;padding:20px;display:flex;flex-direction:column;overflow:auto;}
+  #briefPileGeoWrap:fullscreen #briefPileGeoCanvasWrap, #briefPileGeoWrap:-webkit-full-screen #briefPileGeoCanvasWrap{height:calc(100vh - 180px) !important;flex:1 1 auto;}
   .dash-section h3{font-size:13px;font-weight:700;color:var(--charcoal);margin:0 0 10px;}
   .dash-section .chart-wrap{position:relative;height:220px;}
   .dash-note{font-size:11px;color:var(--muted);background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-bottom:14px;}
@@ -206,12 +218,29 @@
   .pill.status-closed{background:#DCFCE7;color:var(--closed);}
   .pill.status-overdue{background:#FEE2E2;color:var(--danger);}
   .pill.photos{background:#E0F2EF;color:var(--amber-deep);}
+  .finding-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--paper-2);cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .15s;}
+  .finding-card:hover{box-shadow:0 2px 10px rgba(15,23,42,.1);}
+  .finding-card .fc-cover{height:150px;background:#EEF1F5;overflow:hidden;}
+  .finding-card .fc-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+  .finding-card .fc-cover .ph-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:24px;flex-direction:column;gap:4px;}
+  .finding-card .fc-cover .ph-empty span{font-size:11px;}
+  .finding-card .fc-body{padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px;}
+  .finding-card.sev-low{border-top:4px solid var(--closed);}
+  .finding-card.sev-medium{border-top:4px solid var(--amber);}
+  .finding-card.sev-high{border-top:4px solid #EA8C2E;}
+  .finding-card.sev-critical{border-top:4px solid var(--danger);}
+  .finding-card.sev-none{border-top:4px solid var(--line);}
+  .finding-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
   .empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
   .empty-state .mark{font-size:34px;margin-bottom:10px;}
   .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:50;display:none;align-items:flex-end;justify-content:center;}
   .modal-bg.show{display:flex;}
   .modal{background:var(--paper);width:100%;max-width:720px;max-height:92vh;overflow-y:auto;border-radius:14px 14px 0 0;animation:slideup .2s ease-out;}
   @keyframes slideup{from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;}}
+  @media (min-width:761px){
+    .modal-bg{align-items:center;padding:24px;}
+    .modal{border-radius:14px;max-height:88vh;}
+  }
   .modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);}
   .modal-head h2{font-family:var(--disp);font-size:15px;margin:0;color:var(--charcoal);}
   .modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:4px;}
@@ -227,6 +256,12 @@
   .lightbox.show{display:flex;}
   .lightbox img{max-width:100%;max-height:100%;border-radius:6px;}
   .lightbox .lb-close{position:absolute;top:16px;right:18px;color:#fff;font-size:26px;background:none;border:none;cursor:pointer;}
+  .lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:36px;line-height:1;background:rgba(15,23,42,.45);border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .lightbox .lb-prev{left:14px;}
+  .lightbox .lb-next{right:14px;}
+  .lightbox .lb-nav:hover{background:rgba(15,23,42,.7);}
+  .lightbox .lb-counter{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(15,23,42,.55);padding:4px 10px;border-radius:12px;}
+  @media(max-width:640px){ .lightbox .lb-nav{width:40px;height:40px;font-size:28px;} .lightbox .lb-prev{left:6px;} .lightbox .lb-next{right:6px;} }
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   @media (max-width:400px){.two-col{grid-template-columns:1fr;}}
@@ -403,7 +438,7 @@
 </div>
 
 <div class="modal-bg" id="modalBg"><div class="modal" id="modalContent"></div></div>
-<div class="lightbox" id="lightbox"><button class="lb-close" id="lbClose">&times;</button><img id="lbImg" src=""></div>
+<div class="lightbox" id="lightbox"><button class="lb-close" id="lbClose">&times;</button><button class="lb-nav lb-prev" id="lbPrev">&#8249;</button><button class="lb-nav lb-next" id="lbNext">&#8250;</button><img id="lbImg" src=""><div class="lb-counter" id="lbCounter"></div></div>
 <div class="success-toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -582,7 +617,7 @@
       idLabel(f){ return 'DR-' + (f.id ? f.id.slice(0,6) : ''); },
       detailExtra(f){
         const dur = calcDuration(f.time_start, f.time_end);
-        return `<div class="field"><label>Working Hours</label><div>${escapeHtml(f.time_start||'--')} – ${escapeHtml(f.time_end||'--')} (${dur})</div></div>`;
+        return `<div class="detail-field"><label>Working Hours</label><div class="val">${escapeHtml(f.time_start||'--')} – ${escapeHtml(f.time_end||'--')} (${dur})</div></div>`;
       }
     },
     {
@@ -856,22 +891,47 @@
     const map = {Open:'status-open','In Progress':'status-in-progress',Closed:'status-closed',Overdue:'status-overdue'};
     return map[status] || 'loc';
   }
+  // เรนเดอร์ฟิลด์ของ "หน้ารายละเอียด" (อ่านอย่างเดียว) แยกจาก .form-grid/.field ที่ใช้กับฟอร์มกรอกข้อมูล —
+  // จัดเป็นกริดสั้นๆ สำหรับฟิลด์ทั่วไป, ฟิลด์ข้อความยาว (textarea) ขึ้นบรรทัดเต็มความกว้างพร้อมกล่องพื้นหลัง,
+  // และฟิลด์ที่เป็น accent/badge ของโมดูล (เช่น Severity, Status) ให้ขึ้นเป็นสี/ป้ายให้อ่านง่ายขึ้น
+  function renderDetailFieldsHtml(fields, f, mod){
+    const m = mod || activeModule;
+    const sevColors = { 'sev-low':'#16A34A', 'sev-medium':'#B45309', 'sev-high':'#EA8C2E', 'sev-critical':'#DC2626', 'sev-none':'var(--ink)' };
+    return fields.map(fl => {
+      const isLong = fl.type === 'textarea';
+      const val = f[fl.key];
+      let valueHtml;
+      if(m.accentField === fl.key && val){
+        const cls = (m.accentMap && m.accentMap[val]) || 'sev-none';
+        valueHtml = `<div class="val"><span style="font-weight:700;color:${sevColors[cls]||'var(--ink)'};">${escapeHtml(val)}</span></div>`;
+      } else if((m.badgeFields||[]).includes(fl.key) && val){
+        const cls = (m.badgeColorMap && m.badgeColorMap[val]) || 'loc';
+        valueHtml = `<div class="val"><span class="pill ${cls}">${escapeHtml(val)}</span></div>`;
+      } else if(isLong){
+        valueHtml = `<div class="val-box">${formatFieldDisplay(fl, val)}</div>`;
+      } else {
+        const disp = formatFieldDisplay(fl, val);
+        valueHtml = `<div class="val${(!val || disp === '-') ? ' empty' : ''}">${disp}</div>`;
+      }
+      return `<div class="detail-field${isLong ? ' full' : ''}"><label>${escapeHtml(fl.label)}</label>${valueHtml}</div>`;
+    }).join('');
+  }
   function openFindingDetailStatic(f){
     const findingsModule = MODULES.find(m=>m.id==='findings');
     const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-    const fieldsHtml = findingsModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${formatFieldDisplay(fl, f[fl.key])}</div></div>`).join('');
+    const fieldsHtml = renderDetailFieldsHtml(findingsModule.fields, f, findingsModule);
     const modal = $('#modalContent');
     modal.innerHTML = `
       <div class="modal-head"><h2>${escapeHtml(f.finding_number || '')}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
-      <div class="form-grid">
+      <div class="detail-grid">
         ${fieldsHtml}
-        <div class="field"><label>Photos</label>
+        <div class="detail-field full detail-photos"><label>Photos</label>
           <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
         </div>
       </div>`;
     $('#modalBg').classList.add('show');
     $('#modalCloseBtn').addEventListener('click', ()=> $('#modalBg').classList.remove('show'));
-    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
   }
   function renderRecentFindingsSafety(list, containerId){
     const container = document.getElementById(containerId || 'recentFindingsList');
@@ -2295,7 +2355,7 @@
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=report_date,today_m3', { headers: HEADERS }),
-            fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,design_n,design_e,area'),
+            fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
           ]);
           if(r1.ok) findingsData = await r1.json();
           if(r2.ok) envData = await r2.json();
@@ -2317,32 +2377,35 @@
             ${unit ? `<div class="t" style="margin-top:8px;">${escapeHtml(unit)}</div>` : ''}
           </div>`;
         }
-        function briefFindingListHtml(list, emptyText){
-          if(!list.length) return `<div class="dash-note" style="margin-top:10px;">${escapeHtml(emptyText)}</div>`;
-          return list.map(f=>{
-            const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-            const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
-            return `
-            <div class="finding ${findingSevClassStatic(f)}" data-brief-finding-id="${f.id}">
-              <div class="stripe"></div>
-              <div class="cover">${coverHtml}</div>
-              <div class="body2">
-                <div class="f-top"><span class="f-num">${escapeHtml(f.finding_number||'')}</span><span class="f-date">${escapeHtml(f.finding_date||'')}</span></div>
-                <div class="f-desc">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
-                <div class="f-meta">
-                  <span class="pill loc">${escapeHtml(f.location||'-')}</span>
-                  <span class="pill ${findingBadgeClassStatic(f.status)}">${escapeHtml(f.status||'-')}</span>
-                  <span class="pill loc">${escapeHtml(f.severity||'-')}</span>
-                  ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
-                </div>
+        function briefFindingCardHtml(f){
+          const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+          const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️<span>ไม่มีรูป</span></div>`;
+          return `
+          <div class="finding-card ${findingSevClassStatic(f)}" data-brief-finding-id="${f.id}">
+            <div class="fc-cover">${coverHtml}</div>
+            <div class="fc-body">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                <span style="font-family:var(--mono);font-size:11.5px;color:var(--muted);font-weight:700;">${escapeHtml(f.finding_number||'')}</span>
+                <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${escapeHtml(f.finding_date||'')}</span>
               </div>
-            </div>`;
-          }).join('');
+              <div style="font-size:13.5px;line-height:1.4;color:var(--ink);">${escapeHtml(f.description||'(ไม่มีรายละเอียด)')}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
+                <span class="pill loc">${escapeHtml(f.location||'-')}</span>
+                <span class="pill ${findingBadgeClassStatic(f.status)}">${escapeHtml(f.status||'-')}</span>
+                <span class="pill loc">${escapeHtml(f.severity||'-')}</span>
+                ${urls.length ? `<span class="pill photos">📷 ${urls.length}</span>` : ''}
+              </div>
+            </div>
+          </div>`;
+        }
+        function briefFindingCardGridHtml(list, emptyText){
+          if(!list.length) return `<div class="dash-note" style="margin-top:10px;">${escapeHtml(emptyText)}</div>`;
+          return `<div class="finding-card-grid">${list.map(briefFindingCardHtml).join('')}</div>`;
         }
         function wireBriefFindingClicks(containerId, list){
           const el = document.getElementById(containerId);
           if(!el) return;
-          el.querySelectorAll('.finding').forEach(node => {
+          el.querySelectorAll('.finding-card').forEach(node => {
             node.addEventListener('click', ()=>{
               const f = list.find(x => String(x.id) === node.dataset.briefFindingId);
               if(f) openFindingDetailStatic(f);
@@ -2357,6 +2420,27 @@
         const pilePct = pileTotalExclRepl ? Math.round((pileCompleted/pileTotalExclRepl)*1000)/10 : 0;
         const ltiWeekCount = Number(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)').week_actual) || 0;
         const safeDays = hseSettings && hseSettings.start_date ? daysBetweenInclusive(hseSettings.start_date, today) : 0;
+
+        // ชั่วโมงทำงานสะสม (Safe Man-Hours) = กำลังคนรวมต่อวัน (Daily Report + Concrete Report) × 10 ชม.
+        // สะสมตั้งแต่ "วันเริ่มนับ" (hse_safe_days_counter.start_date) ถึงวันนี้ — สูตรเดียวกับหน้า Safety KPI & Safe Days
+        let cumulativeManHours = 0, cumulativeManpowerDays = 0;
+        if(hseSettings && hseSettings.start_date){
+          const mhStart = hseSettings.start_date;
+          const mhByDate = {};
+          dailyData.forEach(r=>{
+            if(!r.report_date || r.report_date < mhStart) return;
+            const mp = sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
+            mhByDate[r.report_date] = (mhByDate[r.report_date]||0) + mp;
+          });
+          concreteReportsData.forEach(r=>{
+            if(!r.report_date || r.report_date < mhStart) return;
+            const mp = (r.foreman_count||0) + (r.safety_count||0) + (r.worker_count||0) + (r.other_count||0);
+            mhByDate[r.report_date] = (mhByDate[r.report_date]||0) + mp;
+          });
+          cumulativeManpowerDays = Object.values(mhByDate).reduce((s,v)=>s+v, 0);
+          cumulativeManHours = cumulativeManpowerDays * 10;
+        }
+
         const slideCover = {
           title:'Cover',
           html:`
@@ -2366,6 +2450,7 @@
           </div>
           <div class="brief-grid">
             <div class="brief-kpi"><div class="lbl">Safe Working Day</div><div class="cmp"><div><span class="v">${safeDays}</span><span class="t">วัน ไม่เกิด LTI</span></div></div></div>
+            <div class="brief-kpi"><div class="lbl">ชั่วโมงทำงานสะสม</div><div class="cmp"><div><span class="v">${cumulativeManHours.toLocaleString()}</span><span class="t">ชม. (Man-Hours)</span></div></div></div>
             <div class="brief-kpi"><div class="lbl">ความคืบหน้างานเสาเข็ม</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted}/${pileTotalExclRepl} ต้น</span></div></div></div>
           </div>
           <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`
@@ -2377,6 +2462,20 @@
         const foundToday = findByDate(today), foundYest = findByDate(yesterday);
         const closedToday = closedByDate(today), closedYest = closedByDate(yesterday);
         const highCritToday = foundToday.filter(f => f.severity === 'High' || f.severity === 'Critical');
+
+        // หมวดหมู่ (Category) รวม / ประจำวัน — ไม่รวมหมวด "ชื่นชม"
+        const findingsCategoryField = MODULES.find(m=>m.id==='findings').fields.find(fl=>fl.key==='category');
+        const findingsCategoryOrder = (findingsCategoryField ? findingsCategoryField.options : []).filter(c => c !== 'ชื่นชม');
+        const findingsDataExclRecognition = findingsData.filter(f => f.category !== 'ชื่นชม');
+        function groupFindingsByCategory(list){
+          const g = {};
+          list.forEach(f=>{ const v = f.category || 'ไม่ระบุ'; g[v] = (g[v]||0)+1; });
+          const known = findingsCategoryOrder.filter(c => g[c] != null);
+          const extra = Object.keys(g).filter(c => !findingsCategoryOrder.includes(c));
+          return known.concat(extra).map(c => [c, g[c]]);
+        }
+        const catOrderedAll = groupFindingsByCategory(findingsDataExclRecognition);
+        const catOrderedTodayBrief = groupFindingsByCategory(findingsDataExclRecognition.filter(f => f.finding_date === today));
         const slideSafety = {
           title:'Safety',
           html:`
@@ -2387,18 +2486,39 @@
             ${briefKpiCard('Finding ระดับ High/Critical (วันนี้)', highCritToday.length, '-', 'รายการ')}
           </div>
           <div style="margin-bottom:16px;">${renderSafeDayCardHtml(hseSettings, ltiWeekCount)}</div>
-          <div style="overflow-y:auto;max-height:340px;">
+          <div style="overflow-y:auto;max-height:520px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+              <div class="dash-section" style="margin:0;">
+                <h3 style="margin:0 0 8px;">หมวดหมู่ (Category) รวม</h3>
+                <div class="chart-wrap" id="briefCatAllWrap" style="height:${Math.max(180, catOrderedAll.length * 28 + 30)}px;"><canvas id="briefChartCategoryAll"></canvas></div>
+              </div>
+              <div class="dash-section" style="margin:0;">
+                <h3 style="margin:0 0 8px;">หมวดหมู่ (Category) ประจำวัน</h3>
+                <div class="chart-wrap" id="briefCatTodayWrap" style="height:${Math.max(180, catOrderedTodayBrief.length * 28 + 30)}px;">${catOrderedTodayBrief.length ? '<canvas id="briefChartCategoryToday"></canvas>' : '<div class="dash-empty" style="padding:14px;">ยังไม่มี Findings วันนี้</div>'}</div>
+              </div>
+            </div>
             <h3 style="margin:14px 0 8px;">🆕 พบ Finding ใหม่ วันนี้</h3>
-            <div id="briefFindNewList">${briefFindingListHtml(foundToday, 'ไม่มี Finding ใหม่วันนี้')}</div>
+            <div id="briefFindNewList">${briefFindingCardGridHtml(foundToday, 'ไม่มี Finding ใหม่วันนี้')}</div>
             <h3 style="margin:16px 0 8px;">✅ ปิด Finding ได้ วันนี้</h3>
-            <div id="briefFindClosedList">${briefFindingListHtml(closedToday, 'ยังไม่มี Finding ที่ปิดวันนี้')}</div>
+            <div id="briefFindClosedList">${briefFindingCardGridHtml(closedToday, 'ยังไม่มี Finding ที่ปิดวันนี้')}</div>
+            <h3 style="margin:16px 0 8px;">🆕 พบ Finding ใหม่ เมื่อวาน</h3>
+            <div id="briefFindNewYestList">${briefFindingCardGridHtml(foundYest, 'ไม่มี Finding ใหม่เมื่อวาน')}</div>
+            <h3 style="margin:16px 0 8px;">✅ ปิด Finding ได้ เมื่อวาน</h3>
+            <div id="briefFindClosedYestList">${briefFindingCardGridHtml(closedYest, 'ไม่มี Finding ที่ปิดเมื่อวาน')}</div>
             <h3 style="margin:16px 0 8px;">🔴 Finding ระดับ High/Critical วันนี้</h3>
-            <div id="briefFindHighList">${briefFindingListHtml(highCritToday, 'ไม่มี Finding ระดับ High/Critical วันนี้')}</div>
+            <div id="briefFindHighList">${briefFindingCardGridHtml(highCritToday, 'ไม่มี Finding ระดับ High/Critical วันนี้')}</div>
           </div>`,
           afterRender(){
             wireBriefFindingClicks('briefFindNewList', foundToday);
             wireBriefFindingClicks('briefFindClosedList', closedToday);
+            wireBriefFindingClicks('briefFindNewYestList', foundYest);
+            wireBriefFindingClicks('briefFindClosedYestList', closedYest);
             wireBriefFindingClicks('briefFindHighList', highCritToday);
+            destroyChart('bsca'); destroyChart('bsct');
+            const catAllEl = document.getElementById('briefChartCategoryAll');
+            if(catAllEl) chartInstances.bsca = new Chart(catAllEl, { type:'bar', data:{ labels:catOrderedAll.map(x=>x[0]), datasets:[{ data:catOrderedAll.map(x=>x[1]), backgroundColor:'#2563EB' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
+            const catTodayEl = document.getElementById('briefChartCategoryToday');
+            if(catTodayEl) chartInstances.bsct = new Chart(catTodayEl, { type:'bar', data:{ labels:catOrderedTodayBrief.map(x=>x[0]), datasets:[{ data:catOrderedTodayBrief.map(x=>x[1]), backgroundColor:'#F97316' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ autoSkip:false } } } } });
           }
         };
 
@@ -2432,10 +2552,30 @@
             ${briefKpiCard('ขยะรวมทั้งหมด', Math.round(envSum(envToday)*100)/100, Math.round(envSum(envYest)*100)/100, 'Kg')}
             ${ENV_CATEGORIES.map(c => briefKpiCard(c.label, Math.round((Number(envToday[c.key])||0)*100)/100, Math.round((Number(envYest[c.key])||0)*100)/100, 'Kg')).join('')}
           </div>
-          <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์นี้ (ตัดรอบวันจันทร์)</h3>
-          <div style="overflow-y:auto;max-height:320px;">${envWeekCardHtml}</div>`,
+          <div style="overflow-y:auto;max-height:420px;">
+            <h3 style="margin:0 0 8px;">📊 ปริมาณขยะแยกตามประเภทรายวัน (สัปดาห์นี้)</h3>
+            <div class="chart-wrap" style="height:260px;margin-bottom:18px;">${envWeekRows.length ? '<canvas id="briefEnvWeekChart"></canvas>' : '<div class="dash-empty" style="padding:14px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์นี้</div>'}</div>
+            <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์นี้ (ตัดรอบวันจันทร์)</h3>
+            ${envWeekCardHtml}
+          </div>`,
           afterRender(){
-            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+            destroyChart('briefEnvWeek');
+            const envChartEl = document.getElementById('briefEnvWeekChart');
+            if(envChartEl){
+              chartInstances.briefEnvWeek = new Chart(envChartEl, {
+                type:'bar',
+                data:{
+                  labels: envWeekRows.map(r=>r.report_date),
+                  datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: envWeekRows.map(r=>Number(r[c.key])||0), backgroundColor:c.color }))
+                },
+                options:{
+                  responsive:true, maintainAspectRatio:false,
+                  scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'Kg' } } },
+                  plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } }
+                }
+              });
+            }
           }
         };
 
@@ -2445,6 +2585,15 @@
         const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop)) : 0;
         const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
         const weatherLine = (r) => r ? [r.weather_0609,r.weather_0912,r.weather_1215,r.weather_1518].filter(Boolean).join(' / ') : '-';
+        // ตัดขึ้นบรรทัดใหม่ทุกครั้งที่เจอ "-" ที่ใช้เป็นตัวคั่นรายการย่อย (มีช่องว่าง/ต้นบรรทัดนำหน้า) เพื่อให้อ่านเป็นรายการง่ายขึ้น
+        function formatDashList(text){
+          const raw = (text || '').toString();
+          if(!raw.trim()) return '-';
+          const normalized = raw.replace(/\r\n/g, '\n');
+          const withBreaks = normalized.replace(/(^|\n|\s)-\s+/g, '$1\n- ');
+          const lines = withBreaks.split('\n').map(l => l.trim()).filter(Boolean);
+          return lines.map(l => escapeHtml(l)).join('<br>');
+        }
         function dailyDetailBlockHtml(label, r){
           if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)}</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
           const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
@@ -2453,8 +2602,8 @@
             <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||'')})</div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
-            <div style="margin-bottom:6px;"><b>🎯 กิจกรรม:</b> ${escapeHtml(r.activities || '-')}</div>
-            <div style="margin-bottom:8px;"><b>📊 Progress:</b> ${escapeHtml(r.progress_summary || '-')}</div>
+            <div style="margin-bottom:6px;line-height:1.6;"><b>🎯 กิจกรรม:</b><br>${formatDashList(r.activities)}</div>
+            <div style="margin-bottom:8px;line-height:1.6;"><b>📊 Progress:</b><br>${formatDashList(r.progress_summary)}</div>
             ${urls.length ? `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>` : '<div class="dash-note">ไม่มีรูปภาพ</div>'}
           </div>`;
         }
@@ -2466,22 +2615,97 @@
             ${briefKpiCard('กำลังคนรวม', manpowerOf(dToday), manpowerOf(dYest), 'คน')}
             ${briefKpiCard('เครื่องจักร/อุปกรณ์', equipOf(dToday), equipOf(dYest), 'รายการ (รวมจำนวน)')}
           </div>
-          <div style="overflow-y:auto;max-height:340px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow-y:auto;max-height:460px;">
             ${dailyDetailBlockHtml('วันนี้', dToday)}
             ${dailyDetailBlockHtml('เมื่อวาน', dYest)}
           </div>`,
           afterRender(){
-            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
           }
         };
 
-        // ---- Slide 5: Piling progress (+ Geographic Distribution scatter) ----
+        // ---- Slide 5: Piling progress (+ Rig / Progress by Area / Geographic Distribution scatter) ----
         const pileByDate = (d) => pileData.filter(r => r.piled_date === d).length;
         const pilePending = pileData.filter(r=>r.status==='Pending').length;
         const pileCorrected = pileData.filter(r=>r.status==='Corrected').length;
         const BRIEF_STATUS_LIST = ['Completed','Pending','Corrected','Defected'];
         const BRIEF_STATUS_COLORS = { Completed:'#16A34A', Pending:'#F0A93B', Corrected:'#2563EB', Defected:'#DC2626' };
         const briefGeoPoints = pileData.filter(r => r.design_n != null && r.design_e != null);
+
+        // Rig ที่ตอก & จำนวนต้นที่ตอกได้ (วันนี้ / เมื่อวาน)
+        const briefRigCounts = (d) => { const m = {}; pileData.forEach(r=>{ if(r.piled_date === d && r.rig_code){ m[r.rig_code] = (m[r.rig_code]||0) + 1; } }); return m; };
+        const briefRigToday = briefRigCounts(today), briefRigYest = briefRigCounts(yesterday);
+        const briefRigKeys = Array.from(new Set([...Object.keys(briefRigToday), ...Object.keys(briefRigYest)])).sort();
+        const briefRigRowsHtml = briefRigKeys.length ? briefRigKeys.map(rc => {
+          const rigNoPair = RIG_RIG_CODE_MAP.find(p => p[1] === rc);
+          const rigLabel = rigNoPair ? ('RIG.' + rigNoPair[0] + ' (' + rc + ')') : rc;
+          return `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="flex:0 0 140px;font-weight:700;color:var(--charcoal);font-family:var(--mono);">${escapeHtml(rigLabel)}</div>
+            <div style="flex:1 1 auto;color:var(--muted);font-size:13px;">วันนี้: <span style="font-weight:700;color:#2563EB;">${briefRigToday[rc]||0}</span> ต้น &nbsp;·&nbsp; เมื่อวาน: <span style="font-weight:700;color:var(--muted);">${briefRigYest[rc]||0}</span> ต้น</div>
+          </div>`;
+        }).join('') : '<div class="dash-note">ยังไม่มีการตอกเสาเข็มวันนี้/เมื่อวาน</div>';
+
+        // ความก้าวหน้าตามพื้นที่ (Progress by Area) — ไม่รวมเสาเข็มแซมในตัวหาร เหมือน Dashboard Piling
+        const briefAreaKeys = Array.from(new Set(pileData.map(r=>r.area||'(ไม่ระบุ)'))).sort();
+        const briefAreaProgressHtml = briefAreaKeys.map(a=>{
+          const rowsForArea = pileData.filter(r => (r.area||'(ไม่ระบุ)') === a && !isReplacementPile(r));
+          const cnt = rowsForArea.length;
+          const done = rowsForArea.filter(r=>r.status==='Completed').length;
+          const pct = cnt ? Math.round((done/cnt)*1000)/10 : 0;
+          return `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <div style="flex:0 0 52px;font-weight:700;color:var(--charcoal);font-size:13px;">${escapeHtml(a)}</div>
+            <div style="flex:1 1 auto;height:14px;background:#EEF1F4;border-radius:7px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2563EB,#0EA394);border-radius:7px;"></div>
+            </div>
+            <div style="flex:0 0 50px;text-align:right;font-weight:700;color:#2563EB;font-size:13px;">${pct}%</div>
+            <div style="flex:0 0 80px;text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;">${done} / ${cnt}</div>
+          </div>`;
+        }).join('');
+
+        // Geographic Distribution — Highlight (This Week / Last Week) &amp; Soon, ported from Dashboard Piling
+        let briefGeoHiThisWeek = false, briefGeoHiLastWeek = false, briefGeoHiSoon = false;
+        function briefIsoDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dd; }
+        function briefWeekRangeStr(offsetWeeks){
+          const now = new Date();
+          const day = now.getDay();
+          const diffToMonday = (day === 0 ? -6 : 1 - day);
+          const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday + offsetWeeks*7);
+          const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+          return { start: briefIsoDate(monday), end: briefIsoDate(sunday) };
+        }
+        function briefGeoPointToChartPoint(p){ return { x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area||'(ไม่ระบุ)', id: p.id, piled_date: p.piled_date||null, plan_date: p.plan_date||null }; }
+        function buildBriefGeoHighlightDatasets(){
+          const out = [];
+          if(briefGeoHiThisWeek || briefGeoHiLastWeek){
+            const now = new Date();
+            const todayStr = briefIsoDate(now);
+            const yestDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
+            const yesterdayStr = briefIsoDate(yestDate);
+            const blueIds = new Set();
+            if(briefGeoHiThisWeek){ briefGeoPoints.forEach(r=>{ if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); }); }
+            const ranges = [];
+            if(briefGeoHiThisWeek) ranges.push(briefWeekRangeStr(0));
+            if(briefGeoHiLastWeek) ranges.push(briefWeekRangeStr(-1));
+            const magentaPts = briefGeoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
+            const bluePts = briefGeoPoints.filter(r => blueIds.has(r.id));
+            if(magentaPts.length) out.push({ label:'ตอกในสัปดาห์ที่เลือก', data: magentaPts.map(briefGeoPointToChartPoint), backgroundColor:'#D946EF', borderColor:'#9D174D', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
+            if(bluePts.length) out.push({ label:'ตอกวันนี้ / เมื่อวาน', data: bluePts.map(briefGeoPointToChartPoint), backgroundColor:'#2563EB', borderColor:'#1E3A8A', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
+          }
+          if(briefGeoHiSoon){
+            const thisWeek = briefWeekRangeStr(0), nextWeek = briefWeekRangeStr(1);
+            const soonPts = briefGeoPoints.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
+            if(soonPts.length) out.push({ label:'แผนตอกเร็วๆ นี้ (สัปดาห์นี้-หน้า)', data: soonPts.map(briefGeoPointToChartPoint), backgroundColor:'#F0A93B', borderColor:'#B7791F', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
+          }
+          return out;
+        }
+        function briefRefreshGeoDatasets(baseDatasets){
+          if(!chartInstances.briefPg) return;
+          chartInstances.briefPg.data.datasets = baseDatasets.concat(buildBriefGeoHighlightDatasets());
+          chartInstances.briefPg.update();
+        }
+
         const slidePiling = {
           title:'งานเสาเข็ม',
           html:`
@@ -2491,8 +2715,28 @@
             <div class="brief-kpi"><div class="lbl">สะสมทั้งหมด (ไม่รวมเสาเข็มแซม)</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted} / ${pileTotalExclRepl} ต้น</span></div></div></div>
             <div class="brief-kpi"><div class="lbl">รอตอก / ตอกแซม</div><div class="cmp"><div><span class="v">${pilePending}</span><span class="t">รอตอก</span></div><div><span class="v" style="color:var(--muted);font-size:22px;">${pileCorrected}</span><span class="t">ตอกแซม</span></div></div></div>
           </div>
-          <h3 style="margin:10px 0 8px;">🗺️ Geographic Distribution — ตำแหน่งเสาเข็มตามพิกัดจริง (N/E)</h3>
-          <div class="chart-wrap" style="height:320px;"><canvas id="briefPileGeoChart"></canvas></div>`,
+          <div style="overflow-y:auto;max-height:460px;">
+            <div class="dash-section" style="margin-bottom:14px;">
+              <h3 style="margin:0 0 8px;">🚜 Rig ที่ตอก &amp; จำนวนต้นที่ตอกได้</h3>
+              ${briefRigRowsHtml}
+            </div>
+            <div class="dash-section" style="margin-bottom:14px;">
+              <h3 style="margin:0 0 8px;">ความก้าวหน้าตามพื้นที่ (Progress by Area)</h3>
+              ${briefAreaProgressHtml}
+            </div>
+            <div class="dash-section" id="briefPileGeoWrap" style="margin:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <h3 style="margin:0;">🗺️ Geographic Distribution — ตำแหน่งเสาเข็มตามพิกัดจริง (N/E)</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-ghost" id="briefBtnGeoThisWeek">📅 This Week</button>
+                  <button type="button" class="btn btn-ghost" id="briefBtnGeoLastWeek">📅 Last Week</button>
+                  <button type="button" class="btn btn-ghost" id="briefBtnGeoSoon">🟡 Soon</button>
+                  <button type="button" class="btn btn-ghost" id="briefBtnGeoFullscreen">⛶ เต็มจอ</button>
+                </div>
+              </div>
+              <div class="chart-wrap" id="briefPileGeoCanvasWrap" style="height:320px;"><canvas id="briefPileGeoChart"></canvas></div>
+            </div>
+          </div>`,
           afterRender(){
             destroyChart('briefPg');
             const geoDatasets = BRIEF_STATUS_LIST.map(status => {
@@ -2500,7 +2744,7 @@
               if(!pts.length) return null;
               return {
                 label: status,
-                data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area||'(ไม่ระบุ)' })),
+                data: pts.map(briefGeoPointToChartPoint),
                 backgroundColor: BRIEF_STATUS_COLORS[status],
                 pointRadius: status === 'Defected' ? 5 : 3,
                 pointHoverRadius: 7,
@@ -2510,13 +2754,43 @@
             if(!canvas) return;
             chartInstances.briefPg = new Chart(canvas, {
               type:'scatter',
-              data:{ datasets: geoDatasets },
+              data:{ datasets: geoDatasets.concat(buildBriefGeoHighlightDatasets()) },
               options:{
                 responsive:true, maintainAspectRatio:false,
                 scales:{ x:{ title:{ display:true, text:'E' } }, y:{ title:{ display:true, text:'N' } } },
                 plugins:{ tooltip:{ callbacks:{ label:(ctx)=> 'เสาเข็ม ' + ctx.raw.pile_number + (ctx.raw.area ? ' · ' + ctx.raw.area : '') + ' · ' + ctx.dataset.label } } }
               }
             });
+            const btnThisWeek = document.getElementById('briefBtnGeoThisWeek');
+            const btnLastWeek = document.getElementById('briefBtnGeoLastWeek');
+            const btnSoon = document.getElementById('briefBtnGeoSoon');
+            if(btnThisWeek){
+              btnThisWeek.classList.toggle('active', briefGeoHiThisWeek);
+              btnThisWeek.addEventListener('click', ()=>{ briefGeoHiThisWeek = !briefGeoHiThisWeek; btnThisWeek.classList.toggle('active', briefGeoHiThisWeek); briefRefreshGeoDatasets(geoDatasets); });
+            }
+            if(btnLastWeek){
+              btnLastWeek.classList.toggle('active', briefGeoHiLastWeek);
+              btnLastWeek.addEventListener('click', ()=>{ briefGeoHiLastWeek = !briefGeoHiLastWeek; btnLastWeek.classList.toggle('active', briefGeoHiLastWeek); briefRefreshGeoDatasets(geoDatasets); });
+            }
+            if(btnSoon){
+              btnSoon.classList.toggle('active-soon', briefGeoHiSoon);
+              btnSoon.addEventListener('click', ()=>{ briefGeoHiSoon = !briefGeoHiSoon; btnSoon.classList.toggle('active-soon', briefGeoHiSoon); briefRefreshGeoDatasets(geoDatasets); });
+            }
+            const briefGeoFsBtn = document.getElementById('briefBtnGeoFullscreen');
+            if(briefGeoFsBtn){
+              briefGeoFsBtn.addEventListener('click', ()=>{
+                const wrap = document.getElementById('briefPileGeoWrap');
+                const reqFs = wrap.requestFullscreen || wrap.webkitRequestFullscreen || wrap.msRequestFullscreen;
+                const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                if(!document.fullscreenElement){ reqFs.call(wrap); } else { exitFs.call(document); }
+              });
+              document.addEventListener('fullscreenchange', ()=>{
+                const wrap = document.getElementById('briefPileGeoWrap');
+                if(!wrap) return;
+                briefGeoFsBtn.textContent = document.fullscreenElement === wrap ? '⤡ ออกจากเต็มจอ' : '⛶ เต็มจอ';
+                if(chartInstances.briefPg) setTimeout(()=> chartInstances.briefPg.resize(), 50);
+              });
+            }
           }
         };
 
@@ -3025,7 +3299,7 @@
         ${!p.isExisting ? '<span class="up-badge">ใหม่</span>' : ''}
         <button class="rm" data-id="${p.id}">&times;</button>
       </div>`).join('');
-    grid.querySelectorAll('img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+    grid.querySelectorAll('img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
     grid.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', (e)=>{
       e.stopPropagation();
       const p = pendingPhotos.find(x => x.id === btn.dataset.id);
@@ -3036,9 +3310,41 @@
     }));
   }
   $('#f_photoInput').addEventListener('change', (e)=>{ if(e.target.files && e.target.files.length){ handleFileSelect(e.target.files); e.target.value=''; } });
-  function openLightbox(src){ $('#lbImg').src = src; $('#lightbox').classList.add('show'); }
+  let lbGallery = [];
+  let lbIndex = 0;
+  function showLbImage(){
+    $('#lbImg').src = lbGallery[lbIndex] || '';
+    const nav = lbGallery.length > 1;
+    $('#lbPrev').style.display = nav ? 'flex' : 'none';
+    $('#lbNext').style.display = nav ? 'flex' : 'none';
+    $('#lbCounter').textContent = nav ? (lbIndex+1) + ' / ' + lbGallery.length : '';
+  }
+  function lbNext(){ if(!lbGallery.length) return; lbIndex = (lbIndex+1) % lbGallery.length; showLbImage(); }
+  function lbPrev(){ if(!lbGallery.length) return; lbIndex = (lbIndex-1+lbGallery.length) % lbGallery.length; showLbImage(); }
+  function openLightbox(src, imgEl){
+    if(imgEl){
+      const container = imgEl.closest('.photo-grid');
+      const imgs = container ? Array.from(container.querySelectorAll('img[data-full]')) : [imgEl];
+      lbGallery = imgs.map(im => im.dataset.full || im.src);
+      lbIndex = imgs.indexOf(imgEl);
+      if(lbIndex < 0) lbIndex = 0;
+    } else {
+      lbGallery = [src];
+      lbIndex = 0;
+    }
+    showLbImage();
+    $('#lightbox').classList.add('show');
+  }
   $('#lbClose').addEventListener('click', ()=> $('#lightbox').classList.remove('show'));
+  $('#lbNext').addEventListener('click', (e)=>{ e.stopPropagation(); lbNext(); });
+  $('#lbPrev').addEventListener('click', (e)=>{ e.stopPropagation(); lbPrev(); });
   $('#lightbox').addEventListener('click', (e)=>{ if(e.target.id === 'lightbox') $('#lightbox').classList.remove('show'); });
+  document.addEventListener('keydown', (e)=>{
+    if(!$('#lightbox').classList.contains('show')) return;
+    if(e.key === 'ArrowRight') lbNext();
+    else if(e.key === 'ArrowLeft') lbPrev();
+    else if(e.key === 'Escape') $('#lightbox').classList.remove('show');
+  });
 
   // ---------- sidebar navigation (Report / Dashboard, separated) ----------
   function navBtnHtml(m){
@@ -3064,6 +3370,7 @@
       $('#panel-list').hidden = true;
       $('#panel-custom').hidden = true;
       $('#panel-dashboard').hidden = false;
+      $('.main').classList.add('wide');
       $('#statRow').innerHTML = '';
       await dash.render($('#dashboardContent'));
       return;
@@ -3076,6 +3383,7 @@
       $('#panel-list').hidden = true;
       $('#panel-dashboard').hidden = true;
       $('#panel-custom').hidden = false;
+      $('.main').classList.add('wide');
       $('#statRow').innerHTML = '';
       await custom.render($('#customContent'));
       return;
@@ -3083,6 +3391,7 @@
     $('.tabs').style.display = '';
     $('#panel-dashboard').hidden = true;
     $('#panel-custom').hidden = true;
+    $('.main').classList.remove('wide');
     activeModule = MODULES.find(m => m.id === id) || MODULES[0];
     currentFilterStatus = 'all'; currentSearch = ''; $('#searchBox').value = '';
     renderModuleRow();
@@ -3536,21 +3845,21 @@
     if(f.type === 'personnel-list'){
       const arr = Array.isArray(val) ? val : [];
       if(!arr.length) return '-';
-      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join(', ');
+      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join('<br>');
     }
     if(f.type === 'volume-list'){
       const arr = Array.isArray(val) ? val : [];
       if(!arr.length) return '-';
-      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))} m³`).join(', ');
+      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))} m³`).join('<br>');
     }
     if(f.type === 'area-manpower-list'){
       const arr = Array.isArray(val) ? val : [];
       if(!arr.length) return '-';
-      return arr.map(p => `${escapeHtml(p.location)} (F:${p.foreman||0} S:${p.safety||0} W:${p.worker||0} O:${p.other||0})`).join(', ');
+      return arr.map(p => `${escapeHtml(p.location)} (F:${p.foreman||0} S:${p.safety||0} W:${p.worker||0} O:${p.other||0})`).join('<br>');
     }
     if(f.type === 'text-list'){
       const arr = Array.isArray(val) ? val : [];
-      return arr.length ? arr.map(escapeHtml).join(', ') : '-';
+      return arr.length ? arr.map(escapeHtml).join('<br>') : '-';
     }
     return escapeHtml(val || '-');
   }
@@ -3607,7 +3916,7 @@
     const f = rows.find(x => String(x.id) === String(id));
     if(!f) return;
     const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-    const fieldsHtml = activeModule.fields.map(fl => `<div class="field"><label>${escapeHtml(fl.label)}</label><div>${formatFieldDisplay(fl, f[fl.key])}</div></div>`).join('');
+    const fieldsHtml = renderDetailFieldsHtml(activeModule.fields, f);
     const extraHtml = activeModule.detailExtra ? activeModule.detailExtra(f) : '';
     const modal = $('#modalContent');
     const copyBtnHtml = (activeModule.id === 'daily')
@@ -3615,10 +3924,10 @@
       : '';
     modal.innerHTML = `
       <div class="modal-head"><h2>${escapeHtml(activeModule.idLabel(f))}</h2><div style="display:flex;gap:2px;align-items:center;">${copyBtnHtml}<button class="modal-close" id="modalCloseBtn">&times;</button></div></div>
-      <div class="form-grid">
+      <div class="detail-grid">
         ${fieldsHtml}
         ${extraHtml}
-        <div class="field"><label>Photos</label>
+        <div class="detail-field full detail-photos"><label>Photos</label>
           <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
         </div>
       </div>
@@ -3635,7 +3944,7 @@
     });
     $('#btnEditThis').addEventListener('click', ()=>{ closeModal(); loadIntoForm(f); });
     $('#btnDeleteThis').addEventListener('click', ()=> deleteFinding(f.id));
-    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full)));
+    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
   }
   function closeModal(){ $('#modalBg').classList.remove('show'); }
   $('#modalBg').addEventListener('click', (e)=>{ if(e.target.id === 'modalBg') closeModal(); });

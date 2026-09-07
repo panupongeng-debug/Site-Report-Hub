@@ -2580,8 +2580,9 @@
         };
 
         // ---- Slide 4: Daily Report (manpower / equipment / weather / activities / progress / photos) ----
+        const dayBeforeYesterday = addDays(today, -2);
         const dailyByDate = (d) => dailyData.find(r => r.report_date === d) || null;
-        const dToday = dailyByDate(today), dYest = dailyByDate(yesterday);
+        const dToday = dailyByDate(today), dYest = dailyByDate(yesterday), dBeforeYest = dailyByDate(dayBeforeYesterday);
         const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop)) : 0;
         const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
         const weatherLine = (r) => r ? [r.weather_0609,r.weather_0912,r.weather_1215,r.weather_1518].filter(Boolean).join(' / ') : '-';
@@ -2594,12 +2595,12 @@
           const lines = withBreaks.split('\n').map(l => l.trim()).filter(Boolean);
           return lines.map(l => escapeHtml(l)).join('<br>');
         }
-        function dailyDetailBlockHtml(label, r){
-          if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)}</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
+        function dailyDetailBlockHtml(label, dateIso, r){
+          if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)} (${escapeHtml(dateIso)})</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
           const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
           return `
           <div class="dash-section" style="margin-bottom:10px;">
-            <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||'')})</div>
+            <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||dateIso)})</div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
             <div style="margin-bottom:6px;line-height:1.6;"><b>🎯 กิจกรรม:</b><br>${formatDashList(r.activities)}</div>
@@ -2615,9 +2616,10 @@
             ${briefKpiCard('กำลังคนรวม', manpowerOf(dToday), manpowerOf(dYest), 'คน')}
             ${briefKpiCard('เครื่องจักร/อุปกรณ์', equipOf(dToday), equipOf(dYest), 'รายการ (รวมจำนวน)')}
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow-y:auto;max-height:460px;">
-            ${dailyDetailBlockHtml('วันนี้', dToday)}
-            ${dailyDetailBlockHtml('เมื่อวาน', dYest)}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;overflow-y:auto;max-height:460px;">
+            ${dailyDetailBlockHtml('วันนี้', today, dToday)}
+            ${dailyDetailBlockHtml('เมื่อวาน', yesterday, dYest)}
+            ${dailyDetailBlockHtml('เมื่อวานซืน', dayBeforeYesterday, dBeforeYest)}
           </div>`,
           afterRender(){
             document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));

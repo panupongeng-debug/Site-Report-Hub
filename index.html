@@ -6092,7 +6092,9 @@
     if(f.type === 'personnel-list'){
       const arr = Array.isArray(val) ? val : [];
       if(!arr.length) return '-';
-      return arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join('<br>');
+      const listHtml = arr.map(p => `${escapeHtml(p.position)}: ${escapeHtml(String(p.count))}`).join('<br>');
+      const sumTotal = sumPersonnel(arr);
+      return listHtml + '<br><span style="color:#DC2626;font-weight:700;">Sum total: ' + sumTotal + '</span>';
     }
     if(f.type === 'volume-list'){
       const arr = Array.isArray(val) ? val : [];

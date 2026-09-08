@@ -2422,7 +2422,19 @@
             options:{
               responsive:true, maintainAspectRatio:false,
               plugins:{
-                legend:{ position:'top' },
+                legend:{
+                  position:'top',
+                  labels:{
+                    generateLabels: (chart) => {
+                      const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                      items.forEach(item => {
+                        const ds = chart.data.datasets[item.datasetIndex];
+                        item.text = (ds.label || '') + ' (' + (ds.data ? ds.data.length : 0) + ')';
+                      });
+                      return items;
+                    }
+                  }
+                },
                 tooltip:{
                   callbacks:{
                     label: (ctx) => {
@@ -2616,10 +2628,10 @@
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=id,report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
             fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
-            fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=report_id,structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
           ]);
           if(r1.ok) findingsData = await r1.json();
           if(r2.ok) envData = await r2.json();
@@ -2827,66 +2839,117 @@
           }
         };
 
-        // ---- Slide 3: Environment (weekly, Monday-cutoff, full data + photos) ----
-        const envWeekEnd = mondayOfWeek(today);
-        const envWeekStart = addDays(envWeekEnd, -6);
-        const envWeekRows = envData.filter(r => r.report_date && r.report_date >= envWeekStart && r.report_date <= today).sort((a,b)=> a.report_date < b.report_date ? -1 : 1);
+        // ---- Slide 3: Environment (weekly, Monday-cutoff, full data + photos, เลือกสัปดาห์ที่ผ่านมาได้) ----
         const envSum = (r) => ENV_CATEGORIES.reduce((s,c)=> s + (Number(r[c.key])||0), 0);
         const envByDate = (d) => envData.find(r => r.report_date === d) || {};
         const envToday = envByDate(today), envYest = envByDate(yesterday);
-        const envWeekCardHtml = !envWeekRows.length ? '<div class="dash-note" style="margin-top:10px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์นี้</div>' : envWeekRows.map(r=>{
-          const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+        const envCurrentWeekEnd = mondayOfWeek(today);
+        const envWeekOptionEnds = [];
+        for(let i=0;i<13;i++){ envWeekOptionEnds.push(addDays(envCurrentWeekEnd, -7*i)); }
+        let briefEnvSelectedWeekEnd = envCurrentWeekEnd;
+        function envWeekRowsFor(weekEndIso){
+          const weekStartIso = addDays(weekEndIso, -6);
+          return envData.filter(r => r.report_date && r.report_date >= weekStartIso && r.report_date <= weekEndIso).sort((a,b)=> a.report_date < b.report_date ? -1 : 1);
+        }
+        function renderEnvWeekBlockHtml(weekEndIso){
+          const weekStartIso = addDays(weekEndIso, -6);
+          const weekRows = envWeekRowsFor(weekEndIso);
+          const weekRowsDesc = weekRows.slice().reverse();
+          const cardHtml = !weekRowsDesc.length ? '<div class="dash-note" style="margin-top:10px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์ที่เลือก</div>' : weekRowsDesc.map(r=>{
+            const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+            return `
+            <div class="dash-section" style="margin-bottom:10px;padding:12px 14px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+                <span style="font-weight:700;color:var(--charcoal);font-family:var(--mono);">${escapeHtml(r.report_date)}</span>
+                <span style="font-family:var(--mono);font-weight:700;color:var(--charcoal);">${Math.round(envSum(r)*100)/100} Kg รวม</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                ${ENV_CATEGORIES.map(c=>`<span class="pill loc">${escapeHtml(c.label)}: ${Math.round((Number(r[c.key])||0)*100)/100}</span>`).join('')}
+              </div>
+              ${r.remarks ? `<div class="dash-note" style="margin-bottom:8px;">📝 ${escapeHtml(r.remarks)}</div>` : ''}
+              ${urls.length ? `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>` : ''}
+            </div>`;
+          }).join('');
           return `
-          <div class="dash-section" style="margin-bottom:10px;padding:12px 14px;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-              <span style="font-weight:700;color:var(--charcoal);font-family:var(--mono);">${escapeHtml(r.report_date)}</span>
-              <span style="font-family:var(--mono);font-weight:700;color:var(--charcoal);">${Math.round(envSum(r)*100)/100} Kg รวม</span>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              ${ENV_CATEGORIES.map(c=>`<span class="pill loc">${escapeHtml(c.label)}: ${Math.round((Number(r[c.key])||0)*100)/100}</span>`).join('')}
-            </div>
-            ${r.remarks ? `<div class="dash-note" style="margin-bottom:8px;">📝 ${escapeHtml(r.remarks)}</div>` : ''}
-            ${urls.length ? `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>` : ''}
-          </div>`;
-        }).join('');
+          <h3 style="margin:0 0 8px;">📊 ปริมาณขยะแยกตามประเภทรายวัน (${escapeHtml(weekStartIso)} – ${escapeHtml(weekEndIso)})</h3>
+          <div class="chart-wrap" id="briefEnvWeekChartWrap" style="height:260px;margin-bottom:18px;">${weekRows.length ? '<canvas id="briefEnvWeekChart"></canvas>' : '<div class="dash-empty" style="padding:14px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์ที่เลือก</div>'}</div>
+          <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์ที่เลือก (ตัดรอบวันจันทร์)</h3>
+          <div id="briefEnvWeekCards">${cardHtml}</div>`;
+        }
+        function renderEnvWeekChart(weekEndIso){
+          destroyChart('briefEnvWeek');
+          const weekRows = envWeekRowsFor(weekEndIso);
+          const envChartEl = document.getElementById('briefEnvWeekChart');
+          if(!envChartEl) return;
+          chartInstances.briefEnvWeek = new Chart(envChartEl, {
+            type:'bar',
+            data:{
+              labels: weekRows.map(r=>r.report_date),
+              datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: weekRows.map(r=>Number(r[c.key])||0), backgroundColor:c.color }))
+            },
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'Kg' } } },
+              plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } }
+            }
+          });
+        }
+        function renderEnvWeekView(weekEndIso){
+          briefEnvSelectedWeekEnd = weekEndIso;
+          const block = document.getElementById('briefEnvWeekBlock');
+          if(block) block.innerHTML = renderEnvWeekBlockHtml(weekEndIso);
+          renderEnvWeekChart(weekEndIso);
+          document.querySelectorAll('#briefEnvWeekBlock .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+        }
         const slideEnv = {
           title:'Environment',
           html:`
-          <div class="brief-slide-head"><div class="ic">♻️</div><div><h1>Environment</h1><div class="sub">ปริมาณขยะแยกตามประเภท (Kg) · สัปดาห์ ${escapeHtml(envWeekStart)} – ${escapeHtml(today)}</div></div></div>
+          <div class="brief-slide-head"><div class="ic">♻️</div><div><h1>Environment</h1><div class="sub">ปริมาณขยะแยกตามประเภท (Kg)</div></div></div>
           <div class="brief-grid" style="margin-bottom:16px;">
             ${briefKpiCard('ขยะรวมทั้งหมด', Math.round(envSum(envToday)*100)/100, Math.round(envSum(envYest)*100)/100, 'Kg')}
             ${ENV_CATEGORIES.map(c => briefKpiCard(c.label, Math.round((Number(envToday[c.key])||0)*100)/100, Math.round((Number(envYest[c.key])||0)*100)/100, 'Kg')).join('')}
           </div>
-          <div>
-            <h3 style="margin:0 0 8px;">📊 ปริมาณขยะแยกตามประเภทรายวัน (สัปดาห์นี้)</h3>
-            <div class="chart-wrap" style="height:260px;margin-bottom:18px;">${envWeekRows.length ? '<canvas id="briefEnvWeekChart"></canvas>' : '<div class="dash-empty" style="padding:14px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์นี้</div>'}</div>
-            <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์นี้ (ตัดรอบวันจันทร์)</h3>
-            ${envWeekCardHtml}
-          </div>`,
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+            <label style="font-size:12.5px;color:var(--muted);">เลือกสัปดาห์ที่จะดูข้อมูล:</label>
+            <select id="briefEnvWeekPicker" class="kpi-input" style="width:auto;">
+              ${envWeekOptionEnds.map((w,i)=>`<option value="${w}" ${w===briefEnvSelectedWeekEnd?'selected':''}>${weekLabel(w)}${i===0?' (สัปดาห์นี้ ยังไม่จบรอบ)':''}</option>`).join('')}
+            </select>
+          </div>
+          <div id="briefEnvWeekBlock">${renderEnvWeekBlockHtml(briefEnvSelectedWeekEnd)}</div>`,
           afterRender(){
-            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
-            destroyChart('briefEnvWeek');
-            const envChartEl = document.getElementById('briefEnvWeekChart');
-            if(envChartEl){
-              chartInstances.briefEnvWeek = new Chart(envChartEl, {
-                type:'bar',
-                data:{
-                  labels: envWeekRows.map(r=>r.report_date),
-                  datasets: ENV_CATEGORIES.map(c => ({ label:c.label, data: envWeekRows.map(r=>Number(r[c.key])||0), backgroundColor:c.color }))
-                },
-                options:{
-                  responsive:true, maintainAspectRatio:false,
-                  scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'Kg' } } },
-                  plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } }
-                }
-              });
-            }
+            document.querySelectorAll('#briefEnvWeekBlock .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+            renderEnvWeekChart(briefEnvSelectedWeekEnd);
+            const picker = document.getElementById('briefEnvWeekPicker');
+            if(picker) picker.addEventListener('change', e=>{ renderEnvWeekView(e.target.value); });
           }
         };
 
         // ---- Slide 4: Daily Report (manpower / equipment / weather / activities / progress / photos) ----
         const dailyByDate = (d) => dailyData.find(r => r.report_date === d) || null;
         const dToday = dailyByDate(today), dYest = dailyByDate(yesterday), dBeforeYest = dailyByDate(dayBeforeYesterday);
+        const briefDailyRecordsByDate = {};
+        [dToday, dYest, dBeforeYest].forEach(r=>{ if(r && r.report_date) briefDailyRecordsByDate[r.report_date] = r; });
+        function openDailyReportPresentationModal(r){
+          const dailyModule = MODULES.find(m => m.id === 'daily');
+          if(!dailyModule) return;
+          const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+          const fieldsHtml = renderDetailFieldsHtml(dailyModule.fields, r, dailyModule);
+          const extraHtml = dailyModule.detailExtra ? dailyModule.detailExtra(r) : '';
+          const modal = document.getElementById('modalContent');
+          modal.innerHTML = `
+            <div class="modal-head"><h2>📋 Daily Report — ${escapeHtml(r.report_date || '')}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+            <div class="detail-grid">
+              ${fieldsHtml}
+              ${extraHtml}
+              <div class="detail-field full detail-photos"><label>Photos</label>
+                <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
+              </div>
+            </div>`;
+          const closeBtn = document.getElementById('modalCloseBtn');
+          if(closeBtn) closeBtn.addEventListener('click', closeModal);
+          modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+          document.getElementById('modalBg').classList.add('show');
+        }
         const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop)) : 0;
         const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
         const weatherLine = (r) => r ? [r.weather_0609,r.weather_0912,r.weather_1215,r.weather_1518].filter(Boolean).join(' / ') : '-';
@@ -2903,8 +2966,11 @@
           if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)} (${escapeHtml(dateIso)})</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
           const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
           return `
-          <div class="dash-section" style="margin-bottom:10px;">
-            <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||dateIso)})</div>
+          <div class="dash-section brief-daily-card" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="margin-bottom:10px;cursor:pointer;" title="คลิกเพื่อดูรายละเอียดทั้งหมดแบบเต็มหน้า">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+              <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||dateIso)})</div>
+              <div style="font-size:11.5px;color:var(--progress);white-space:nowrap;">ดูทั้งหมด ↗</div>
+            </div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
             <div style="margin-bottom:6px;line-height:1.6;"><b>🎯 กิจกรรม:</b><br>${formatDashList(r.activities)}</div>
@@ -2926,7 +2992,14 @@
             ${dailyDetailBlockHtml('เมื่อวานซืน', dayBeforeYesterday, dBeforeYest)}
           </div>`,
           afterRender(){
-            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+            document.querySelectorAll('#briefSlideBody [data-daily-date]').forEach(card => {
+              card.addEventListener('click', (e)=>{
+                if(e.target.closest('.photo-thumb')) return;
+                const rec = briefDailyRecordsByDate[card.dataset.dailyDate];
+                if(rec) openDailyReportPresentationModal(rec);
+              });
+            });
+            document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', (e)=>{ e.stopPropagation(); openLightbox(img.dataset.full, img); }));
           }
         };
 
@@ -3092,7 +3165,21 @@
               options:{
                 responsive:true, maintainAspectRatio:false,
                 scales:{ x:{ title:{ display:true, text:'E' } }, y:{ title:{ display:true, text:'N' } } },
-                plugins:{ tooltip:{ callbacks:{ label:(ctx)=> 'เสาเข็ม ' + ctx.raw.pile_number + (ctx.raw.area ? ' · ' + ctx.raw.area : '') + ' · ' + ctx.dataset.label } } }
+                plugins:{
+                  legend:{
+                    labels:{
+                      generateLabels: (chart) => {
+                        const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                        items.forEach(item => {
+                          const ds = chart.data.datasets[item.datasetIndex];
+                          item.text = (ds.label || '') + ' (' + (ds.data ? ds.data.length : 0) + ')';
+                        });
+                        return items;
+                      }
+                    }
+                  },
+                  tooltip:{ callbacks:{ label:(ctx)=> 'เสาเข็ม ' + ctx.raw.pile_number + (ctx.raw.area ? ' · ' + ctx.raw.area : '') + ' · ' + ctx.dataset.label } }
+                }
               }
             });
             function applyBriefGeoFilters(){
@@ -3145,7 +3232,7 @@
           }
         };
 
-        // ---- Slide 6: Concrete — เต็มรูปแบบ พอร์ตข้อมูลทั้งหมดมาจาก Dashboard Concrete ----
+        // ---- Slide 6: Concrete — เต็มรูปแบบ พอร์ตข้อมูลทั้งหมดมาจาก Dashboard Concrete + เพิ่มยอดรายวันแยกพื้นที่ พร้อมเลือกช่วงวันที่ ----
         const concByDate = (d) => concreteSummaryData.filter(r=>r.report_date===d).reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
         const concReportByDate = (d) => concreteReportsData.find(r=>r.report_date===d) || null;
         const concManpowerOf = (r) => r ? ((r.foreman_count||0)+(r.safety_count||0)+(r.worker_count||0)+(r.other_count||0)) : 0;
@@ -3188,19 +3275,12 @@
             </div>
             <div style="flex:0 0 56px;text-align:right;font-weight:700;color:${pct>=100?'#16A34A':'#2563EB'};font-size:13px;">${pct}%</div>
           </div>`).join('') : '<div class="dash-note">ยังไม่ได้กำหนดปริมาณตามแผน (plan_m3) — อัปเดตแผนได้ที่ Supabase</div>';
-        // พื้นที่ × ชั้น (m³) — เหมือน Dashboard Concrete
+
+        // ---- ปริมาณคอนกรีตรายวัน แยกตามพื้นที่/ชั้น พร้อมเลือกช่วงวันที่ ----
         const concItemMeta = {};
         concreteSummaryData.forEach(r=>{ concItemMeta[r.structure_item_id] = { location: r.location, plan_m3: r.plan_m3 }; });
-        const concByAreaFloor = {}, concByAreaPoured = {}, concByAreaPlan = {};
+        const concByAreaPlan = {};
         const concSeenPlanItem = {};
-        concretePourEntriesData.forEach(pe=>{
-          const meta = concItemMeta[pe.structure_item_id];
-          if(!meta) return;
-          const loc = meta.location, fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
-          concByAreaFloor[loc] = concByAreaFloor[loc] || {};
-          concByAreaFloor[loc][fl] = (concByAreaFloor[loc][fl] || 0) + vol;
-          concByAreaPoured[loc] = (concByAreaPoured[loc] || 0) + vol;
-        });
         Object.keys(concItemMeta).forEach(itemId=>{
           const meta = concItemMeta[itemId];
           const dedupeKey = meta.location + '::' + itemId;
@@ -3208,8 +3288,32 @@
           concSeenPlanItem[dedupeKey] = true;
           concByAreaPlan[meta.location] = (concByAreaPlan[meta.location] || 0) + (Number(meta.plan_m3) || 0);
         });
-        const concAreaFloorLocations = Object.keys(concByAreaFloor).sort((a,b)=> (concByAreaPoured[b]||0) - (concByAreaPoured[a]||0));
-        const concAreaFloorTableHtml = !concAreaFloorLocations.length ? '<div class="dash-note">ยังไม่มีข้อมูลการเทคอนกรีต</div>' : `
+        const concReportDateById = {};
+        concreteReportsData.forEach(r=>{ concReportDateById[r.id] = r.report_date; });
+        const concAreaKeysAll = Array.from(new Set(Object.values(concItemMeta).map(m=>m.location))).sort();
+        let concDateStart = '', concDateEnd = '';
+        function concPourEntriesInRange(){
+          return concretePourEntriesData.filter(pe=>{
+            const d = concReportDateById[pe.report_id];
+            if(!d) return false;
+            if(concDateStart && d < concDateStart) return false;
+            if(concDateEnd && d > concDateEnd) return false;
+            return true;
+          });
+        }
+        function renderConcAreaFloorTableHtml(entries){
+          const byAreaFloor = {}, byAreaPoured = {};
+          entries.forEach(pe=>{
+            const meta = concItemMeta[pe.structure_item_id];
+            if(!meta) return;
+            const loc = meta.location, fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
+            byAreaFloor[loc] = byAreaFloor[loc] || {};
+            byAreaFloor[loc][fl] = (byAreaFloor[loc][fl] || 0) + vol;
+            byAreaPoured[loc] = (byAreaPoured[loc] || 0) + vol;
+          });
+          const locations = Object.keys(byAreaFloor).sort((a,b)=> (byAreaPoured[b]||0) - (byAreaPoured[a]||0));
+          if(!locations.length) return '<div class="dash-note">ไม่มีข้อมูลการเทคอนกรีตในช่วงที่เลือก</div>';
+          return `
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px;">
               <thead>
@@ -3222,13 +3326,13 @@
                 </tr>
               </thead>
               <tbody>
-                ${concAreaFloorLocations.map(loc=>{
-                  const poured = concByAreaPoured[loc] || 0;
+                ${locations.map(loc=>{
+                  const poured = byAreaPoured[loc] || 0;
                   const plan = concByAreaPlan[loc] || 0;
                   const pct = plan > 0 ? Math.round(poured/plan*100) : null;
                   return `<tr>
                     <td style="padding:7px 10px;border-bottom:1px solid var(--line);font-weight:600;color:var(--charcoal);white-space:nowrap;">${escapeHtml(loc)}</td>
-                    ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);">${(concByAreaFloor[loc][fl]!=null) ? Math.round(concByAreaFloor[loc][fl]*100)/100 : '-'}</td>`).join('')}
+                    ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);">${(byAreaFloor[loc][fl]!=null) ? Math.round(byAreaFloor[loc][fl]*100)/100 : '-'}</td>`).join('')}
                     <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:var(--charcoal);">${Math.round(poured*100)/100}</td>
                     <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);color:var(--muted);">${plan > 0 ? (Math.round(plan*100)/100) : '-'}</td>
                     <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:${pct==null?'var(--muted)':(pct>=100?'var(--closed)':'var(--progress)')};">${pct==null ? '-' : pct + '%'}</td>
@@ -3237,6 +3341,45 @@
               </tbody>
             </table>
           </div>`;
+        }
+        function renderConcDailyByAreaTableHtml(entries){
+          const dailyAreaMap = {};
+          entries.forEach(pe=>{
+            const meta = concItemMeta[pe.structure_item_id];
+            if(!meta) return;
+            const d = concReportDateById[pe.report_id];
+            if(!d) return;
+            const loc = meta.location, vol = Number(pe.poured_today_m3) || 0;
+            dailyAreaMap[d] = dailyAreaMap[d] || {};
+            dailyAreaMap[d][loc] = (dailyAreaMap[d][loc] || 0) + vol;
+          });
+          const dates = Object.keys(dailyAreaMap).sort();
+          if(!dates.length) return '<div class="dash-note">ไม่มีข้อมูลการเทคอนกรีตในช่วงที่เลือก</div>';
+          const areasUsed = concAreaKeysAll.filter(a => dates.some(d => dailyAreaMap[d][a] != null));
+          return `
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px;">
+              <thead>
+                <tr style="background:#F7F9FB;">
+                  <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">วันที่</th>
+                  ${areasUsed.map(a=>`<th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">${escapeHtml(a)}</th>`).join('')}
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;color:var(--charcoal);">Total (m³)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${dates.map(d=>{
+                  const row = dailyAreaMap[d];
+                  const total = areasUsed.reduce((s,a)=> s + (row[a]||0), 0);
+                  return `<tr>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--line);font-weight:600;color:var(--charcoal);white-space:nowrap;">${escapeHtml(d)}</td>
+                    ${areasUsed.map(a=>`<td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);">${row[a]!=null ? Math.round(row[a]*100)/100 : '-'}</td>`).join('')}
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:var(--charcoal);">${Math.round(total*100)/100}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        }
         const slideConcrete = {
           title:'งานคอนกรีต',
           html:`
@@ -3256,11 +3399,45 @@
               <h3 style="margin:0 0 8px;">% ความสำเร็จเทียบแผน แยกตามพื้นที่</h3>
               ${concCompletionHtml}
             </div>
-            <div class="dash-section" style="margin:0;">
-              <h3 style="margin:0 0 8px;">ปริมาณคอนกรีตแยกตาม พื้นที่ × ชั้น (m³)</h3>
-              ${concAreaFloorTableHtml}
+            <div class="dash-section" style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <h3 style="margin:0;">ปริมาณคอนกรีตที่เทแต่ละวัน แยกตามพื้นที่ (m³)</h3>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <label style="font-size:12.5px;color:var(--muted);">ช่วงวันที่:</label>
+                  <input type="date" id="briefConcDateStartInput" class="kpi-input" style="width:auto;">
+                  <span style="color:var(--muted);font-size:12.5px;">ถึง</span>
+                  <input type="date" id="briefConcDateEndInput" class="kpi-input" style="width:auto;">
+                  <button type="button" class="btn btn-ghost" id="briefBtnConcClearDate">ล้างช่วงวันที่</button>
+                </div>
+              </div>
+              <div class="dash-note" style="margin-bottom:8px;">ไม่เลือกช่วงวันที่ = แสดงทุกวันที่มีการเทคอนกรีต</div>
+              <div id="briefConcDailyAreaWrap">${renderConcDailyByAreaTableHtml(concPourEntriesInRange())}</div>
             </div>
-          </div>`
+            <div class="dash-section" style="margin:0;">
+              <h3 style="margin:0 0 8px;">ปริมาณคอนกรีตแยกตาม พื้นที่ × ชั้น (m³) — ตามช่วงวันที่ด้านบน</h3>
+              <div id="briefConcAreaFloorWrap">${renderConcAreaFloorTableHtml(concPourEntriesInRange())}</div>
+            </div>
+          </div>`,
+          afterRender(){
+            const dateStartInput = document.getElementById('briefConcDateStartInput');
+            const dateEndInput = document.getElementById('briefConcDateEndInput');
+            const clearBtn = document.getElementById('briefBtnConcClearDate');
+            function applyConcFilters(){
+              const entries = concPourEntriesInRange();
+              const dailyWrap = document.getElementById('briefConcDailyAreaWrap');
+              const areaFloorWrap = document.getElementById('briefConcAreaFloorWrap');
+              if(dailyWrap) dailyWrap.innerHTML = renderConcDailyByAreaTableHtml(entries);
+              if(areaFloorWrap) areaFloorWrap.innerHTML = renderConcAreaFloorTableHtml(entries);
+            }
+            if(dateStartInput) dateStartInput.addEventListener('change', e=>{ concDateStart = e.target.value; applyConcFilters(); });
+            if(dateEndInput) dateEndInput.addEventListener('change', e=>{ concDateEnd = e.target.value; applyConcFilters(); });
+            if(clearBtn) clearBtn.addEventListener('click', ()=>{
+              concDateStart = ''; concDateEnd = '';
+              if(dateStartInput) dateStartInput.value = '';
+              if(dateEndInput) dateEndInput.value = '';
+              applyConcFilters();
+            });
+          }
         };
 
         const slides = [slideCover, slideSafety, slideEnv, slideDaily, slidePiling, slideConcrete];

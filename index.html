@@ -573,7 +573,11 @@
   // ด้วย key เดียวกันนี้เพื่อเขียนข้อมูลได้ ข้ามการบล็อกที่ fetch นี้ไปเลย — ถ้าต้องการการันตีว่าคนนอกทีม
   // เขียนข้อมูลไม่ได้จริงๆ 100% (ไม่ใช่แค่กันคนทั่วไปที่ใช้ผ่านหน้าเว็บปกติ) ต้องเปิด RLS ที่ฝั่ง Supabase
   // แยก role/สิทธิ์เขียนออกจาก role ที่ใช้แจกลิงก์ดูอย่างเดียว
-  const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'readonly';
+  // ตรวจจากชื่อโดเมนตรงๆ ด้วย (ไม่พึ่ง vercel.json rewrite อย่างเดียว) — โดเมนนี้เปิดมาต้อง
+  // เป็นโหมดดูอย่างเดียวเสมอไม่ว่า query string จะมีหรือไม่ กันกรณี rewrite ที่ฝั่ง Vercel ไม่ทำงานตามคาด
+  const VIEW_ONLY_HOSTS = ['site-report-hub-view.vercel.app'];
+  const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'readonly'
+    || VIEW_ONLY_HOSTS.indexOf(location.hostname) !== -1;
   if (VIEW_ONLY) {
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts){

@@ -2774,7 +2774,7 @@
             ${briefKpiCard('Finding ระดับ High/Critical (วันนี้)', highCritToday.length, '-', 'รายการ')}
           </div>
           <div style="margin-bottom:16px;">${renderSafeDayCardHtml(hseSettings, ltiWeekCount)}</div>
-          <div style="overflow-y:auto;max-height:520px;">
+          <div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
               <div class="dash-section" style="margin:0;">
                 <h3 style="margin:0 0 8px;">หมวดหมู่ (Category) รวม</h3>
@@ -2857,7 +2857,7 @@
             ${briefKpiCard('ขยะรวมทั้งหมด', Math.round(envSum(envToday)*100)/100, Math.round(envSum(envYest)*100)/100, 'Kg')}
             ${ENV_CATEGORIES.map(c => briefKpiCard(c.label, Math.round((Number(envToday[c.key])||0)*100)/100, Math.round((Number(envYest[c.key])||0)*100)/100, 'Kg')).join('')}
           </div>
-          <div style="overflow-y:auto;max-height:420px;">
+          <div>
             <h3 style="margin:0 0 8px;">📊 ปริมาณขยะแยกตามประเภทรายวัน (สัปดาห์นี้)</h3>
             <div class="chart-wrap" style="height:260px;margin-bottom:18px;">${envWeekRows.length ? '<canvas id="briefEnvWeekChart"></canvas>' : '<div class="dash-empty" style="padding:14px;">ยังไม่มีการกรอก Environment Record ในสัปดาห์นี้</div>'}</div>
             <h3 style="margin:14px 0 8px;">📅 รายละเอียดประจำสัปดาห์นี้ (ตัดรอบวันจันทร์)</h3>
@@ -2920,7 +2920,7 @@
             ${briefKpiCard('กำลังคนรวม', manpowerOf(dToday), manpowerOf(dYest), 'คน')}
             ${briefKpiCard('เครื่องจักร/อุปกรณ์', equipOf(dToday), equipOf(dYest), 'รายการ (รวมจำนวน)')}
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;overflow-y:auto;max-height:460px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
             ${dailyDetailBlockHtml('วันนี้', today, dToday)}
             ${dailyDetailBlockHtml('เมื่อวาน', yesterday, dYest)}
             ${dailyDetailBlockHtml('เมื่อวานซืน', dayBeforeYesterday, dBeforeYest)}

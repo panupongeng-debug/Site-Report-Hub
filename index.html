@@ -268,6 +268,8 @@
 
   /* ---------- Daily Brief (slide presentation for the morning meeting) ---------- */
   .brief-stage{position:relative;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:28px;min-height:520px;display:flex;flex-direction:column;}
+  .brief-stage:fullscreen, .brief-stage:-webkit-full-screen{ height:100vh; max-height:100vh; overflow-y:auto; }
+  #briefSlideBody{ min-height:0; }
   .brief-slide-head{display:flex;align-items:center;gap:14px;margin-bottom:24px;}
   .brief-slide-head .ic{font-size:32px;flex:0 0 auto;}
   .brief-slide-head h1{font-family:var(--disp);font-size:24px;margin:0;color:var(--charcoal);}
@@ -278,6 +280,7 @@
   .brief-kpi .cmp{display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;}
   .brief-kpi .cmp .v{font-family:var(--mono);font-weight:800;font-size:30px;color:var(--charcoal);display:block;}
   .brief-kpi .cmp .t{font-size:11px;color:var(--muted);display:block;margin-top:3px;}
+  .brief-kpi>.t{font-size:11.5px;color:var(--muted);display:block;}
   .brief-nav{display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding-top:16px;border-top:1px solid var(--line);}
   .brief-dots{display:flex;gap:7px;}
   .brief-dot{width:9px;height:9px;border-radius:50%;background:var(--line);cursor:pointer;border:none;}
@@ -2104,19 +2107,34 @@
         // ทำสีให้เรียบง่าย: จัดกลุ่มตามสถานะเท่านั้น (ไม่แยกตามพื้นที่ด้วย) legend เหลือแค่ 4 สี อ่านง่ายขึ้นมาก
         // ตำแหน่งบนกราฟเองแบ่งพื้นที่ให้เห็นอยู่แล้วโดยธรรมชาติ ไม่ต้องพึ่งสี/เส้นขอบแยกตามพื้นที่อีก
         const geoPoints = data.filter(r => r.design_n != null && r.design_e != null && !(r.design_n === 0 && r.design_e === 0));
-        const geoDatasets = STATUS_LIST.map(status => {
-          const pts = geoPoints.filter(r => r.status === status);
-          if(!pts.length) return null;
-          return {
-            label: status,
-            data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id, piled_date: p.piled_date || null, plan_date: p.plan_date || null })),
-            backgroundColor: STATUS_COLORS[status],
-            pointRadius: status === 'Defected' ? 5 : 3,
-            pointHoverRadius: 7,
-            pointHoverBorderColor: '#111827',
-            pointHoverBorderWidth: 1.5,
-          };
-        }).filter(Boolean);
+        let geoDateStart = '', geoDateEnd = '', geoAreaFilter = '';
+        function geoFilteredPoints(){
+          return geoPoints.filter(r => {
+            if(geoAreaFilter && (r.area || '(ไม่ระบุ)') !== geoAreaFilter) return false;
+            // เสาเข็มที่ยังไม่ตอกจริง (ไม่มี piled_date) ให้แสดงเสมอเป็นค่าเริ่มต้น ไม่ถูกกรองด้วยช่วงวันที่
+            if(r.piled_date){
+              if(geoDateStart && r.piled_date < geoDateStart) return false;
+              if(geoDateEnd && r.piled_date > geoDateEnd) return false;
+            }
+            return true;
+          });
+        }
+        function buildGeoBaseDatasets(points){
+          return STATUS_LIST.map(status => {
+            const pts = points.filter(r => r.status === status);
+            if(!pts.length) return null;
+            return {
+              label: status,
+              data: pts.map(p => ({ x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area || '(ไม่ระบุ)', id: p.id, piled_date: p.piled_date || null, plan_date: p.plan_date || null })),
+              backgroundColor: STATUS_COLORS[status],
+              pointRadius: status === 'Defected' ? 5 : 3,
+              pointHoverRadius: 7,
+              pointHoverBorderColor: '#111827',
+              pointHoverBorderWidth: 1.5,
+            };
+          }).filter(Boolean);
+        }
+        let geoDatasets = buildGeoBaseDatasets(geoFilteredPoints());
 
         // ---- QC & Non-Conformance: เสาเข็มที่ตอกแซม (Corrected) และเสาเข็มที่เสีย/ใช้งานไม่ได้ (Defected) ----
         const NONCONFORM_BADGE = { Corrected:'status-in-progress', Defected:'status-overdue' };
@@ -2182,7 +2200,19 @@
                   <button type="button" class="btn btn-ghost" id="btnPileGeoFullscreen">⛶ เต็มจอ</button>
                 </div>
               </div>
-              <div class="dash-note" style="margin-top:10px;">คลิกที่จุดเพื่อเปิดเสาเข็มต้นนั้นมากรอกข้อมูลใน Piling Report</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;">
+                <label style="font-size:12.5px;color:var(--muted);">ช่วงวันที่ตอก:</label>
+                <input type="date" id="geoDateStartInput" class="kpi-input" style="width:auto;">
+                <span style="color:var(--muted);font-size:12.5px;">ถึง</span>
+                <input type="date" id="geoDateEndInput" class="kpi-input" style="width:auto;">
+                <button type="button" class="btn btn-ghost" id="btnGeoClearDate">ล้างช่วงวันที่</button>
+                <label style="font-size:12.5px;color:var(--muted);margin-left:8px;">พื้นที่:</label>
+                <select id="geoAreaFilterInput" class="kpi-input" style="min-width:160px;">
+                  <option value="">ทุกพื้นที่ (All Areas)</option>
+                  ${areaKeys.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="dash-note" style="margin-top:10px;">คลิกที่จุดเพื่อเปิดเสาเข็มต้นนั้นมากรอกข้อมูลใน Piling Report · เสาเข็มที่ยังไม่ตอกจริง (ไม่มีวันที่ตอก) จะแสดงบนกราฟเสมอ ไม่ถูกกรองด้วยช่วงวันที่</div>
               <div class="chart-wrap" id="pileGeoCanvasWrap" style="height:460px;"><canvas id="chartPileGeo"></canvas></div>
               <div class="dash-kpi-row" style="margin-top:12px;" id="pileGeoKpiRow">
                 <div class="dash-kpi"><div class="v" id="pileGeoNRange">-</div><div class="l">N Range (m)</div></div>
@@ -2331,6 +2361,7 @@
         }
         function buildGeoHighlightDatasets(){
           const out = [];
+          const geoPointsF = geoFilteredPoints();
           if(geoHighlightThisWeek || geoHighlightLastWeek){
             // วันนี้/เมื่อวาน (เฉพาะตอนติ๊ก This Week) ให้ไฮไลท์สีน้ำเงินแยกจากสัปดาห์ที่เหลือ (สี Magenta)
             const now = new Date();
@@ -2339,13 +2370,13 @@
             const yesterdayStr = isoDate(yesterday);
             const blueIds = new Set();
             if(geoHighlightThisWeek){
-              geoPoints.forEach(r => { if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); });
+              geoPointsF.forEach(r => { if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); });
             }
             const ranges = [];
             if(geoHighlightThisWeek) ranges.push(weekRangeStr(0));
             if(geoHighlightLastWeek) ranges.push(weekRangeStr(-1));
-            const magentaPts = geoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
-            const bluePts = geoPoints.filter(r => blueIds.has(r.id));
+            const magentaPts = geoPointsF.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
+            const bluePts = geoPointsF.filter(r => blueIds.has(r.id));
             if(magentaPts.length){
               out.push({
                 label: 'ตอกในสัปดาห์ที่เลือก',
@@ -2366,7 +2397,7 @@
           if(geoHighlightSoon){
             // เสาเข็มที่ยังไม่ได้ตอกจริง (ไม่มี piled_date) แต่มีแผนวันที่ตอก (plan_date) อยู่ในสัปดาห์นี้หรือสัปดาห์หน้า
             const thisWeek = weekRangeStr(0), nextWeek = weekRangeStr(1);
-            const soonPts = geoPoints.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
+            const soonPts = geoPointsF.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
             if(soonPts.length){
               out.push({
                 label: 'แผนตอกเร็วๆ นี้ (สัปดาห์นี้-หน้า)',
@@ -2462,12 +2493,45 @@
               if(chartInstances.pg) setTimeout(()=> chartInstances.pg.resize(), 50);
             });
           }
-          if(geoPoints.length){
-            const nVals = geoPoints.map(p=>p.design_n), eVals = geoPoints.map(p=>p.design_e);
+          function applyGeoFilters(){
+            geoDatasets = buildGeoBaseDatasets(geoFilteredPoints());
+            refreshGeoDatasets();
+            updateGeoKpiRow(geoFilteredPoints());
+          }
+          const dateStartInput = document.getElementById('geoDateStartInput');
+          const dateEndInput = document.getElementById('geoDateEndInput');
+          const clearDateBtn = document.getElementById('btnGeoClearDate');
+          const areaFilterInput = document.getElementById('geoAreaFilterInput');
+          if(dateStartInput && !dateStartInput.dataset.wired){
+            dateStartInput.dataset.wired = '1';
+            dateStartInput.addEventListener('change', e=>{ geoDateStart = e.target.value; applyGeoFilters(); });
+          }
+          if(dateEndInput && !dateEndInput.dataset.wired){
+            dateEndInput.dataset.wired = '1';
+            dateEndInput.addEventListener('change', e=>{ geoDateEnd = e.target.value; applyGeoFilters(); });
+          }
+          if(clearDateBtn && !clearDateBtn.dataset.wired){
+            clearDateBtn.dataset.wired = '1';
+            clearDateBtn.addEventListener('click', ()=>{
+              geoDateStart = ''; geoDateEnd = '';
+              if(dateStartInput) dateStartInput.value = '';
+              if(dateEndInput) dateEndInput.value = '';
+              applyGeoFilters();
+            });
+          }
+          if(areaFilterInput && !areaFilterInput.dataset.wired){
+            areaFilterInput.dataset.wired = '1';
+            areaFilterInput.addEventListener('change', e=>{ geoAreaFilter = e.target.value; applyGeoFilters(); });
+          }
+          updateGeoKpiRow(geoFilteredPoints());
+        }
+        function updateGeoKpiRow(points){
+          if(points.length){
+            const nVals = points.map(p=>p.design_n), eVals = points.map(p=>p.design_e);
             const nRangeVal = Math.max(...nVals) - Math.min(...nVals);
             const eRangeVal = Math.max(...eVals) - Math.min(...eVals);
             const areaCoverages = areaKeys.map(area => {
-              const pts = geoPoints.filter(r => (r.area||'(ไม่ระบุ)') === area);
+              const pts = points.filter(r => (r.area||'(ไม่ระบุ)') === area);
               if(pts.length < 2) return null;
               const ns = pts.map(p=>p.design_n), es = pts.map(p=>p.design_e);
               return (Math.max(...ns)-Math.min(...ns)) * (Math.max(...es)-Math.min(...es));
@@ -2476,6 +2540,10 @@
             $('#pileGeoNRange').textContent = nRangeVal.toFixed(2);
             $('#pileGeoERange').textContent = eRangeVal.toFixed(2);
             $('#pileGeoAvgCoverage').textContent = avgCoverage.toFixed(0);
+          } else {
+            $('#pileGeoNRange').textContent = '-';
+            $('#pileGeoERange').textContent = '-';
+            $('#pileGeoAvgCoverage').textContent = '-';
           }
         }
 
@@ -2536,21 +2604,22 @@
       }
     },
     {
-      id:'dash_brief', label:'สรุปประจำวัน (นำเสนอ)', icon:'🖥️', table:null,
+      id:'dash_brief', label:'Daily Meeting', icon:'🖥️', table:null,
       async render(container){
         container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
         const today = todayISO();
         const yesterday = addDays(today, -1);
         const dayBeforeYesterday = addDays(today, -2);
-        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], kpiCategories=[], hseSettings=null;
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], kpiCategories=[], hseSettings=null;
         try{
-          const [r1,r2,r3,r4,r5,r6] = await Promise.all([
+          const [r1,r2,r3,r4,r5,r6,r7] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=report_date,today_m3', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
             fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
           ]);
           if(r1.ok) findingsData = await r1.json();
           if(r2.ok) envData = await r2.json();
@@ -2558,6 +2627,7 @@
           if(r4.ok) concreteReportsData = await r4.json();
           if(r5.ok) concreteSummaryData = await r5.json();
           pileData = r6 || [];
+          if(r7.ok) concretePourEntriesData = await r7.json();
           try{ kpiCategories = await fetchSafetyKpiCategories(); }catch(e){ kpiCategories = []; }
           try{ hseSettings = await fetchSafetyHseSettings(); }catch(e){ hseSettings = null; }
         }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
@@ -2630,16 +2700,17 @@
         // ชั่วโมงทำงานสะสม (Safe Man-Hours) = กำลังคนรวมต่อวันจาก Daily Report เท่านั้น × 10 ชม.
         // สะสมตั้งแต่ "วันเริ่มนับ" (hse_safe_days_counter.start_date) ถึงวันนี้ — สูตรเดียวกับหน้า Safety KPI & Safe Days
         // (ปรับ 2026-09-08 ตามที่ผู้ใช้ระบุ "ให้รวม Man hour เฉพาะที่อยู่ใน Daily Report" — ตัด concrete_reports ออก)
-        let cumulativeManHours = 0, cumulativeManpowerDays = 0;
+        // แยกยอด Man-Day สะสมของ REPCO / STATE (Site+Workshop รวมกัน) ต่างหาก เพื่อโชว์ breakdown
+        // ในการ์ด "ชั่วโมงทำงานสะสม" ด้วย (ผู้ใช้ขอเพิ่ม 2026-09-08)
+        let cumulativeManHours = 0, cumulativeManpowerDays = 0, repcoManDays = 0, stateManDays = 0;
         if(hseSettings && hseSettings.start_date){
           const mhStart = hseSettings.start_date;
-          const mhByDate = {};
           dailyData.forEach(r=>{
             if(!r.report_date || r.report_date < mhStart) return;
-            const mp = sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
-            mhByDate[r.report_date] = (mhByDate[r.report_date]||0) + mp;
+            repcoManDays += sumPersonnel(r.repco_personnel);
+            stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
           });
-          cumulativeManpowerDays = Object.values(mhByDate).reduce((s,v)=>s+v, 0);
+          cumulativeManpowerDays = repcoManDays + stateManDays;
           cumulativeManHours = cumulativeManpowerDays * 10;
         }
 
@@ -2652,7 +2723,11 @@
           </div>
           <div class="brief-grid">
             <div class="brief-kpi"><div class="lbl">Safe Working Day</div><div class="cmp"><div><span class="v">${safeDays}</span><span class="t">วัน ไม่เกิด LTI</span></div></div></div>
-            <div class="brief-kpi"><div class="lbl">ชั่วโมงทำงานสะสม</div><div class="cmp"><div><span class="v">${cumulativeManHours.toLocaleString()}</span><span class="t">ชม. (Man-Hours)</span></div></div></div>
+            <div class="brief-kpi"><div class="lbl">ชั่วโมงทำงานสะสม</div><div class="cmp"><div><span class="v">${cumulativeManHours.toLocaleString()}</span><span class="t">ชม. (Man-Hours)</span></div></div><div class="t" style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;">
+              <span>REPCO <b style="color:var(--charcoal);font-weight:700;">${repcoManDays.toLocaleString()}</b> คน-วัน</span>
+              <span>STATE <b style="color:var(--charcoal);font-weight:700;">${stateManDays.toLocaleString()}</b> คน-วัน</span>
+              <span>รวมทั้งโครงการ <b style="color:var(--charcoal);font-weight:700;">${cumulativeManpowerDays.toLocaleString()}</b> คน-วัน</span>
+            </div></div>
             <div class="brief-kpi"><div class="lbl">ความคืบหน้างานเสาเข็ม</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted}/${pileTotalExclRepl} ต้น</span></div></div></div>
           </div>
           <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`
@@ -2907,26 +2982,52 @@
           return { start: briefIsoDate(monday), end: briefIsoDate(sunday) };
         }
         function briefGeoPointToChartPoint(p){ return { x: p.design_e, y: p.design_n, pile_number: p.pile_number, area: p.area||'(ไม่ระบุ)', id: p.id, piled_date: p.piled_date||null, plan_date: p.plan_date||null }; }
+        let briefGeoDateStart = '', briefGeoDateEnd = '', briefGeoAreaFilter = '';
+        function briefGeoFilteredPoints(){
+          return briefGeoPoints.filter(r => {
+            if(briefGeoAreaFilter && (r.area || '(ไม่ระบุ)') !== briefGeoAreaFilter) return false;
+            // เสาเข็มที่ยังไม่ตอกจริง (ไม่มี piled_date) ให้แสดงเสมอ ไม่ถูกกรองด้วยช่วงวันที่
+            if(r.piled_date){
+              if(briefGeoDateStart && r.piled_date < briefGeoDateStart) return false;
+              if(briefGeoDateEnd && r.piled_date > briefGeoDateEnd) return false;
+            }
+            return true;
+          });
+        }
+        function buildBriefGeoDatasets(points){
+          return BRIEF_STATUS_LIST.map(status => {
+            const pts = points.filter(r => r.status === status);
+            if(!pts.length) return null;
+            return {
+              label: status,
+              data: pts.map(briefGeoPointToChartPoint),
+              backgroundColor: BRIEF_STATUS_COLORS[status],
+              pointRadius: status === 'Defected' ? 5 : 3,
+              pointHoverRadius: 7,
+            };
+          }).filter(Boolean);
+        }
         function buildBriefGeoHighlightDatasets(){
           const out = [];
+          const briefGeoPointsF = briefGeoFilteredPoints();
           if(briefGeoHiThisWeek || briefGeoHiLastWeek){
             const now = new Date();
             const todayStr = briefIsoDate(now);
             const yestDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
             const yesterdayStr = briefIsoDate(yestDate);
             const blueIds = new Set();
-            if(briefGeoHiThisWeek){ briefGeoPoints.forEach(r=>{ if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); }); }
+            if(briefGeoHiThisWeek){ briefGeoPointsF.forEach(r=>{ if(r.piled_date === todayStr || r.piled_date === yesterdayStr) blueIds.add(r.id); }); }
             const ranges = [];
             if(briefGeoHiThisWeek) ranges.push(briefWeekRangeStr(0));
             if(briefGeoHiLastWeek) ranges.push(briefWeekRangeStr(-1));
-            const magentaPts = briefGeoPoints.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
-            const bluePts = briefGeoPoints.filter(r => blueIds.has(r.id));
+            const magentaPts = briefGeoPointsF.filter(r => r.piled_date && !blueIds.has(r.id) && ranges.some(rg => r.piled_date >= rg.start && r.piled_date <= rg.end));
+            const bluePts = briefGeoPointsF.filter(r => blueIds.has(r.id));
             if(magentaPts.length) out.push({ label:'ตอกในสัปดาห์ที่เลือก', data: magentaPts.map(briefGeoPointToChartPoint), backgroundColor:'#D946EF', borderColor:'#9D174D', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
             if(bluePts.length) out.push({ label:'ตอกวันนี้ / เมื่อวาน', data: bluePts.map(briefGeoPointToChartPoint), backgroundColor:'#2563EB', borderColor:'#1E3A8A', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
           }
           if(briefGeoHiSoon){
             const thisWeek = briefWeekRangeStr(0), nextWeek = briefWeekRangeStr(1);
-            const soonPts = briefGeoPoints.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
+            const soonPts = briefGeoPointsF.filter(r => !r.piled_date && r.plan_date && r.plan_date >= thisWeek.start && r.plan_date <= nextWeek.end);
             if(soonPts.length) out.push({ label:'แผนตอกเร็วๆ นี้ (สัปดาห์นี้-หน้า)', data: soonPts.map(briefGeoPointToChartPoint), backgroundColor:'#F0A93B', borderColor:'#B7791F', borderWidth:1.5, pointRadius:7, pointHoverRadius:9 });
           }
           return out;
@@ -2946,7 +3047,7 @@
             <div class="brief-kpi"><div class="lbl">สะสมทั้งหมด (ไม่รวมเสาเข็มแซม)</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted} / ${pileTotalExclRepl} ต้น</span></div></div></div>
             <div class="brief-kpi"><div class="lbl">รอตอก / ตอกแซม</div><div class="cmp"><div><span class="v">${pilePending}</span><span class="t">รอตอก</span></div><div><span class="v" style="color:var(--muted);font-size:22px;">${pileCorrected}</span><span class="t">ตอกแซม</span></div></div></div>
           </div>
-          <div style="overflow-y:auto;max-height:460px;">
+          <div>
             <div class="dash-section" style="margin-bottom:14px;">
               <h3 style="margin:0 0 8px;">🚜 Rig ที่ตอก &amp; จำนวนต้นที่ตอกได้</h3>
               ${briefRigRowsHtml}
@@ -2965,22 +3066,24 @@
                   <button type="button" class="btn btn-ghost" id="briefBtnGeoFullscreen">⛶ เต็มจอ</button>
                 </div>
               </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                <label style="font-size:12.5px;color:var(--muted);">ช่วงวันที่ตอก:</label>
+                <input type="date" id="briefGeoDateStartInput" class="kpi-input" style="width:auto;" value="${escapeHtml(briefGeoDateStart)}">
+                <span style="color:var(--muted);font-size:12.5px;">ถึง</span>
+                <input type="date" id="briefGeoDateEndInput" class="kpi-input" style="width:auto;" value="${escapeHtml(briefGeoDateEnd)}">
+                <button type="button" class="btn btn-ghost" id="briefBtnGeoClearDate">ล้างช่วงวันที่</button>
+                <label style="font-size:12.5px;color:var(--muted);margin-left:8px;">พื้นที่:</label>
+                <select id="briefGeoAreaFilterInput" class="kpi-input" style="min-width:160px;">
+                  <option value="">ทุกพื้นที่ (All Areas)</option>
+                  ${briefAreaKeys.map(a=>`<option value="${escapeHtml(a)}" ${a===briefGeoAreaFilter?'selected':''}>${escapeHtml(a)}</option>`).join('')}
+                </select>
+              </div>
               <div class="chart-wrap" id="briefPileGeoCanvasWrap" style="height:320px;"><canvas id="briefPileGeoChart"></canvas></div>
             </div>
           </div>`,
           afterRender(){
             destroyChart('briefPg');
-            const geoDatasets = BRIEF_STATUS_LIST.map(status => {
-              const pts = briefGeoPoints.filter(r => r.status === status);
-              if(!pts.length) return null;
-              return {
-                label: status,
-                data: pts.map(briefGeoPointToChartPoint),
-                backgroundColor: BRIEF_STATUS_COLORS[status],
-                pointRadius: status === 'Defected' ? 5 : 3,
-                pointHoverRadius: 7,
-              };
-            }).filter(Boolean);
+            let geoDatasets = buildBriefGeoDatasets(briefGeoFilteredPoints());
             const canvas = document.getElementById('briefPileGeoChart');
             if(!canvas) return;
             chartInstances.briefPg = new Chart(canvas, {
@@ -2992,6 +3095,23 @@
                 plugins:{ tooltip:{ callbacks:{ label:(ctx)=> 'เสาเข็ม ' + ctx.raw.pile_number + (ctx.raw.area ? ' · ' + ctx.raw.area : '') + ' · ' + ctx.dataset.label } } }
               }
             });
+            function applyBriefGeoFilters(){
+              geoDatasets = buildBriefGeoDatasets(briefGeoFilteredPoints());
+              briefRefreshGeoDatasets(geoDatasets);
+            }
+            const dateStartInput = document.getElementById('briefGeoDateStartInput');
+            const dateEndInput = document.getElementById('briefGeoDateEndInput');
+            const clearDateBtn = document.getElementById('briefBtnGeoClearDate');
+            const areaFilterInput = document.getElementById('briefGeoAreaFilterInput');
+            if(dateStartInput) dateStartInput.addEventListener('change', e=>{ briefGeoDateStart = e.target.value; applyBriefGeoFilters(); });
+            if(dateEndInput) dateEndInput.addEventListener('change', e=>{ briefGeoDateEnd = e.target.value; applyBriefGeoFilters(); });
+            if(clearDateBtn) clearDateBtn.addEventListener('click', ()=>{
+              briefGeoDateStart = ''; briefGeoDateEnd = '';
+              if(dateStartInput) dateStartInput.value = '';
+              if(dateEndInput) dateEndInput.value = '';
+              applyBriefGeoFilters();
+            });
+            if(areaFilterInput) areaFilterInput.addEventListener('change', e=>{ briefGeoAreaFilter = e.target.value; applyBriefGeoFilters(); });
             const btnThisWeek = document.getElementById('briefBtnGeoThisWeek');
             const btnLastWeek = document.getElementById('briefBtnGeoLastWeek');
             const btnSoon = document.getElementById('briefBtnGeoSoon');
@@ -3025,19 +3145,122 @@
           }
         };
 
-        // ---- Slide 6: Concrete ----
+        // ---- Slide 6: Concrete — เต็มรูปแบบ พอร์ตข้อมูลทั้งหมดมาจาก Dashboard Concrete ----
         const concByDate = (d) => concreteSummaryData.filter(r=>r.report_date===d).reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
         const concReportByDate = (d) => concreteReportsData.find(r=>r.report_date===d) || null;
         const concManpowerOf = (r) => r ? ((r.foreman_count||0)+(r.safety_count||0)+(r.worker_count||0)+(r.other_count||0)) : 0;
+        const concTotalPoured = concreteSummaryData.reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
+        const concAvgManpower = concreteReportsData.length ? (concreteReportsData.reduce((s,r)=> s + concManpowerOf(r), 0) / concreteReportsData.length).toFixed(1) : '0.0';
+        // แถวล่าสุดต่อ structure_item_id (ใช้หา total_m3/plan_m3 สะสมล่าสุดของแต่ละรายการ เหมือน Dashboard Concrete)
+        const concLatestByItem = {};
+        concreteSummaryData.forEach(r=>{
+          const cur = concLatestByItem[r.structure_item_id];
+          if(!cur || r.report_date > cur.report_date) concLatestByItem[r.structure_item_id] = r;
+        });
+        const concLatestRows = Object.values(concLatestByItem);
+        const concByLocationTotal = {};
+        concLatestRows.forEach(r=>{ concByLocationTotal[r.location] = (concByLocationTotal[r.location]||0) + (Number(r.total_m3)||0); });
+        const concLocEntries = Object.entries(concByLocationTotal).sort((a,b)=>b[1]-a[1]);
+        const concMaxLoc = concLocEntries.length ? concLocEntries[0][1] : 0;
+        const concByLocationHtml = concLocEntries.length ? concLocEntries.map(([loc, val])=>{
+          const pct = concMaxLoc ? Math.round((val/concMaxLoc)*1000)/10 : 0;
+          return `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <div style="flex:0 0 90px;font-weight:700;color:var(--charcoal);font-size:13px;">${escapeHtml(loc)}</div>
+            <div style="flex:1 1 auto;height:14px;background:#EEF1F4;border-radius:7px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#0EA394,#2563EB);border-radius:7px;"></div>
+            </div>
+            <div style="flex:0 0 90px;text-align:right;font-weight:700;color:#0EA394;font-size:13px;">${Math.round(val*100)/100} m³</div>
+          </div>`;
+        }).join('') : '<div class="dash-note">ยังไม่มีข้อมูลปริมาณคอนกรีต</div>';
+        const concWithPlan = concLatestRows.filter(r=> r.plan_m3 != null && r.plan_m3 > 0);
+        const concCompletionSum = {}, concCompletionCnt = {};
+        concWithPlan.forEach(r=>{
+          concCompletionSum[r.location] = (concCompletionSum[r.location]||0) + (Number(r.finished_pct)||0);
+          concCompletionCnt[r.location] = (concCompletionCnt[r.location]||0) + 1;
+        });
+        const concCompletionEntries = Object.keys(concCompletionSum).map(loc => [loc, Math.round(concCompletionSum[loc]/concCompletionCnt[loc])]);
+        const concCompletionHtml = concCompletionEntries.length ? concCompletionEntries.map(([loc, pct])=>`
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <div style="flex:0 0 90px;font-weight:700;color:var(--charcoal);font-size:13px;">${escapeHtml(loc)}</div>
+            <div style="flex:1 1 auto;height:14px;background:#EEF1F4;border-radius:7px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2563EB,#16A34A);border-radius:7px;"></div>
+            </div>
+            <div style="flex:0 0 56px;text-align:right;font-weight:700;color:${pct>=100?'#16A34A':'#2563EB'};font-size:13px;">${pct}%</div>
+          </div>`).join('') : '<div class="dash-note">ยังไม่ได้กำหนดปริมาณตามแผน (plan_m3) — อัปเดตแผนได้ที่ Supabase</div>';
+        // พื้นที่ × ชั้น (m³) — เหมือน Dashboard Concrete
+        const concItemMeta = {};
+        concreteSummaryData.forEach(r=>{ concItemMeta[r.structure_item_id] = { location: r.location, plan_m3: r.plan_m3 }; });
+        const concByAreaFloor = {}, concByAreaPoured = {}, concByAreaPlan = {};
+        const concSeenPlanItem = {};
+        concretePourEntriesData.forEach(pe=>{
+          const meta = concItemMeta[pe.structure_item_id];
+          if(!meta) return;
+          const loc = meta.location, fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
+          concByAreaFloor[loc] = concByAreaFloor[loc] || {};
+          concByAreaFloor[loc][fl] = (concByAreaFloor[loc][fl] || 0) + vol;
+          concByAreaPoured[loc] = (concByAreaPoured[loc] || 0) + vol;
+        });
+        Object.keys(concItemMeta).forEach(itemId=>{
+          const meta = concItemMeta[itemId];
+          const dedupeKey = meta.location + '::' + itemId;
+          if(concSeenPlanItem[dedupeKey]) return;
+          concSeenPlanItem[dedupeKey] = true;
+          concByAreaPlan[meta.location] = (concByAreaPlan[meta.location] || 0) + (Number(meta.plan_m3) || 0);
+        });
+        const concAreaFloorLocations = Object.keys(concByAreaFloor).sort((a,b)=> (concByAreaPoured[b]||0) - (concByAreaPoured[a]||0));
+        const concAreaFloorTableHtml = !concAreaFloorLocations.length ? '<div class="dash-note">ยังไม่มีข้อมูลการเทคอนกรีต</div>' : `
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px;">
+              <thead>
+                <tr style="background:#F7F9FB;">
+                  <th style="text-align:left;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">พื้นที่</th>
+                  ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">${escapeHtml(fl)}</th>`).join('')}
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;color:var(--charcoal);">Total (m³)</th>
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">Plan (m³)</th>
+                  <th style="text-align:right;padding:8px 10px;border-bottom:1.3px solid var(--line);white-space:nowrap;">% สำเร็จ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${concAreaFloorLocations.map(loc=>{
+                  const poured = concByAreaPoured[loc] || 0;
+                  const plan = concByAreaPlan[loc] || 0;
+                  const pct = plan > 0 ? Math.round(poured/plan*100) : null;
+                  return `<tr>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--line);font-weight:600;color:var(--charcoal);white-space:nowrap;">${escapeHtml(loc)}</td>
+                    ${CONCRETE_FLOOR_OPTIONS.map(fl=>`<td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);">${(concByAreaFloor[loc][fl]!=null) ? Math.round(concByAreaFloor[loc][fl]*100)/100 : '-'}</td>`).join('')}
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:var(--charcoal);">${Math.round(poured*100)/100}</td>
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);color:var(--muted);">${plan > 0 ? (Math.round(plan*100)/100) : '-'}</td>
+                    <td style="text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;color:${pct==null?'var(--muted)':(pct>=100?'var(--closed)':'var(--progress)')};">${pct==null ? '-' : pct + '%'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
         const slideConcrete = {
           title:'งานคอนกรีต',
           html:`
-          <div class="brief-slide-head"><div class="ic">🧱</div><div><h1>งานคอนกรีต</h1><div class="sub">ปริมาณเทคอนกรีต · กำลังคน</div></div></div>
-          <div class="brief-grid">
+          <div class="brief-slide-head"><div class="ic">🧱</div><div><h1>งานคอนกรีต</h1><div class="sub">ปริมาณเทคอนกรีต · กำลังคน · ยอดสะสมแยกตามพื้นที่</div></div></div>
+          <div class="brief-grid" style="margin-bottom:14px;">
             ${briefKpiCard('ปริมาณเทคอนกรีต', Math.round(concByDate(today)*100)/100, Math.round(concByDate(yesterday)*100)/100, 'm³')}
             ${briefKpiCard('กำลังคนงานคอนกรีต', concManpowerOf(concReportByDate(today)), concManpowerOf(concReportByDate(yesterday)), 'คน')}
+            <div class="brief-kpi"><div class="lbl">ปริมาณเทคอนกรีตสะสมทั้งหมด</div><div class="cmp"><div><span class="v">${Math.round(concTotalPoured*100)/100}</span><span class="t">m³</span></div></div><div class="t" style="margin-top:10px;">เฉลี่ยกำลังคน ${concAvgManpower} คน/วัน</div></div>
           </div>
-          ${(!concReportByDate(today)) ? '<div class="dash-note" style="margin-top:14px;">⚠️ ยังไม่มีการกรอก Concrete Report ของวันนี้</div>' : ''}`
+          ${(!concReportByDate(today)) ? '<div class="dash-note" style="margin-bottom:14px;">⚠️ ยังไม่มีการกรอก Concrete Report ของวันนี้</div>' : ''}
+          <div>
+            <div class="dash-section" style="margin-bottom:14px;">
+              <h3 style="margin:0 0 8px;">ยอดสะสมแยกตามพื้นที่ (m³)</h3>
+              ${concByLocationHtml}
+            </div>
+            <div class="dash-section" style="margin-bottom:14px;">
+              <h3 style="margin:0 0 8px;">% ความสำเร็จเทียบแผน แยกตามพื้นที่</h3>
+              ${concCompletionHtml}
+            </div>
+            <div class="dash-section" style="margin:0;">
+              <h3 style="margin:0 0 8px;">ปริมาณคอนกรีตแยกตาม พื้นที่ × ชั้น (m³)</h3>
+              ${concAreaFloorTableHtml}
+            </div>
+          </div>`
         };
 
         const slides = [slideCover, slideSafety, slideEnv, slideDaily, slidePiling, slideConcrete];

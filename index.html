@@ -2627,8 +2627,9 @@
         const ltiWeekCount = Number(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)').week_actual) || 0;
         const safeDays = hseSettings && hseSettings.start_date ? daysBetweenInclusive(hseSettings.start_date, today) : 0;
 
-        // ชั่วโมงทำงานสะสม (Safe Man-Hours) = กำลังคนรวมต่อวัน (Daily Report + Concrete Report) × 10 ชม.
+        // ชั่วโมงทำงานสะสม (Safe Man-Hours) = กำลังคนรวมต่อวันจาก Daily Report เท่านั้น × 10 ชม.
         // สะสมตั้งแต่ "วันเริ่มนับ" (hse_safe_days_counter.start_date) ถึงวันนี้ — สูตรเดียวกับหน้า Safety KPI & Safe Days
+        // (ปรับ 2026-09-08 ตามที่ผู้ใช้ระบุ "ให้รวม Man hour เฉพาะที่อยู่ใน Daily Report" — ตัด concrete_reports ออก)
         let cumulativeManHours = 0, cumulativeManpowerDays = 0;
         if(hseSettings && hseSettings.start_date){
           const mhStart = hseSettings.start_date;
@@ -2636,11 +2637,6 @@
           dailyData.forEach(r=>{
             if(!r.report_date || r.report_date < mhStart) return;
             const mp = sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
-            mhByDate[r.report_date] = (mhByDate[r.report_date]||0) + mp;
-          });
-          concreteReportsData.forEach(r=>{
-            if(!r.report_date || r.report_date < mhStart) return;
-            const mp = (r.foreman_count||0) + (r.safety_count||0) + (r.worker_count||0) + (r.other_count||0);
             mhByDate[r.report_date] = (mhByDate[r.report_date]||0) + mp;
           });
           cumulativeManpowerDays = Object.values(mhByDate).reduce((s,v)=>s+v, 0);
@@ -5219,25 +5215,19 @@
         // format today's date the same way the rest of the app shows Buddhist-era dates in dashboards, but plain is fine here
         $('#hseAsOfDate').value = todayISO();
 
-        // compute Safe Man-Hours = sum over [start_date..today] of (total manpower reported that day across
-        // Daily Report + Concrete Report) × 10 hrs — days with no report count as 0 manpower for that day
+        // compute Safe Man-Hours = sum over [start_date..today] of (total manpower reported that day in
+        // Daily Report เท่านั้น) × 10 hrs — days with no report count as 0 manpower for that day
+        // (ปรับ 2026-09-08 ตามที่ผู้ใช้ระบุ "ให้รวม Man hour เฉพาะที่อยู่ใน Daily Report" — เดิมรวม
+        // concrete_reports (foreman/safety/worker/other) เข้าไปด้วย ตัดออกแล้ว ใช้แค่ daily_reports)
         async function computeSafeManHours(){
           const startDate = $('#hseStartDate').value;
           if(!startDate){ $('#hseManHours').value = '- (ยังไม่ตั้งวันเริ่มนับ)'; return; }
           try{
-            const [dailyRes, concreteRes] = await Promise.all([
-              fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop&report_date=gte.' + startDate, { headers: HEADERS }),
-              fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=report_date,foreman_count,safety_count,worker_count,other_count&report_date=gte.' + startDate, { headers: HEADERS }),
-            ]);
+            const dailyRes = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop&report_date=gte.' + startDate, { headers: HEADERS });
             const dailyRows = dailyRes.ok ? await dailyRes.json() : [];
-            const concreteRows = concreteRes.ok ? await concreteRes.json() : [];
             const byDate = {};
             dailyRows.forEach(r=>{
               const mp = sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
-              byDate[r.report_date] = (byDate[r.report_date]||0) + mp;
-            });
-            concreteRows.forEach(r=>{
-              const mp = (r.foreman_count||0) + (r.safety_count||0) + (r.worker_count||0) + (r.other_count||0);
               byDate[r.report_date] = (byDate[r.report_date]||0) + mp;
             });
             const totalManpower = Object.values(byDate).reduce((s,v)=>s+v, 0);

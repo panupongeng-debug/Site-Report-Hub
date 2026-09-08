@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        { "type": "host", "value": "site-report-hub-view.vercel.app" }
+      ],
+      "destination": "/index.html?view=readonly"
+    }
+  ]
+}

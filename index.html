@@ -3355,6 +3355,7 @@
           });
           const dates = Object.keys(dailyAreaMap).sort();
           if(!dates.length) return '<div class="dash-note">ไม่มีข้อมูลการเทคอนกรีตในช่วงที่เลือก</div>';
+          const datesDesc = dates.slice().reverse();
           const areasUsed = concAreaKeysAll.filter(a => dates.some(d => dailyAreaMap[d][a] != null));
           return `
           <div style="overflow-x:auto;">
@@ -3367,7 +3368,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${dates.map(d=>{
+                ${datesDesc.map(d=>{
                   const row = dailyAreaMap[d];
                   const total = areasUsed.reduce((s,a)=> s + (row[a]||0), 0);
                   return `<tr>

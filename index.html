@@ -167,6 +167,11 @@
   .vp-legend-group{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#FAFBFC;}
   .vp-legend-group-head{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;color:var(--charcoal);cursor:pointer;margin-bottom:6px;}
   .vp-legend-group .vp-toolbar{margin-bottom:0;}
+  .vp-link-combo{position:relative;}
+  .vp-link-combo-list{position:absolute;top:100%;left:0;right:0;z-index:60;background:#fff;border:1px solid var(--line);border-radius:6px;max-height:220px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.14);margin-top:2px;}
+  .vp-link-combo-item{padding:6px 10px;font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .vp-link-combo-item:hover{background:#EEF3F8;}
+  .vp-link-combo-empty,.vp-link-combo-hint{padding:6px 10px;font-size:11px;color:var(--muted);}
   .vp3d-layout{display:flex;gap:14px;flex-wrap:wrap;}
   .vp3d-canvas-wrap{position:relative;flex:1 1 480px;min-width:280px;height:560px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#EAEDF0;}
   .vp3d-canvas-wrap canvas{display:block;width:100%;height:100%;touch-action:none;}
@@ -5556,6 +5561,15 @@
         try{
           marks = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_marks?select=*');
         }catch(e){ marks = []; }
+        let subActsForLink = [];
+        try{
+          subActsForLink = await fetchAllRows(SUPABASE_URL + '/rest/v1/project_schedule_sub_activities?select=id,task_code,name,estimate_boq&order=sort_order.asc');
+        }catch(e){ subActsForLink = []; }
+        let mainActsForLink = [];
+        try{
+          mainActsForLink = await fetchAllRows(SUPABASE_URL + '/rest/v1/project_schedule_activities?select=task_code,task_name,progress_pct&order=sort_order.asc');
+        }catch(e){ mainActsForLink = []; }
+        const linkOptions = vpLinkOptionsFrom(subActsForLink, mainActsForLink);
 
         const marksByPlan = new Map();
         marks.forEach(m=>{
@@ -5579,19 +5593,6 @@
         function vpLineSizeFrac(){ return VP_DEFAULT_LINE_WIDTH * vpSizeMult; }
 
         function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
-        // A plan's `legend` column holds either the old flat array format
-        // (single implicit group, using the plan's own total_units) or the
-        // newer { groups: [...] } format that supports several independent
-        // status groups per plan (e.g. "ฐานราก" and "เสา" on the same drawing),
-        // each with its own total_units and its own % สำเร็จ calculation.
-        function legendGroupsOf(plan){
-          const l = plan.legend;
-          if(l && !Array.isArray(l) && Array.isArray(l.groups)){
-            return l.groups.map(g=>({ id: g.id, name: g.name || '', total_units: (g.total_units != null && g.total_units !== '') ? g.total_units : null, items: Array.isArray(g.items) ? g.items : [] }));
-          }
-          const items = Array.isArray(l) ? l : [];
-          return [{ id: '_default', name: plan.building_name || 'สถานะ', total_units: plan.total_units != null ? plan.total_units : null, items }];
-        }
         function loadShapesFor(planId, dateIso){
           const arr = marksByPlan.get(planId) || [];
           const row = arr.find(m => m.mark_date === dateIso);
@@ -5667,7 +5668,7 @@
                   ${escapeHtml(g.name || 'Group')}${g.total_units!=null && g.total_units!=='' ? ` (${g.total_units} จุด)` : ''}
                 </label>
                 <div class="vp-toolbar">
-                  ${(g.items||[]).map((l,i)=>`<button type="button" class="vp-legend-btn ${(g.id===vpActiveGroupId && i===vpActiveColorIdx)?'active':''}" data-group="${escapeHtml(g.id)}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
+                  ${(g.items||[]).map((l,i)=>`<button type="button" class="vp-legend-btn ${(g.id===vpActiveGroupId && i===vpActiveColorIdx)?'active':''}" data-group="${escapeHtml(g.id)}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}${l.link_level?' 🔗':''}</button>`).join('')}
                 </div>
               </div>`).join('')}
               <div class="vp-toolbar">
@@ -5946,6 +5947,12 @@
             arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1);
             showToast('บันทึกข้อมูลวันที่ ' + vpSelectedDate + ' สำเร็จ');
             renderPlanArea();
+            const groupsForSync = legendGroupsOf(plan);
+            const countFn = (gid, color) => vpShapes.filter(s => shapeGroupId(s) === gid && s.color === color).length;
+            vpSyncGroupsToBOQ(groupsForSync, countFn, subActsForLink, mainActsForLink).then(r=>{
+              if(r.synced) showToast('ซิงก์ %POC/Actual BOQ ไปยัง Sub Activity ที่ลิงก์ไว้แล้ว ' + r.synced + ' รายการ' + (r.failed ? (' (ล้มเหลว ' + r.failed + ' รายการ)') : ''));
+              else if(r.failed) showToast('ซิงก์ไปยัง Sub Activity ล้มเหลว ' + r.failed + ' รายการ', true);
+            });
           }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
           finally{ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; }
         }
@@ -5961,112 +5968,18 @@
           }catch(e){ console.error(e); showToast('ลบไม่สำเร็จ: ' + e.message, true); }
         }
 
-        function vpGroupCardHtml(g){
-          return `<div class="vp-group-card" data-gid="${g._gid}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#FAFBFC;">
-            <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-              <input type="text" class="vp-group-name" data-gid="${g._gid}" value="${escapeHtml(g.name||'')}" placeholder="ชื่อ Group เช่น ฐานราก, เสา" style="flex:1 1 160px;">
-              <input type="number" class="vp-group-total" data-gid="${g._gid}" value="${g.total_units!=null?g.total_units:''}" placeholder="จำนวนทั้งหมดของ Group นี้" style="flex:0 0 190px;">
-              ${'REMOVE_BTN_PLACEHOLDER'}
-            </div>
-            <div id="vpGroupRows-${g._gid}">
-              ${g.rows.map(it=>`<div class="list-row" data-gid="${g._gid}" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
-                <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
-                <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
-                <button type="button" class="vp-rm-row" data-gid="${g._gid}" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
-              </div>`).join('')}
-            </div>
-            <button type="button" class="btn btn-ghost vp-add-row" data-gid="${g._gid}" style="margin-top:4px;">+ เพิ่มสถานะ</button>
-          </div>`;
-        }
-
-        function wireVpGroupsEditor(modal, state){
-          // state = { groups, nextGid }
-          function syncGroupsFromDom(){
-            state.groups.forEach(g=>{
-              const nameEl = modal.querySelector('.vp-group-name[data-gid="' + g._gid + '"]');
-              const totEl = modal.querySelector('.vp-group-total[data-gid="' + g._gid + '"]');
-              if(nameEl) g.name = nameEl.value;
-              if(totEl) g.total_units = totEl.value;
-              const rowEls = modal.querySelectorAll('.list-row[data-gid="' + g._gid + '"]');
-              if(rowEls.length){
-                const newRows = [];
-                rowEls.forEach(rowEl=>{
-                  newRows.push({
-                    _id: Number(rowEl.dataset.row),
-                    label: rowEl.querySelector('.vp-legend-label').value,
-                    color: rowEl.querySelector('.vp-legend-color').value,
-                    is_completion: rowEl.querySelector('.vp-legend-completion').checked,
-                  });
-                });
-                g.rows = newRows;
-              }
-            });
-          }
-          function renderGroups(){
-            const html = state.groups.map(g=>{
-              let card = vpGroupCardHtml(g);
-              const removeBtn = state.groups.length > 1 ? `<button type="button" class="vp-rm-group" data-gid="${g._gid}" style="flex:0 0 auto;background:none;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:4px 10px;cursor:pointer;">🗑️ ลบ Group</button>` : '';
-              return card.replace('REMOVE_BTN_PLACEHOLDER', removeBtn);
-            }).join('') + `<button type="button" class="btn btn-ghost" id="vpAddGroupBtn">➕ เพิ่ม Group ใหม่</button>`;
-            modal.querySelector('#vpGroupsWrap').innerHTML = html;
-            modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                syncGroupsFromDom();
-                const gid = Number(btn.dataset.gid), rid = Number(btn.dataset.row);
-                const g = state.groups.find(x=>x._gid===gid);
-                if(g) g.rows = g.rows.filter(r=>r._id!==rid);
-                renderGroups();
-              });
-            });
-            modal.querySelectorAll('.vp-add-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                syncGroupsFromDom();
-                const gid = Number(btn.dataset.gid);
-                const g = state.groups.find(x=>x._gid===gid);
-                if(g) g.rows.push({ label:'', color:'#999999', is_completion:false, _id: g.nextRowId++ });
-                renderGroups();
-              });
-            });
-            modal.querySelectorAll('.vp-rm-group').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                syncGroupsFromDom();
-                const gid = Number(btn.dataset.gid);
-                state.groups = state.groups.filter(g=>g._gid!==gid);
-                renderGroups();
-              });
-            });
-            const addGroupBtn = document.getElementById('vpAddGroupBtn');
-            if(addGroupBtn) addGroupBtn.addEventListener('click', ()=>{
-              syncGroupsFromDom();
-              state.groups.push({ _gid: state.nextGid++, id: null, name:'', total_units:null, rows:[{label:'',color:'#999999',is_completion:false,_id:0}], nextRowId:1 });
-              renderGroups();
-            });
-          }
-          renderGroups();
-          return { syncGroupsFromDom, getGroups: ()=> state.groups };
-        }
-
-        function buildLegendGroupsPayload(groups){
-          return groups.map(g=>({
-            id: g.id || ('g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)),
-            name: (g.name||'').trim(),
-            total_units: g.total_units ? Number(g.total_units) : null,
-            items: g.rows.map(r=>({ label:(r.label||'').trim(), color:r.color, is_completion:!!r.is_completion })).filter(it=>it.label),
-          })).filter(g=>g.items.length);
-        }
-
         function openAddPlanModal(){
           const modal = document.getElementById('modalContent');
           const state = {
             nextGid: 1,
+            linkOptions: linkOptions,
             groups: [{
               _gid: 0, id: null, name: 'ฐานราก', total_units: null,
               rows: [
-                { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
-                { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
-                { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
-                { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
+                { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, link_level:null, link_ref:null, _id:0 },
+                { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, link_level:null, link_ref:null, _id:1 },
+                { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, link_level:null, link_ref:null, _id:2 },
+                { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, link_level:null, link_ref:null, _id:3 },
               ],
               nextRowId: 4,
             }],
@@ -6125,9 +6038,10 @@
           const existingGroups = legendGroupsOf(plan);
           const state = {
             nextGid: existingGroups.length,
+            linkOptions: linkOptions,
             groups: existingGroups.map((g,gi)=>({
               _gid: gi, id: g.id, name: g.name || '', total_units: g.total_units,
-              rows: (g.items && g.items.length ? g.items : [{label:'',color:'#999999',is_completion:false}]).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, _id: i })),
+              rows: (g.items && g.items.length ? g.items : [{label:'',color:'#999999',is_completion:false,link_level:null,link_ref:null}]).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, link_level: it.link_level || null, link_ref: it.link_ref || null, _id: i })),
               nextRowId: (g.items ? g.items.length : 1),
             })),
           };
@@ -6201,6 +6115,15 @@
         try{
           marks = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_3d_marks?select=*');
         }catch(e){ marks = []; }
+        let subActsForLink = [];
+        try{
+          subActsForLink = await fetchAllRows(SUPABASE_URL + '/rest/v1/project_schedule_sub_activities?select=id,task_code,name,estimate_boq&order=sort_order.asc');
+        }catch(e){ subActsForLink = []; }
+        let mainActsForLink = [];
+        try{
+          mainActsForLink = await fetchAllRows(SUPABASE_URL + '/rest/v1/project_schedule_activities?select=task_code,task_name,progress_pct&order=sort_order.asc');
+        }catch(e){ mainActsForLink = []; }
+        const linkOptions = vpLinkOptionsFrom(subActsForLink, mainActsForLink);
 
         const marksByPlan = new Map();
         marks.forEach(m=>{
@@ -6219,12 +6142,26 @@
         let vp3dCameraMode = 'perspective';
         let threeState = null;
         let vp3dFsListenerAttached = false;
+        let vpActiveGroupId = null;
+        let vpHiddenGroups = new Set();
 
         function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
         function loadAssignmentsFor(planId, dateIso){
           const arr = marksByPlan.get(planId) || [];
           const row = arr.find(m => m.mark_date === dateIso);
-          return row ? JSON.parse(JSON.stringify(row.assignments || {})) : {};
+          return normalizeAssignments(row ? row.assignments : {});
+        }
+        // Assignments used to be stored as a flat { nodeName: "#colorHex" } map.
+        // To support several independent legend groups per model, each entry is
+        // now { color, group }. Old saved data (plain color strings) is upgraded
+        // in memory to the "_default" group on load — no migration needed.
+        function normalizeAssignments(raw){
+          const out = {};
+          Object.entries(raw || {}).forEach(([name, val])=>{
+            if(val && typeof val === 'object') out[name] = { color: val.color, group: val.group || '_default' };
+            else if(val) out[name] = { color: val, group: '_default' };
+          });
+          return out;
         }
         function latestDateBefore(planId, dateIso){
           const arr = marksByPlan.get(planId) || [];
@@ -6236,29 +6173,36 @@
         function currentPlan(){ return plans.find(p=>p.id===vpActivePlanId); }
         function refreshBadge(){
           const plan = currentPlan(); if(!plan) return;
-          const legend = legendOf(plan);
-          const completionItems = legend.filter(l=>l.is_completion);
-          if(!completionItems.length || !plan.total_units) return;
-          completionItems.forEach(item=>{
-            const badgeEl = document.querySelector('.vp-badge[data-completion-color="' + item.color + '"]');
-            if(!badgeEl) return;
-            const cnt = Object.values(vpAssignments).filter(c=>c===item.color).length;
-            const pct = Math.round((cnt/plan.total_units)*1000)/10;
-            badgeEl.textContent = `${item.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+          const groups = legendGroupsOf(plan);
+          groups.forEach(g=>{
+            if(!g.total_units) return;
+            (g.items||[]).filter(l=>l.is_completion).forEach(item=>{
+              const badgeEl = document.querySelector('.vp-badge[data-completion-group="' + g.id + '"][data-completion-color="' + item.color + '"]');
+              if(!badgeEl) return;
+              const cnt = Object.values(vpAssignments).filter(e=> e && (e.group||'_default')===g.id && e.color===item.color).length;
+              const pct = Math.round((cnt/g.total_units)*1000)/10;
+              badgeEl.textContent = `${g.name || ''} — ${item.label}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+            });
           });
         }
         function applyAssignmentsToScene(){
           if(!threeState) return;
           Object.keys(threeState.coloredNodes).forEach(name=>{ const node = threeState.nodesByName.get(name); if(node) vp3dClearNode(node); });
           threeState.coloredNodes = {};
-          Object.entries(vpAssignments).forEach(([name,color])=>{ const node = threeState.nodesByName.get(name); if(node){ vp3dColorNode(node, color); threeState.coloredNodes[name] = color; } });
+          Object.entries(vpAssignments).forEach(([name,entry])=>{
+            if(!entry) return;
+            const gid = entry.group || '_default';
+            if(vpHiddenGroups.has(gid)) return; // group hidden -> leave the part uncolored
+            const node = threeState.nodesByName.get(name);
+            if(node){ vp3dColorNode(node, entry.color); threeState.coloredNodes[name] = entry.color; }
+          });
         }
         function refreshListDots(){
           if(!threeState || !threeState.listBody) return;
           threeState.listBody.querySelectorAll('.vp3d-list-row').forEach(row=>{
-            const color = vpAssignments[row.dataset.name];
+            const entry = vpAssignments[row.dataset.name];
             const dot = row.querySelector('.vp3d-list-dot');
-            if(dot) dot.style.background = color || '#ddd';
+            if(dot) dot.style.background = (entry && entry.color) || '#ddd';
           });
         }
         function handleNodeClick(name){
@@ -6270,16 +6214,16 @@
             }
             return;
           }
-          if(vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
           const plan = currentPlan(); if(!plan) return;
-          const legend = legendOf(plan);
-          const item = legend[vpActiveColorIdx];
+          const groups = legendGroupsOf(plan);
+          if(vpActiveGroupId == null || vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
+          const g = groups.find(x=>x.id === vpActiveGroupId);
+          const item = g ? (g.items[vpActiveColorIdx] || null) : null;
           if(!item) return;
           vpUndoStack.push(JSON.parse(JSON.stringify(vpAssignments)));
-          vpAssignments[name] = item.color;
+          vpAssignments[name] = { color: item.color, group: vpActiveGroupId };
           applyAssignmentsToScene(); refreshListDots(); refreshBadge();
         }
-
         async function ensureSceneForPlan(plan, wrap){
           if(threeState && threeState.planId === plan.id){
             wrap.innerHTML = '';
@@ -6428,7 +6372,7 @@
               vpActivePlanId = Number(btn.dataset.planId);
               vpSelectedDate = todayISO();
               vpAssignments = loadAssignmentsFor(vpActivePlanId, vpSelectedDate);
-              vpActiveColorIdx = -1; vpEraseMode = false; vpUndoStack = []; vp3dStyleMode = 'normal'; vp3dCameraMode = 'perspective';
+              vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vp3dStyleMode = 'normal'; vp3dCameraMode = 'perspective'; vpHiddenGroups = new Set();
               renderShell();
             });
           });
@@ -6440,17 +6384,18 @@
           const plan = plans.find(p=>p.id===vpActivePlanId);
           const editor = document.getElementById('vpPlanEditor');
           if(!plan || !editor) return;
-          const legend = legendOf(plan);
+          const groups = legendGroupsOf(plan);
+          if(!vpHiddenGroups) vpHiddenGroups = new Set();
           const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
-          const completionItems = legend.filter(l=>l.is_completion);
           let badgeHtml = '';
-          if(completionItems.length && plan.total_units){
-            badgeHtml = completionItems.map(item=>{
-              const cnt = Object.values(vpAssignments).filter(c=>c===item.color).length;
-              const pct = Math.round((cnt/plan.total_units)*1000)/10;
-              return `<div class="vp-badge" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(item.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
-            }).join('');
-          }
+          groups.forEach(g=>{
+            if(!g.total_units) return;
+            (g.items||[]).filter(l=>l.is_completion).forEach(item=>{
+              const cnt = Object.values(vpAssignments).filter(e=> e && (e.group||'_default')===g.id && e.color===item.color).length;
+              const pct = Math.round((cnt/g.total_units)*1000)/10;
+              badgeHtml += `<div class="vp-badge" data-completion-group="${escapeHtml(g.id)}" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(g.name || '')} — ${escapeHtml(item.label)}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+            });
+          });
           editor.innerHTML = `
             ${badgeHtml}
             <div class="vp-date-row">
@@ -6462,8 +6407,17 @@
               <button type="button" class="btn btn-ghost" id="vp3dDeletePlanBtn" style="flex:0 0 auto;color:var(--danger);">🗑️ ลบแปลนนี้</button>
             </div>
             <div class="vp3d-fullscreen-wrap" id="vp3dFullscreenWrap">
+              ${groups.map(g=>`
+              <div class="vp-legend-group">
+                <label class="vp-legend-group-head">
+                  <input type="checkbox" class="vp-group-vis-toggle" data-group="${escapeHtml(g.id)}" ${vpHiddenGroups.has(g.id)?'':'checked'}>
+                  ${escapeHtml(g.name || 'Group')}${g.total_units!=null && g.total_units!=='' ? ` (${g.total_units} จุด)` : ''}
+                </label>
+                <div class="vp-toolbar">
+                  ${(g.items||[]).map((l,i)=>`<button type="button" class="vp-legend-btn ${(g.id===vpActiveGroupId && i===vpActiveColorIdx)?'active':''}" data-group="${escapeHtml(g.id)}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}${l.link_level?' 🔗':''}</button>`).join('')}
+                </div>
+              </div>`).join('')}
               <div class="vp-toolbar">
-                ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
                 <button type="button" class="btn btn-ghost" id="vp3dEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
                 <button type="button" class="btn btn-ghost" id="vp3dUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
                 <button type="button" class="btn btn-ghost" id="vp3dClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
@@ -6496,7 +6450,7 @@
                 </div>
               </div>
             </div>
-            <div class="dash-note">คลิกเลือกสถานะจาก Legend ด้านบน แล้วคลิกชิ้นส่วนบนโมเดล 3D โดยตรง หรือคลิกเลือกจากรายการด้านขวา — หมุน/ซูมโมเดลด้วยเมาส์ (ลากซ้าย = หมุน, scroll = ซูม, ลากขวา = เลื่อน) — เปิด "โหมดลบ" แล้วคลิกชิ้นส่วนเพื่อลบสถานะ — กดปุ่ม "มุมมองด้าน" (หน้า/หลัง/ซ้าย/ขวา/บน/ล่าง) เพื่อดูตรงมุมนั้นทันที หรือกด "มุมมองรวมทั้งหมด" เพื่อขยายให้เห็นทั้งโมเดล — เลือก "มุมมอง 3D" เป็น Perspective (มีระยะใกล้ไกล) หรือ Isometric (มุมมองขนาน ไม่มีระยะบิดเบือน) และ "รูปแบบโมเดล" เป็น X-ray/เส้นขอบ ได้ตามต้องการ (แค่ปรับมุมมอง ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="dash-note">เลือก Group แล้วคลิกเลือกสถานะจาก Legend ของ Group นั้น แล้วคลิกชิ้นส่วนบนโมเดล 3D โดยตรง หรือคลิกเลือกจากรายการด้านขวา — หมุน/ซูมโมเดลด้วยเมาส์ (ลากซ้าย = หมุน, scroll = ซูม, ลากขวา = เลื่อน) — เปิด "โหมดลบ" แล้วคลิกชิ้นส่วนเพื่อลบสถานะ — ติ๊ก/ปลดติ๊กชื่อ Group ด้านบนเพื่อซ่อน/แสดงสีของ Group นั้นบนโมเดล (ซ่อนได้พร้อมกันหลาย Group หรือแสดงทั้งหมดพร้อมกันก็ได้ ไม่กระทบข้อมูลที่บันทึกไว้) — กดปุ่ม "มุมมองด้าน" (หน้า/หลัง/ซ้าย/ขวา/บน/ล่าง) เพื่อดูตรงมุมนั้นทันที หรือกด "มุมมองรวมทั้งหมด" เพื่อขยายให้เห็นทั้งโมเดล — เลือก "มุมมอง 3D" เป็น Perspective (มีระยะใกล้ไกล) หรือ Isometric (มุมมองขนาน ไม่มีระยะบิดเบือน) และ "รูปแบบโมเดล" เป็น X-ray/เส้นขอบ ได้ตามต้องการ (แค่ปรับมุมมอง ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
             <div class="btn-row">
               <button class="btn btn-primary" id="vp3dSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button>
               <button class="btn btn-ghost" id="vp3dScreenshotBtn">📷 บันทึกภาพหน้าจอ</button>
@@ -6552,15 +6506,24 @@
           });
           container.querySelectorAll('.vp-legend-btn').forEach(btn=>{
             btn.addEventListener('click', ()=>{
+              const gId = btn.dataset.group;
               const idx = Number(btn.dataset.idx);
-              vpActiveColorIdx = (vpActiveColorIdx === idx) ? -1 : idx;
+              if(vpActiveGroupId === gId && vpActiveColorIdx === idx){ vpActiveGroupId = null; vpActiveColorIdx = -1; }
+              else { vpActiveGroupId = gId; vpActiveColorIdx = idx; }
               vpEraseMode = false;
               renderPlanArea();
             });
           });
+          container.querySelectorAll('.vp-group-vis-toggle').forEach(cb=>{
+            cb.addEventListener('change', ()=>{
+              const gId = cb.dataset.group;
+              if(cb.checked) vpHiddenGroups.delete(gId); else vpHiddenGroups.add(gId);
+              applyAssignmentsToScene();
+            });
+          });
           document.getElementById('vp3dEraseBtn').addEventListener('click', ()=>{
             vpEraseMode = !vpEraseMode;
-            if(vpEraseMode) vpActiveColorIdx = -1;
+            if(vpEraseMode) { vpActiveGroupId = null; vpActiveColorIdx = -1; }
             renderPlanArea();
           });
           document.getElementById('vp3dUndoBtn').addEventListener('click', ()=>{
@@ -6629,7 +6592,8 @@
                 const label = nodeLabels[n] || n;
                 return n.toLowerCase().includes(f) || label.toLowerCase().includes(f);
               }).map(n=>{
-                const color = vpAssignments[n];
+                const entry = vpAssignments[n];
+                const color = entry && entry.color;
                 const label = nodeLabels[n] || n;
                 return `<div class="vp3d-list-row"><span class="vp3d-list-dot" data-name="${escapeHtml(n)}" style="${color?('background:'+color+';'):''}cursor:pointer;flex:0 0 auto;"></span><span class="vp3d-list-name" data-name="${escapeHtml(n)}" style="flex:1;cursor:pointer;" title="${escapeHtml(n)}">${escapeHtml(label)}</span><span class="vp3d-rename-btn" data-name="${escapeHtml(n)}" title="ตั้งชื่อที่แสดง" style="cursor:pointer;opacity:.55;flex:0 0 auto;">✏️</span></div>`;
               }).join('');
@@ -6650,7 +6614,6 @@
             if(vp3dCameraMode !== state.cameraMode) state.setCameraMode(vp3dCameraMode);
           }).catch(e=>{ console.error(e); wrap.innerHTML = '<div class="dash-empty">โหลดโมเดลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
         }
-
         function applyStyleModeToScene(){
           if(!threeState) return;
           const THREE = threeState.THREE;
@@ -6703,6 +6666,12 @@
             arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1);
             showToast('บันทึกข้อมูลวันที่ ' + vpSelectedDate + ' สำเร็จ');
             renderPlanArea();
+            const groupsForSync = legendGroupsOf(plan);
+            const countFn = (gid, color) => Object.values(vpAssignments).filter(e => e && (e.group||'_default') === gid && e.color === color).length;
+            vpSyncGroupsToBOQ(groupsForSync, countFn, subActsForLink, mainActsForLink).then(r=>{
+              if(r.synced) showToast('ซิงก์ %POC/Actual BOQ ไปยัง Sub Activity ที่ลิงก์ไว้แล้ว ' + r.synced + ' รายการ' + (r.failed ? (' (ล้มเหลว ' + r.failed + ' รายการ)') : ''));
+              else if(r.failed) showToast('ซิงก์ไปยัง Sub Activity ล้มเหลว ' + r.failed + ' รายการ', true);
+            });
           }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
           finally{ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; }
         }
@@ -6720,38 +6689,28 @@
 
         function openAdd3DPlanModal(){
           const modal = document.getElementById('modalContent');
-          let legendRows = [
-            { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
-            { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
-            { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
-            { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
-          ];
-          let nextRowId = legendRows.length;
-          function renderRows(){
-            modal.querySelector('#vp3dLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-              <input type="color" class="vp3d-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
-              <input type="text" class="vp3d-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
-              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp3d-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
-              <button type="button" class="vp3d-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
-            </div>`).join('');
-            modal.querySelectorAll('.vp3d-rm-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                const rid = Number(btn.dataset.row);
-                legendRows = legendRows.filter(r=>r._id !== rid);
-                renderRows();
-              });
-            });
-          }
+          const state = {
+            nextGid: 1,
+            linkOptions: linkOptions,
+            groups: [{
+              _gid: 0, id: null, name: 'ฐานราก', total_units: null,
+              rows: [
+                { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, link_level:null, link_ref:null, _id:0 },
+                { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, link_level:null, link_ref:null, _id:1 },
+                { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, link_level:null, link_ref:null, _id:2 },
+                { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, link_level:null, link_ref:null, _id:3 },
+              ],
+              nextRowId: 4,
+            }],
+          };
           modal.innerHTML = `
             <div class="modal-head"><h2>เพิ่มโมเดล 3D ใหม่ (Visual Progress 3D)</h2><button class="modal-close" id="vp3dModalClose">&times;</button></div>
             <div class="detail-grid">
               <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vp3dNewBuildingName" placeholder="เช่น WHA, WHB, MPB, TLB"></div>
               <div class="detail-field full"><label>ไฟล์โมเดล 3D (.glb ที่ export จาก SketchUp)</label><input type="file" id="vp3dNewFile" accept=".glb,.gltf,model/gltf-binary"></div>
-              <div class="detail-field full"><label>จำนวนชิ้นส่วน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vp3dNewTotalUnits" placeholder="เช่น 55"></div>
               <div class="detail-field full">
-                <label>Legend (สถานะ + สี)</label>
-                <div id="vp3dLegendRows"></div>
-                <button type="button" class="btn btn-ghost" id="vp3dAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+                <label>Group ของสถานะงาน (แยกนับ % สำเร็จอิสระต่อกัน — เช่น ฐานราก, เสา)</label>
+                <div id="vpGroupsWrap"></div>
               </div>
             </div>
             <div class="btn-row" style="margin-top:14px;">
@@ -6759,32 +6718,24 @@
               <button class="btn btn-ghost" id="vp3dCancelPlanBtn">ยกเลิก</button>
             </div>
           `;
-          renderRows();
-          document.getElementById('vp3dAddLegendRow').addEventListener('click', ()=>{
-            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
-            renderRows();
-          });
+          const editorApi = wireVpGroupsEditor(modal, state);
           document.getElementById('vp3dModalClose').addEventListener('click', closeModal);
           document.getElementById('vp3dCancelPlanBtn').addEventListener('click', closeModal);
           document.getElementById('vp3dSavePlanBtn').addEventListener('click', async ()=>{
+            editorApi.syncGroupsFromDom();
             const name = document.getElementById('vp3dNewBuildingName').value.trim();
             const fileInput = document.getElementById('vp3dNewFile');
             const file = fileInput.files && fileInput.files[0];
-            const totalUnitsVal = document.getElementById('vp3dNewTotalUnits').value;
-            const rows = Array.from(modal.querySelectorAll('#vp3dLegendRows .list-row'));
-            const legend = rows.map(row=>({
-              label: row.querySelector('.vp3d-legend-label').value.trim(),
-              color: row.querySelector('.vp3d-legend-color').value,
-              is_completion: row.querySelector('.vp3d-legend-completion').checked,
-            })).filter(l=>l.label);
+            const legendGroups = buildLegendGroupsPayload(editorApi.getGroups());
             if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
             if(!file){ showToast('กรุณาเลือกไฟล์โมเดล .glb', true); return; }
-            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            if(!legendGroups.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
             const saveBtn = document.getElementById('vp3dSavePlanBtn');
             saveBtn.disabled = true; saveBtn.textContent = 'กำลังอัปโหลด...';
             try{
               const modelUrl = await uploadVpBlob('visual-progress-3d-plans', file, file.name, file.type || 'model/gltf-binary');
-              const payload = { building_name: name, model_url: modelUrl, legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null, sort_order: plans.length };
+              const totalSum = legendGroups.reduce((sum,g)=> sum + (g.total_units||0), 0);
+              const payload = { building_name: name, model_url: modelUrl, legend: { groups: legendGroups }, total_units: totalSum || null, sort_order: plans.length };
               const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans', { method:'POST', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
               if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
               closeModal();
@@ -6798,34 +6749,24 @@
 
         function openEdit3DPlanModal(plan){
           const modal = document.getElementById('modalContent');
-          let legendRows = legendOf(plan).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, _id: i }));
-          if(!legendRows.length) legendRows = [{ label:'', color:'#999999', is_completion:false, _id:0 }];
-          let nextRowId = legendRows.length;
-          function renderRows(){
-            modal.querySelector('#vp3dLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-              <input type="color" class="vp3d-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
-              <input type="text" class="vp3d-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
-              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp3d-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
-              <button type="button" class="vp3d-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
-            </div>`).join('');
-            modal.querySelectorAll('.vp3d-rm-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                const rid = Number(btn.dataset.row);
-                legendRows = legendRows.filter(r=>r._id !== rid);
-                renderRows();
-              });
-            });
-          }
+          const existingGroups = legendGroupsOf(plan);
+          const state = {
+            nextGid: existingGroups.length,
+            linkOptions: linkOptions,
+            groups: existingGroups.map((g,gi)=>({
+              _gid: gi, id: g.id, name: g.name || '', total_units: g.total_units,
+              rows: (g.items && g.items.length ? g.items : [{label:'',color:'#999999',is_completion:false,link_level:null,link_ref:null}]).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, link_level: it.link_level || null, link_ref: it.link_ref || null, _id: i })),
+              nextRowId: (g.items ? g.items.length : 1),
+            })),
+          };
           modal.innerHTML = `
             <div class="modal-head"><h2>แก้ไขโมเดล 3D — ${escapeHtml(plan.building_name)}</h2><button class="modal-close" id="vp3dModalClose">&times;</button></div>
             <div class="detail-grid">
               <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vp3dNewBuildingName" value="${escapeHtml(plan.building_name)}"></div>
               <div class="detail-field full"><label>เปลี่ยนไฟล์โมเดล .glb (ไม่บังคับ — ถ้าไม่เลือกจะใช้ไฟล์เดิม)</label><input type="file" id="vp3dNewFile" accept=".glb,.gltf,model/gltf-binary"></div>
-              <div class="detail-field full"><label>จำนวนชิ้นส่วน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vp3dNewTotalUnits" value="${plan.total_units != null ? plan.total_units : ''}" placeholder="เช่น 55"></div>
               <div class="detail-field full">
-                <label>Legend (สถานะ + สี)</label>
-                <div id="vp3dLegendRows"></div>
-                <button type="button" class="btn btn-ghost" id="vp3dAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+                <label>Group ของสถานะงาน (แยกนับ % สำเร็จอิสระต่อกัน — เช่น ฐานราก, เสา)</label>
+                <div id="vpGroupsWrap"></div>
               </div>
             </div>
             <div class="btn-row" style="margin-top:14px;">
@@ -6833,30 +6774,22 @@
               <button class="btn btn-ghost" id="vp3dCancelPlanBtn">ยกเลิก</button>
             </div>
           `;
-          renderRows();
-          document.getElementById('vp3dAddLegendRow').addEventListener('click', ()=>{
-            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
-            renderRows();
-          });
+          const editorApi = wireVpGroupsEditor(modal, state);
           document.getElementById('vp3dModalClose').addEventListener('click', closeModal);
           document.getElementById('vp3dCancelPlanBtn').addEventListener('click', closeModal);
           document.getElementById('vp3dSavePlanBtn').addEventListener('click', async ()=>{
+            editorApi.syncGroupsFromDom();
             const name = document.getElementById('vp3dNewBuildingName').value.trim();
             const fileInput = document.getElementById('vp3dNewFile');
             const file = fileInput.files && fileInput.files[0];
-            const totalUnitsVal = document.getElementById('vp3dNewTotalUnits').value;
-            const rows = Array.from(modal.querySelectorAll('#vp3dLegendRows .list-row'));
-            const legend = rows.map(row=>({
-              label: row.querySelector('.vp3d-legend-label').value.trim(),
-              color: row.querySelector('.vp3d-legend-color').value,
-              is_completion: row.querySelector('.vp3d-legend-completion').checked,
-            })).filter(l=>l.label);
+            const legendGroups = buildLegendGroupsPayload(editorApi.getGroups());
             if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
-            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            if(!legendGroups.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
             const saveBtn = document.getElementById('vp3dSavePlanBtn');
             saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
             try{
-              const payload = { building_name: name, legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null };
+              const totalSum = legendGroups.reduce((sum,g)=> sum + (g.total_units||0), 0);
+              const payload = { building_name: name, legend: { groups: legendGroups }, total_units: totalSum || null };
               let oldModelUrl = null;
               if(file){
                 payload.model_url = await uploadVpBlob('visual-progress-3d-plans', file, file.name, file.type || 'model/gltf-binary');
@@ -7286,6 +7219,253 @@
     return STORAGE_PUBLIC + path;
   }
   if(window.pdfjsLib){ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }
+  // ---------- Visual Progress: shared legend-group helpers (used by both 2D and 3D boards) ----------
+  // A plan's `legend` column holds either the old flat array format
+  // (single implicit group, using the plan's own total_units) or the
+  // newer { groups: [...] } format that supports several independent
+  // status groups per plan (e.g. "ฐานราก" and "เสา" on the same drawing/model),
+  // each with its own total_units and its own % สำเร็จ calculation.
+  function legendGroupsOf(plan){
+    const l = plan.legend;
+    if(l && !Array.isArray(l) && Array.isArray(l.groups)){
+      return l.groups.map(g=>({ id: g.id, name: g.name || '', total_units: (g.total_units != null && g.total_units !== '') ? g.total_units : null, items: (Array.isArray(g.items) ? g.items : []).map(vpNormalizeLegendItem) }));
+    }
+    const items = Array.isArray(l) ? l : [];
+    return [{ id: '_default', name: plan.building_name || 'สถานะ', total_units: plan.total_units != null ? plan.total_units : null, items: items.map(vpNormalizeLegendItem) }];
+  }
+  // Legend items used to link only to a Sub Activity (BOQ) via `link_sub_activity_id`.
+  // Now a status can link to either a Sub Activity (BOQ, fine detail) or a main
+  // Activity (task_code, e.g. the whole "Pile Driving Work") directly — stored as
+  // { link_level: 'sub_activity'|'activity', link_ref: <id or task_code as string> }.
+  // Old saved items (plain `link_sub_activity_id`) are upgraded in memory on load;
+  // no migration needed, and re-saving writes the new fields going forward.
+  function vpNormalizeLegendItem(it){
+    if(!it) return it;
+    if(it.link_level && it.link_ref != null && it.link_ref !== '') return it;
+    if(it.link_sub_activity_id != null && it.link_sub_activity_id !== ''){
+      return Object.assign({}, it, { link_level: 'sub_activity', link_ref: String(it.link_sub_activity_id) });
+    }
+    return it;
+  }
+  // Combines Sub Activities (BOQ leaf items) and main Activities (whole tasks)
+  // into one searchable option list for the link combobox in the plan editor —
+  // lets a status link to either level from the same search box.
+  function vpLinkOptionsFrom(subActsForLink, mainActsForLink){
+    const subOpts = (subActsForLink||[]).map(s=>({ level:'sub_activity', ref: String(s.id), label: '📋 ' + (s.task_code||'') + ' — ' + (s.name||''), search: ((s.task_code||'') + ' ' + (s.name||'')).toLowerCase() }));
+    const actOpts = (mainActsForLink||[]).map(a=>({ level:'activity', ref: String(a.task_code), label: '🏗️ ' + a.task_code + ' — ' + (a.task_name||''), search: (a.task_code + ' ' + (a.task_name||'')).toLowerCase() }));
+    return actOpts.concat(subOpts);
+  }
+  function vpLinkLabelFor(level, ref, linkOptions){
+    if(!level || ref == null || ref === '') return '';
+    const opt = (linkOptions||[]).find(o=>o.level===level && String(o.ref)===String(ref));
+    return opt ? opt.label : ('(ลิงก์ไว้แล้ว แต่ไม่พบรายการ: ' + ref + ')');
+  }
+  function vpGroupCardHtml(g, linkOptions){
+    function linkComboHtml(rowId, level, ref){
+      const label = vpLinkLabelFor(level, ref, linkOptions);
+      return `<div class="vp-link-combo" data-gid="${g._gid}" data-row="${rowId}" style="flex:1 1 240px;">
+        <input type="text" class="vp-link-combo-input" value="${escapeHtml(label)}" placeholder="พิมพ์ค้นหา Activity หลัก หรือ Sub Activity (BOQ)..." autocomplete="off" title="ลิงก์สถานะนี้กับ Activity หลัก หรือ Sub Activity (BOQ) — เมื่อบันทึกจะอัปเดต % ให้ตรงกับ Progress อัตโนมัติ" style="width:100%;font-size:11.5px;">
+        <input type="hidden" class="vp-link-combo-level" value="${level||''}">
+        <input type="hidden" class="vp-link-combo-ref" value="${ref||''}">
+        <div class="vp-link-combo-list" hidden></div>
+      </div>`;
+    }
+    return `<div class="vp-group-card" data-gid="${g._gid}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#FAFBFC;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <input type="text" class="vp-group-name" data-gid="${g._gid}" value="${escapeHtml(g.name||'')}" placeholder="ชื่อ Group เช่น ฐานราก, เสา" style="flex:1 1 160px;">
+        <input type="number" class="vp-group-total" data-gid="${g._gid}" value="${g.total_units!=null?g.total_units:''}" placeholder="จำนวนทั้งหมดของ Group นี้" style="flex:0 0 190px;">
+        ${'REMOVE_BTN_PLACEHOLDER'}
+      </div>
+      <div id="vpGroupRows-${g._gid}">
+        ${g.rows.map(it=>`<div class="list-row" data-gid="${g._gid}" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+          <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
+          <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 140px;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
+          ${linkComboHtml(it._id, it.link_level, it.link_ref)}
+          <button type="button" class="vp-rm-row" data-gid="${g._gid}" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
+        </div>`).join('')}
+      </div>
+      <button type="button" class="btn btn-ghost vp-add-row" data-gid="${g._gid}" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+    </div>`;
+  }
+  function wireVpGroupsEditor(modal, state){
+    // state = { groups, nextGid, linkOptions }
+    function syncGroupsFromDom(){
+      state.groups.forEach(g=>{
+        const nameEl = modal.querySelector('.vp-group-name[data-gid="' + g._gid + '"]');
+        const totEl = modal.querySelector('.vp-group-total[data-gid="' + g._gid + '"]');
+        if(nameEl) g.name = nameEl.value;
+        if(totEl) g.total_units = totEl.value;
+        const rowEls = modal.querySelectorAll('.list-row[data-gid="' + g._gid + '"]');
+        if(rowEls.length){
+          const newRows = [];
+          rowEls.forEach(rowEl=>{
+            const levelEl = rowEl.querySelector('.vp-link-combo-level');
+            const refEl = rowEl.querySelector('.vp-link-combo-ref');
+            newRows.push({
+              _id: Number(rowEl.dataset.row),
+              label: rowEl.querySelector('.vp-legend-label').value,
+              color: rowEl.querySelector('.vp-legend-color').value,
+              is_completion: rowEl.querySelector('.vp-legend-completion').checked,
+              link_level: (levelEl && levelEl.value) ? levelEl.value : null,
+              link_ref: (refEl && refEl.value) ? refEl.value : null,
+            });
+          });
+          g.rows = newRows;
+        }
+      });
+    }
+    function renderGroups(){
+      const html = state.groups.map(g=>{
+        let card = vpGroupCardHtml(g, state.linkOptions);
+        const removeBtn = state.groups.length > 1 ? `<button type="button" class="vp-rm-group" data-gid="${g._gid}" style="flex:0 0 auto;background:none;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:4px 10px;cursor:pointer;">🗑️ ลบ Group</button>` : '';
+        return card.replace('REMOVE_BTN_PLACEHOLDER', removeBtn);
+      }).join('') + `<button type="button" class="btn btn-ghost" id="vpAddGroupBtn">➕ เพิ่ม Group ใหม่</button>`;
+      modal.querySelector('#vpGroupsWrap').innerHTML = html;
+      modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          syncGroupsFromDom();
+          const gid = Number(btn.dataset.gid), rid = Number(btn.dataset.row);
+          const g = state.groups.find(x=>x._gid===gid);
+          if(g) g.rows = g.rows.filter(r=>r._id!==rid);
+          renderGroups();
+        });
+      });
+      modal.querySelectorAll('.vp-add-row').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          syncGroupsFromDom();
+          const gid = Number(btn.dataset.gid);
+          const g = state.groups.find(x=>x._gid===gid);
+          if(g) g.rows.push({ label:'', color:'#999999', is_completion:false, link_level:null, link_ref:null, _id: g.nextRowId++ });
+          renderGroups();
+        });
+      });
+      modal.querySelectorAll('.vp-rm-group').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          syncGroupsFromDom();
+          const gid = Number(btn.dataset.gid);
+          state.groups = state.groups.filter(g=>g._gid!==gid);
+          renderGroups();
+        });
+      });
+      const addGroupBtn = document.getElementById('vpAddGroupBtn');
+      if(addGroupBtn) addGroupBtn.addEventListener('click', ()=>{
+        syncGroupsFromDom();
+        state.groups.push({ _gid: state.nextGid++, id: null, name:'', total_units:null, rows:[{label:'',color:'#999999',is_completion:false,link_level:null,link_ref:null,_id:0}], nextRowId:1 });
+        renderGroups();
+      });
+      // Searchable combobox for linking a status to an Activity or Sub Activity
+      // (BOQ) — typing filters state.linkOptions by code/name across both
+      // levels at once; clicking a result fills the hidden level/ref fields
+      // read back in syncGroupsFromDom(). Rebuilt fresh on every renderGroups()
+      // call since the whole panel's innerHTML is replaced each time.
+      function closeAllLinkLists(){
+        modal.querySelectorAll('.vp-link-combo-list').forEach(el=>{ el.hidden = true; el.innerHTML = ''; });
+      }
+      modal.querySelectorAll('.vp-link-combo-input').forEach(input=>{
+        const wrap = input.closest('.vp-link-combo');
+        const listEl = wrap.querySelector('.vp-link-combo-list');
+        const levelEl = wrap.querySelector('.vp-link-combo-level');
+        const refEl = wrap.querySelector('.vp-link-combo-ref');
+        function showResults(){
+          const q = input.value.trim().toLowerCase();
+          const opts = state.linkOptions || [];
+          const matches = (q ? opts.filter(o=>o.search.includes(q)) : opts).slice(0, 40);
+          if(!matches.length){
+            listEl.innerHTML = '<div class="vp-link-combo-empty">ไม่พบรายการที่ตรงกับ "' + escapeHtml(input.value) + '"</div>';
+          } else {
+            listEl.innerHTML = matches.map(o=>`<div class="vp-link-combo-item" data-level="${o.level}" data-ref="${escapeHtml(String(o.ref))}">${escapeHtml(o.label)}</div>`).join('')
+              + (opts.length > matches.length ? `<div class="vp-link-combo-hint">พิมพ์เพื่อกรองผลลัพธ์ (ทั้งหมด ${opts.length} รายการ)</div>` : '');
+          }
+          listEl.hidden = false;
+          listEl.querySelectorAll('.vp-link-combo-item').forEach(item=>{
+            item.addEventListener('mousedown', (e)=>{
+              e.preventDefault();
+              levelEl.value = item.dataset.level;
+              refEl.value = item.dataset.ref;
+              input.value = item.textContent;
+              listEl.hidden = true;
+            });
+          });
+        }
+        input.addEventListener('focus', ()=>{ closeAllLinkLists(); showResults(); });
+        input.addEventListener('input', showResults);
+        input.addEventListener('blur', ()=>{ setTimeout(()=>{ listEl.hidden = true; }, 150); });
+        input.addEventListener('keydown', (e)=>{
+          if(e.key === 'Escape'){ input.blur(); }
+          if(e.key === 'Backspace' && !input.value){ levelEl.value = ''; refEl.value = ''; }
+        });
+      });
+    }
+    renderGroups();
+    return { syncGroupsFromDom, getGroups: ()=> state.groups };
+  }
+  function buildLegendGroupsPayload(groups){
+    return groups.map(g=>({
+      id: g.id || ('g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)),
+      name: (g.name||'').trim(),
+      total_units: g.total_units ? Number(g.total_units) : null,
+      items: g.rows.map(r=>({ label:(r.label||'').trim(), color:r.color, is_completion:!!r.is_completion, link_level: r.link_level || null, link_ref: r.link_ref || null })).filter(it=>it.label),
+    })).filter(g=>g.items.length);
+  }
+  // Pushes each linked status's live progress (count of marks of that status
+  // within its group, divided by the group's total_units) into whichever BOQ
+  // level it's linked to:
+  //  - 'sub_activity' -> project_schedule_sub_activities: %POC (poc_manual)
+  //    and Actual BOQ (recalculated from that row's own Estimate BOQ) are set.
+  //  - 'activity' -> project_schedule_activities: the Activity's own
+  //    progress_pct (and derived status_code) are set directly — for linking
+  //    straight to a whole task (e.g. "Pile Driving Work") rather than one of
+  //    its BOQ line items.
+  // Called once after a successful save (not on every click) to avoid
+  // hammering the API while marking. countFn(groupId, color) must return the
+  // number of marks of that status.
+  async function vpSyncGroupsToBOQ(groups, countFn, subActsForLink, mainActsForLink){
+    const subById = new Map((subActsForLink||[]).map(s=> [String(s.id), s]));
+    const actByCode = new Map((mainActsForLink||[]).map(a=> [String(a.task_code), a]));
+    const jobs = [];
+    let synced = 0, failed = 0;
+    groups.forEach(g=>{
+      if(!g.total_units) return;
+      (g.items||[]).forEach(item=>{
+        if(!item.link_level || item.link_ref == null || item.link_ref === '') return;
+        const cnt = countFn(g.id, item.color);
+        const pct = Math.max(0, Math.min(100, Math.round((cnt / g.total_units) * 10000) / 100));
+        if(item.link_level === 'sub_activity'){
+          const sa = subById.get(String(item.link_ref));
+          if(!sa) return;
+          const est = Number(sa.estimate_boq) || 0;
+          const actualBoq = Math.round(est * pct) / 100;
+          jobs.push(
+            fetch(SUPABASE_URL + '/rest/v1/project_schedule_sub_activities?id=eq.' + encodeURIComponent(sa.id), {
+              method: 'PATCH', headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ poc_manual: pct, actual_boq: actualBoq, updated_at: new Date().toISOString() })
+            }).then(res=>{
+              if(res.ok){ synced++; sa.poc_manual = pct; sa.actual_boq = actualBoq; }
+              else failed++;
+            }).catch(()=>{ failed++; })
+          );
+        } else if(item.link_level === 'activity'){
+          const act = actByCode.get(String(item.link_ref));
+          if(!act) return;
+          const statusCode = pct <= 0 ? 'Not Started' : (pct >= 100 ? 'Completed' : 'In Progress');
+          jobs.push(
+            fetch(SUPABASE_URL + '/rest/v1/project_schedule_activities?task_code=eq.' + encodeURIComponent(act.task_code), {
+              method: 'PATCH', headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ progress_pct: pct, status_code: statusCode, updated_at: new Date().toISOString() })
+            }).then(res=>{
+              if(res.ok){ synced++; act.progress_pct = pct; act.status_code = statusCode; }
+              else failed++;
+            }).catch(()=>{ failed++; })
+          );
+        }
+      });
+    });
+    if(!jobs.length) return { synced: 0, failed: 0 };
+    await Promise.all(jobs);
+    return { synced, failed };
+  }
+
   // ---------- Visual Progress board: shared canvas/pdf helpers ----------
   const VP_DEFAULT_SQUARE_SIZE = 0.026;
   const VP_DEFAULT_LINE_WIDTH = 0.006;

@@ -164,10 +164,18 @@
   .vp-date-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
   .vp-date-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .vp-badge{display:inline-block;background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--charcoal);margin-bottom:12px;}
+  .vp-legend-group{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#FAFBFC;}
+  .vp-legend-group-head{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;color:var(--charcoal);cursor:pointer;margin-bottom:6px;}
+  .vp-legend-group .vp-toolbar{margin-bottom:0;}
   .vp3d-layout{display:flex;gap:14px;flex-wrap:wrap;}
   .vp3d-canvas-wrap{position:relative;flex:1 1 480px;min-width:280px;height:560px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#EAEDF0;}
   .vp3d-canvas-wrap canvas{display:block;width:100%;height:100%;touch-action:none;}
   .vp3d-list-wrap{flex:0 0 260px;max-width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:560px;overflow-y:auto;background:#fff;}
+  .vp-fullscreen-wrap:fullscreen, .vp-fullscreen-wrap:-webkit-full-screen{background:#fff;padding:20px;overflow:auto;}
+  .vp-fullscreen-wrap:fullscreen .vp-canvas-wrap, .vp-fullscreen-wrap:-webkit-full-screen .vp-canvas-wrap{max-height:calc(100vh - 150px);}
+  .vp3d-fullscreen-wrap:fullscreen, .vp3d-fullscreen-wrap:-webkit-full-screen{background:#fff;padding:20px;overflow:auto;}
+  .vp3d-fullscreen-wrap:fullscreen .vp3d-canvas-wrap, .vp3d-fullscreen-wrap:-webkit-full-screen .vp3d-canvas-wrap{height:calc(100vh - 260px) !important;}
+  .vp3d-fullscreen-wrap:fullscreen .vp3d-list-wrap, .vp3d-fullscreen-wrap:-webkit-full-screen .vp3d-list-wrap{max-height:calc(100vh - 260px);}
   .vp3d-list-wrap input[type=text]{width:100%;margin-bottom:8px;}
   .vp3d-list-row{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:6px;cursor:pointer;font-size:12px;}
   .vp3d-list-row:hover{background:#F7F9FB;}
@@ -5564,10 +5572,26 @@
         let vpUndoStack = [];
         let vpShapeType = 'square';
         let vpSizeMult = 1;
+        let vpFsListenerAttached = false;
+        let vpActiveGroupId = null;
+        let vpHiddenGroups = new Set();
         function vpSquareSizeFrac(){ return VP_DEFAULT_SQUARE_SIZE * vpSizeMult; }
         function vpLineSizeFrac(){ return VP_DEFAULT_LINE_WIDTH * vpSizeMult; }
 
         function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
+        // A plan's `legend` column holds either the old flat array format
+        // (single implicit group, using the plan's own total_units) or the
+        // newer { groups: [...] } format that supports several independent
+        // status groups per plan (e.g. "ฐานราก" and "เสา" on the same drawing),
+        // each with its own total_units and its own % สำเร็จ calculation.
+        function legendGroupsOf(plan){
+          const l = plan.legend;
+          if(l && !Array.isArray(l) && Array.isArray(l.groups)){
+            return l.groups.map(g=>({ id: g.id, name: g.name || '', total_units: (g.total_units != null && g.total_units !== '') ? g.total_units : null, items: Array.isArray(g.items) ? g.items : [] }));
+          }
+          const items = Array.isArray(l) ? l : [];
+          return [{ id: '_default', name: plan.building_name || 'สถานะ', total_units: plan.total_units != null ? plan.total_units : null, items }];
+        }
         function loadShapesFor(planId, dateIso){
           const arr = marksByPlan.get(planId) || [];
           const row = arr.find(m => m.mark_date === dateIso);
@@ -5594,7 +5618,7 @@
               vpActivePlanId = Number(btn.dataset.planId);
               vpSelectedDate = todayISO();
               vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
-              vpActiveColorIdx = -1; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1;
+              vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1; vpHiddenGroups = new Set();
               renderShell();
             });
           });
@@ -5606,17 +5630,25 @@
           const plan = plans.find(p=>p.id===vpActivePlanId);
           const editor = document.getElementById('vpPlanEditor');
           if(!plan || !editor) return;
-          const legend = legendOf(plan);
+          const groups = legendGroupsOf(plan);
+          if(!vpHiddenGroups) vpHiddenGroups = new Set();
           const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
-          const completionItems = legend.filter(l=>l.is_completion);
-          let badgeHtml = '';
-          if(completionItems.length && plan.total_units){
-            badgeHtml = completionItems.map(item=>{
-              const cnt = vpShapes.filter(s=>s.color===item.color).length;
-              const pct = Math.round((cnt/plan.total_units)*1000)/10;
-              return `<div class="vp-badge" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(item.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
-            }).join('');
+          function shapeGroupId(s){ return s.group || '_default'; }
+          function visibleVpShapes(){ return vpShapes.filter(s=> !vpHiddenGroups.has(shapeGroupId(s))); }
+          function activeLegendItem(){
+            if(vpActiveGroupId == null || vpActiveColorIdx < 0) return null;
+            const g = groups.find(x=>x.id === vpActiveGroupId);
+            return g ? (g.items[vpActiveColorIdx] || null) : null;
           }
+          let badgeHtml = '';
+          groups.forEach(g=>{
+            if(!g.total_units) return;
+            (g.items||[]).filter(l=>l.is_completion).forEach(item=>{
+              const cnt = vpShapes.filter(s=> shapeGroupId(s)===g.id && s.color===item.color).length;
+              const pct = Math.round((cnt/g.total_units)*1000)/10;
+              badgeHtml += `<div class="vp-badge" data-completion-group="${escapeHtml(g.id)}" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(g.name || '')} — ${escapeHtml(item.label)}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+            });
+          });
           editor.innerHTML = `
             ${badgeHtml}
             <div class="vp-date-row">
@@ -5627,22 +5659,34 @@
               <button type="button" class="btn btn-ghost" id="vpEditPlanBtn" style="flex:0 0 auto;margin-left:auto;">✏️ แก้ไขแปลน</button>
               <button type="button" class="btn btn-ghost" id="vpDeletePlanBtn" style="flex:0 0 auto;color:var(--danger);">🗑️ ลบแปลนนี้</button>
             </div>
-            <div class="vp-toolbar">
-              ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
-              <button type="button" class="btn btn-ghost" id="vpEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
-              <button type="button" class="btn btn-ghost" id="vpShapeSquareBtn" style="flex:0 0 auto;${vpShapeType==='square'?'background:var(--ink);color:#fff;':''}">🔲 จุด</button>
-              <button type="button" class="btn btn-ghost" id="vpShapeLineBtn" style="flex:0 0 auto;${vpShapeType==='line'?'background:var(--ink);color:#fff;':''}">📏 เส้น</button>
-              <button type="button" class="btn btn-ghost" id="vpShapeAreaBtn" style="flex:0 0 auto;${vpShapeType==='area'?'background:var(--ink);color:#fff;':''}">▭ พื้นที่</button>
-              <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto;">
-                <button type="button" class="btn btn-ghost" id="vpSizeMinusBtn" style="flex:0 0 auto;padding:6px 10px;">➖</button>
-                <span style="font-size:12.5px;font-weight:700;color:var(--charcoal);min-width:44px;text-align:center;display:inline-block;">${Math.round(vpSizeMult*100)}%</span>
-                <button type="button" class="btn btn-ghost" id="vpSizePlusBtn" style="flex:0 0 auto;padding:6px 10px;">➕</button>
+            <div class="vp-fullscreen-wrap" id="vpFullscreenWrap">
+              ${groups.map(g=>`
+              <div class="vp-legend-group">
+                <label class="vp-legend-group-head">
+                  <input type="checkbox" class="vp-group-vis-toggle" data-group="${escapeHtml(g.id)}" ${vpHiddenGroups.has(g.id)?'':'checked'}>
+                  ${escapeHtml(g.name || 'Group')}${g.total_units!=null && g.total_units!=='' ? ` (${g.total_units} จุด)` : ''}
+                </label>
+                <div class="vp-toolbar">
+                  ${(g.items||[]).map((l,i)=>`<button type="button" class="vp-legend-btn ${(g.id===vpActiveGroupId && i===vpActiveColorIdx)?'active':''}" data-group="${escapeHtml(g.id)}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
+                </div>
+              </div>`).join('')}
+              <div class="vp-toolbar">
+                <button type="button" class="btn btn-ghost" id="vpEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
+                <button type="button" class="btn btn-ghost" id="vpShapeSquareBtn" style="flex:0 0 auto;${vpShapeType==='square'?'background:var(--ink);color:#fff;':''}">🔲 จุด</button>
+                <button type="button" class="btn btn-ghost" id="vpShapeLineBtn" style="flex:0 0 auto;${vpShapeType==='line'?'background:var(--ink);color:#fff;':''}">📏 เส้น</button>
+                <button type="button" class="btn btn-ghost" id="vpShapeAreaBtn" style="flex:0 0 auto;${vpShapeType==='area'?'background:var(--ink);color:#fff;':''}">▭ พื้นที่</button>
+                <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto;">
+                  <button type="button" class="btn btn-ghost" id="vpSizeMinusBtn" style="flex:0 0 auto;padding:6px 10px;">➖</button>
+                  <span id="vpSizeLabel" style="font-size:12.5px;font-weight:700;color:var(--charcoal);min-width:44px;text-align:center;display:inline-block;">${Math.round(vpSizeMult*100)}%</span>
+                  <button type="button" class="btn btn-ghost" id="vpSizePlusBtn" style="flex:0 0 auto;padding:6px 10px;">➕</button>
+                </div>
+                <button type="button" class="btn btn-ghost" id="vpUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
+                <button type="button" class="btn btn-ghost" id="vpClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
+                <button type="button" class="btn btn-ghost" id="vpFullscreenBtn" style="flex:0 0 auto;margin-left:auto;">⛶ เต็มจอ</button>
               </div>
-              <button type="button" class="btn btn-ghost" id="vpUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
-              <button type="button" class="btn btn-ghost" id="vpClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
+              <div class="vp-canvas-wrap" id="vpCanvasWrap"><div class="dash-note">กำลังโหลดแปลน...</div></div>
             </div>
-            <div class="vp-canvas-wrap" id="vpCanvasWrap"><div class="dash-note">กำลังโหลดแปลน...</div></div>
-            <div class="dash-note">คลิกเลือกสถานะจากด้านบน แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — คลิกทับมาร์คที่วางไว้แล้วโดยเลือกสถานะใหม่ไว้ก่อน จะเปลี่ยนสีมาร์คนั้นเป็นสถานะใหม่ทันที (ไม่สร้างมาร์คซ้อนเพิ่ม) — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ (ใช้ได้ทั้งจุด เส้น และความหนาเส้นขอบของพื้นที่) — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="dash-note">เลือก Group แล้วเลือกสถานะจาก Legend ของ Group นั้น แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — คลิกทับมาร์คที่วางไว้แล้วโดยเลือกสถานะใหม่ไว้ก่อน จะเปลี่ยนสีมาร์คนั้นเป็นสถานะใหม่ทันที (ไม่สร้างมาร์คซ้อนเพิ่ม) — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ (ใช้ได้ทั้งจุด เส้น และความหนาเส้นขอบของพื้นที่) — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — ติ๊ก/ปลดติ๊กชื่อ Group ด้านบนเพื่อซ่อน/แสดงมาร์คของ Group นั้นบนแปลน (ซ่อนได้พร้อมกันหลาย Group หรือแสดงทั้งหมดพร้อมกันก็ได้ ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
             <div class="btn-row">
               <button class="btn btn-primary" id="vpSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button>
               <button class="btn btn-ghost" id="vpDownloadBtn">⬇️ ดาวน์โหลด (${plan.file_type === 'pdf' ? 'PDF' : 'รูปภาพ'})</button>
@@ -5672,24 +5716,70 @@
           });
           document.getElementById('vpEditPlanBtn').addEventListener('click', ()=> openEditPlanModal(plan));
           document.getElementById('vpDeletePlanBtn').addEventListener('click', ()=> deletePlan(plan));
+          // Toggling status/erase-mode/shape-type/size only changes which
+          // buttons are highlighted and how new marks will be drawn — it never
+          // needs to reload the plan image or rebuild the canvas, so we just
+          // patch the toolbar's own classes/labels in place instead of calling
+          // the full renderPlanArea() (which used to reset #vpCanvasWrap to a
+          // placeholder for a frame and made the page jump/bounce on every click).
+          function syncVpToolbarUI(){
+            container.querySelectorAll('.vp-legend-btn').forEach(b=>{
+              b.classList.toggle('active', b.dataset.group === vpActiveGroupId && Number(b.dataset.idx) === vpActiveColorIdx);
+            });
+            const eraseBtn = document.getElementById('vpEraseBtn');
+            if(eraseBtn){ eraseBtn.style.background = vpEraseMode ? 'var(--danger)' : ''; eraseBtn.style.color = vpEraseMode ? '#fff' : ''; }
+            const sqBtn = document.getElementById('vpShapeSquareBtn');
+            const lnBtn = document.getElementById('vpShapeLineBtn');
+            const arBtn = document.getElementById('vpShapeAreaBtn');
+            if(sqBtn){ sqBtn.style.background = vpShapeType==='square' ? 'var(--ink)' : ''; sqBtn.style.color = vpShapeType==='square' ? '#fff' : ''; }
+            if(lnBtn){ lnBtn.style.background = vpShapeType==='line' ? 'var(--ink)' : ''; lnBtn.style.color = vpShapeType==='line' ? '#fff' : ''; }
+            if(arBtn){ arBtn.style.background = vpShapeType==='area' ? 'var(--ink)' : ''; arBtn.style.color = vpShapeType==='area' ? '#fff' : ''; }
+            const sizeLabel = document.getElementById('vpSizeLabel');
+            if(sizeLabel) sizeLabel.textContent = Math.round(vpSizeMult*100) + '%';
+          }
           container.querySelectorAll('.vp-legend-btn').forEach(btn=>{
             btn.addEventListener('click', ()=>{
+              const gId = btn.dataset.group;
               const idx = Number(btn.dataset.idx);
-              vpActiveColorIdx = (vpActiveColorIdx === idx) ? -1 : idx;
+              if(vpActiveGroupId === gId && vpActiveColorIdx === idx){ vpActiveGroupId = null; vpActiveColorIdx = -1; }
+              else { vpActiveGroupId = gId; vpActiveColorIdx = idx; }
               vpEraseMode = false;
-              renderPlanArea();
+              syncVpToolbarUI();
+            });
+          });
+          container.querySelectorAll('.vp-group-vis-toggle').forEach(cb=>{
+            cb.addEventListener('change', ()=>{
+              const gId = cb.dataset.group;
+              if(cb.checked) vpHiddenGroups.delete(gId); else vpHiddenGroups.add(gId);
+              redrawCanvas();
             });
           });
           document.getElementById('vpEraseBtn').addEventListener('click', ()=>{
             vpEraseMode = !vpEraseMode;
-            if(vpEraseMode) vpActiveColorIdx = -1;
-            renderPlanArea();
+            if(vpEraseMode) { vpActiveGroupId = null; vpActiveColorIdx = -1; }
+            syncVpToolbarUI();
           });
-          document.getElementById('vpShapeSquareBtn').addEventListener('click', ()=>{ vpShapeType = 'square'; renderPlanArea(); });
-          document.getElementById('vpShapeLineBtn').addEventListener('click', ()=>{ vpShapeType = 'line'; renderPlanArea(); });
-          document.getElementById('vpShapeAreaBtn').addEventListener('click', ()=>{ vpShapeType = 'area'; renderPlanArea(); });
-          document.getElementById('vpSizeMinusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.max(0.4, Math.round((vpSizeMult - 0.2)*10)/10); renderPlanArea(); });
-          document.getElementById('vpSizePlusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.min(3, Math.round((vpSizeMult + 0.2)*10)/10); renderPlanArea(); });
+          document.getElementById('vpShapeSquareBtn').addEventListener('click', ()=>{ vpShapeType = 'square'; syncVpToolbarUI(); });
+          document.getElementById('vpShapeLineBtn').addEventListener('click', ()=>{ vpShapeType = 'line'; syncVpToolbarUI(); });
+          document.getElementById('vpShapeAreaBtn').addEventListener('click', ()=>{ vpShapeType = 'area'; syncVpToolbarUI(); });
+          document.getElementById('vpSizeMinusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.max(0.4, Math.round((vpSizeMult - 0.2)*10)/10); syncVpToolbarUI(); });
+          document.getElementById('vpSizePlusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.min(3, Math.round((vpSizeMult + 0.2)*10)/10); syncVpToolbarUI(); });
+          const vpFsBtn = document.getElementById('vpFullscreenBtn');
+          if(vpFsBtn){
+            vpFsBtn.addEventListener('click', ()=>{
+              const wrap = document.getElementById('vpFullscreenWrap');
+              const reqFs = wrap.requestFullscreen || wrap.webkitRequestFullscreen || wrap.msRequestFullscreen;
+              const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+              if(!document.fullscreenElement){ reqFs.call(wrap); } else { exitFs.call(document); }
+            });
+            if(!vpFsListenerAttached){
+              vpFsListenerAttached = true;
+              document.addEventListener('fullscreenchange', ()=>{
+                const btn = document.getElementById('vpFullscreenBtn');
+                if(btn) btn.textContent = document.fullscreenElement ? '⤡ ออกจากเต็มจอ' : '⛶ เต็มจอ';
+              });
+            }
+          }
           document.getElementById('vpUndoBtn').addEventListener('click', ()=>{
             if(!vpUndoStack.length){ showToast('ไม่มีการแก้ไขให้ Undo', true); return; }
             vpShapes = vpUndoStack.pop();
@@ -5707,6 +5797,12 @@
 
           const wrap = document.getElementById('vpCanvasWrap');
           let base = null, canvasEl = null;
+          function hitTestVisible(relX, relY){
+            const vis = visibleVpShapes();
+            const idx = vpHitTest(vis, base, relX, relY);
+            if(idx < 0) return -1;
+            return vpShapes.indexOf(vis[idx]);
+          }
           async function downloadCurrent(plan){
             if(!canvasEl){ showToast('กรุณารอให้แปลนโหลดเสร็จก่อน', true); return; }
             const safeName = (plan.building_name || 'plan').replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
@@ -5728,15 +5824,16 @@
           }
           function redrawCanvas(draft){
             if(!base || !canvasEl) return;
-            vpDrawCanvas(canvasEl, base, vpShapes, draft);
-            if(completionItems.length && plan.total_units){
-              completionItems.forEach(item=>{
-                const cnt = vpShapes.filter(s=>s.color===item.color).length;
-                const pct = Math.round((cnt/plan.total_units)*1000)/10;
-                const badgeEl = editor.querySelector('.vp-badge[data-completion-color="' + item.color + '"]');
-                if(badgeEl) badgeEl.textContent = `${item.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+            vpDrawCanvas(canvasEl, base, visibleVpShapes(), draft);
+            groups.forEach(g=>{
+              if(!g.total_units) return;
+              (g.items||[]).filter(l=>l.is_completion).forEach(item=>{
+                const cnt = vpShapes.filter(s=> shapeGroupId(s)===g.id && s.color===item.color).length;
+                const pct = Math.round((cnt/g.total_units)*1000)/10;
+                const badgeEl = editor.querySelector('.vp-badge[data-completion-group="' + g.id + '"][data-completion-color="' + item.color + '"]');
+                if(badgeEl) badgeEl.textContent = `${g.name || ''} — ${item.label}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
               });
-            }
+            });
           }
           vpLoadPlanImage(plan).then(b=>{
             base = b;
@@ -5751,7 +5848,7 @@
               const relX = (e.clientX - rect.left) / rect.width;
               const relY = (e.clientY - rect.top) / rect.height;
               if(vpEraseMode){
-                const idx = vpHitTest(vpShapes, base, relX, relY);
+                const idx = hitTestVisible(relX, relY);
                 if(idx >= 0){
                   vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
                   vpShapes.splice(idx, 1);
@@ -5759,18 +5856,19 @@
                 }
                 return;
               }
-              if(vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
-              const item = legend[vpActiveColorIdx];
+              const item = activeLegendItem();
+              if(!item){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
               // Clicking directly on an existing mark updates its status/color in
               // place (e.g. moving a footing from "งานขุด" to "งานเทลีน") instead of
               // stacking a brand-new overlapping mark on top of the old one.
-              const existingIdx = vpHitTest(vpShapes, base, relX, relY);
+              const existingIdx = hitTestVisible(relX, relY);
               if(existingIdx >= 0){
                 const existing = vpShapes[existingIdx];
-                if(existing.color !== item.color || existing.label !== item.label){
+                if(existing.color !== item.color || existing.label !== item.label || shapeGroupId(existing) !== vpActiveGroupId){
                   vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
                   existing.color = item.color;
                   existing.label = item.label;
+                  existing.group = vpActiveGroupId;
                   redrawCanvas();
                 }
                 return;
@@ -5792,7 +5890,8 @@
               const rect = canvasEl.getBoundingClientRect();
               const relX = (e.clientX - rect.left) / rect.width;
               const relY = (e.clientY - rect.top) / rect.height;
-              const item = legend[vpActiveColorIdx];
+              const item = activeLegendItem();
+              if(!item) return;
               if(vpShapeType === 'line'){
                 redrawCanvas({ type:'line', x1: dragStart.x, y1: dragStart.y, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
               } else if(vpShapeType === 'area'){
@@ -5808,18 +5907,19 @@
               const rect = canvasEl.getBoundingClientRect();
               const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
               const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-              const item = legend[vpActiveColorIdx];
+              const item = activeLegendItem();
+              if(!item){ dragStart = null; return; }
               vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
               if(vpShapeType === 'line'){
                 let x2 = relX, y2 = relY;
                 if(Math.hypot(x2-dragStart.x, y2-dragStart.y) < 0.01){ x2 = Math.min(1, dragStart.x + 0.05); y2 = dragStart.y; }
-                vpShapes.push({ type:'line', x1: dragStart.x, y1: dragStart.y, x2, y2, color: item.color, label: item.label, size: vpLineSizeFrac() });
+                vpShapes.push({ type:'line', x1: dragStart.x, y1: dragStart.y, x2, y2, color: item.color, label: item.label, size: vpLineSizeFrac(), group: vpActiveGroupId });
               } else if(vpShapeType === 'area'){
                 let r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);
                 if(r.w < 0.01 || r.h < 0.01){ r = { x: dragStart.x, y: dragStart.y, w: Math.max(r.w, 0.05), h: Math.max(r.h, 0.05) }; }
-                vpShapes.push({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, label: item.label, size: vpLineSizeFrac() });
+                vpShapes.push({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, label: item.label, size: vpLineSizeFrac(), group: vpActiveGroupId });
               } else {
-                vpShapes.push({ type:'square', x: relX, y: relY, color: item.color, label: item.label, size: vpSquareSizeFrac() });
+                vpShapes.push({ type:'square', x: relX, y: relY, color: item.color, label: item.label, size: vpSquareSizeFrac(), group: vpActiveGroupId });
               }
               dragStart = null;
               redrawCanvas();
@@ -5828,7 +5928,6 @@
             canvasEl.addEventListener('pointerleave', ()=>{ if(dragging){ dragging = false; dragStart = null; redrawCanvas(); } });
           }).catch(e=>{ wrap.innerHTML = '<div class="dash-empty">โหลดแปลนไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
         }
-
         async function saveShapes(plan){
           const btn = document.getElementById('vpSaveBtn');
           btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
@@ -5862,40 +5961,124 @@
           }catch(e){ console.error(e); showToast('ลบไม่สำเร็จ: ' + e.message, true); }
         }
 
-        function openAddPlanModal(){
-          const modal = document.getElementById('modalContent');
-          let legendRows = [
-            { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
-            { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
-            { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
-            { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
-          ];
-          let nextRowId = legendRows.length;
-          function renderRows(){
-            modal.querySelector('#vpLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-              <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
-              <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
-              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
-              <button type="button" class="vp-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
-            </div>`).join('');
-            modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                const rid = Number(btn.dataset.row);
-                legendRows = legendRows.filter(r=>r._id !== rid);
-                renderRows();
-              });
+        function vpGroupCardHtml(g){
+          return `<div class="vp-group-card" data-gid="${g._gid}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#FAFBFC;">
+            <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+              <input type="text" class="vp-group-name" data-gid="${g._gid}" value="${escapeHtml(g.name||'')}" placeholder="ชื่อ Group เช่น ฐานราก, เสา" style="flex:1 1 160px;">
+              <input type="number" class="vp-group-total" data-gid="${g._gid}" value="${g.total_units!=null?g.total_units:''}" placeholder="จำนวนทั้งหมดของ Group นี้" style="flex:0 0 190px;">
+              ${'REMOVE_BTN_PLACEHOLDER'}
+            </div>
+            <div id="vpGroupRows-${g._gid}">
+              ${g.rows.map(it=>`<div class="list-row" data-gid="${g._gid}" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
+                <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
+                <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
+                <button type="button" class="vp-rm-row" data-gid="${g._gid}" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
+              </div>`).join('')}
+            </div>
+            <button type="button" class="btn btn-ghost vp-add-row" data-gid="${g._gid}" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+          </div>`;
+        }
+
+        function wireVpGroupsEditor(modal, state){
+          // state = { groups, nextGid }
+          function syncGroupsFromDom(){
+            state.groups.forEach(g=>{
+              const nameEl = modal.querySelector('.vp-group-name[data-gid="' + g._gid + '"]');
+              const totEl = modal.querySelector('.vp-group-total[data-gid="' + g._gid + '"]');
+              if(nameEl) g.name = nameEl.value;
+              if(totEl) g.total_units = totEl.value;
+              const rowEls = modal.querySelectorAll('.list-row[data-gid="' + g._gid + '"]');
+              if(rowEls.length){
+                const newRows = [];
+                rowEls.forEach(rowEl=>{
+                  newRows.push({
+                    _id: Number(rowEl.dataset.row),
+                    label: rowEl.querySelector('.vp-legend-label').value,
+                    color: rowEl.querySelector('.vp-legend-color').value,
+                    is_completion: rowEl.querySelector('.vp-legend-completion').checked,
+                  });
+                });
+                g.rows = newRows;
+              }
             });
           }
+          function renderGroups(){
+            const html = state.groups.map(g=>{
+              let card = vpGroupCardHtml(g);
+              const removeBtn = state.groups.length > 1 ? `<button type="button" class="vp-rm-group" data-gid="${g._gid}" style="flex:0 0 auto;background:none;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:4px 10px;cursor:pointer;">🗑️ ลบ Group</button>` : '';
+              return card.replace('REMOVE_BTN_PLACEHOLDER', removeBtn);
+            }).join('') + `<button type="button" class="btn btn-ghost" id="vpAddGroupBtn">➕ เพิ่ม Group ใหม่</button>`;
+            modal.querySelector('#vpGroupsWrap').innerHTML = html;
+            modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                syncGroupsFromDom();
+                const gid = Number(btn.dataset.gid), rid = Number(btn.dataset.row);
+                const g = state.groups.find(x=>x._gid===gid);
+                if(g) g.rows = g.rows.filter(r=>r._id!==rid);
+                renderGroups();
+              });
+            });
+            modal.querySelectorAll('.vp-add-row').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                syncGroupsFromDom();
+                const gid = Number(btn.dataset.gid);
+                const g = state.groups.find(x=>x._gid===gid);
+                if(g) g.rows.push({ label:'', color:'#999999', is_completion:false, _id: g.nextRowId++ });
+                renderGroups();
+              });
+            });
+            modal.querySelectorAll('.vp-rm-group').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                syncGroupsFromDom();
+                const gid = Number(btn.dataset.gid);
+                state.groups = state.groups.filter(g=>g._gid!==gid);
+                renderGroups();
+              });
+            });
+            const addGroupBtn = document.getElementById('vpAddGroupBtn');
+            if(addGroupBtn) addGroupBtn.addEventListener('click', ()=>{
+              syncGroupsFromDom();
+              state.groups.push({ _gid: state.nextGid++, id: null, name:'', total_units:null, rows:[{label:'',color:'#999999',is_completion:false,_id:0}], nextRowId:1 });
+              renderGroups();
+            });
+          }
+          renderGroups();
+          return { syncGroupsFromDom, getGroups: ()=> state.groups };
+        }
+
+        function buildLegendGroupsPayload(groups){
+          return groups.map(g=>({
+            id: g.id || ('g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)),
+            name: (g.name||'').trim(),
+            total_units: g.total_units ? Number(g.total_units) : null,
+            items: g.rows.map(r=>({ label:(r.label||'').trim(), color:r.color, is_completion:!!r.is_completion })).filter(it=>it.label),
+          })).filter(g=>g.items.length);
+        }
+
+        function openAddPlanModal(){
+          const modal = document.getElementById('modalContent');
+          const state = {
+            nextGid: 1,
+            groups: [{
+              _gid: 0, id: null, name: 'ฐานราก', total_units: null,
+              rows: [
+                { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
+                { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
+                { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
+                { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
+              ],
+              nextRowId: 4,
+            }],
+          };
           modal.innerHTML = `
             <div class="modal-head"><h2>เพิ่มแปลนใหม่ (Visual Progress)</h2><button class="modal-close" id="vpModalClose">&times;</button></div>
             <div class="detail-grid">
               <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vpNewBuildingName" placeholder="เช่น WHA, WHB, MPB, TLB"></div>
               <div class="detail-field full"><label>ไฟล์แปลน (PDF หรือรูปภาพ)</label><input type="file" id="vpNewFile" accept="application/pdf,image/*"></div>
-              <div class="detail-field full"><label>จำนวนฐาน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vpNewTotalUnits" placeholder="เช่น 55"></div>
               <div class="detail-field full">
-                <label>Legend (สถานะ + สี)</label>
-                <div id="vpLegendRows"></div>
-                <button type="button" class="btn btn-ghost" id="vpAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+                <label>Group ของสถานะงาน (แยกนับ % สำเร็จอิสระต่อกัน — เช่น ฐานราก, เสา)</label>
+                <div id="vpGroupsWrap"></div>
               </div>
             </div>
             <div class="btn-row" style="margin-top:14px;">
@@ -5903,35 +6086,27 @@
               <button class="btn btn-ghost" id="vpCancelPlanBtn">ยกเลิก</button>
             </div>
           `;
-          renderRows();
-          document.getElementById('vpAddLegendRow').addEventListener('click', ()=>{
-            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
-            renderRows();
-          });
+          const editorApi = wireVpGroupsEditor(modal, state);
           document.getElementById('vpModalClose').addEventListener('click', closeModal);
           document.getElementById('vpCancelPlanBtn').addEventListener('click', closeModal);
           document.getElementById('vpSavePlanBtn').addEventListener('click', async ()=>{
+            editorApi.syncGroupsFromDom();
             const name = document.getElementById('vpNewBuildingName').value.trim();
             const fileInput = document.getElementById('vpNewFile');
             const file = fileInput.files && fileInput.files[0];
-            const totalUnitsVal = document.getElementById('vpNewTotalUnits').value;
-            const rows = Array.from(modal.querySelectorAll('#vpLegendRows .list-row'));
-            const legend = rows.map(row=>({
-              label: row.querySelector('.vp-legend-label').value.trim(),
-              color: row.querySelector('.vp-legend-color').value,
-              is_completion: row.querySelector('.vp-legend-completion').checked,
-            })).filter(l=>l.label);
+            const legendGroups = buildLegendGroupsPayload(editorApi.getGroups());
             if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
             if(!file){ showToast('กรุณาเลือกไฟล์แปลน', true); return; }
-            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            if(!legendGroups.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
             const saveBtn = document.getElementById('vpSavePlanBtn');
             saveBtn.disabled = true; saveBtn.textContent = 'กำลังอัปโหลด...';
             try{
               const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
               const fileUrl = await uploadVpBlob('visual-progress-plans', file, file.name, file.type);
+              const totalSum = legendGroups.reduce((sum,g)=> sum + (g.total_units||0), 0);
               const payload = {
                 building_name: name, file_url: fileUrl, file_type: isPdf ? 'pdf' : 'image',
-                legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null,
+                legend: { groups: legendGroups }, total_units: totalSum || null,
                 sort_order: plans.length,
               };
               const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_plans', { method:'POST', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
@@ -5947,34 +6122,23 @@
 
         function openEditPlanModal(plan){
           const modal = document.getElementById('modalContent');
-          let legendRows = legendOf(plan).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, _id: i }));
-          if(!legendRows.length) legendRows = [{ label:'', color:'#999999', is_completion:false, _id:0 }];
-          let nextRowId = legendRows.length;
-          function renderRows(){
-            modal.querySelector('#vpLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-              <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
-              <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
-              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
-              <button type="button" class="vp-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
-            </div>`).join('');
-            modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
-              btn.addEventListener('click', ()=>{
-                const rid = Number(btn.dataset.row);
-                legendRows = legendRows.filter(r=>r._id !== rid);
-                renderRows();
-              });
-            });
-          }
+          const existingGroups = legendGroupsOf(plan);
+          const state = {
+            nextGid: existingGroups.length,
+            groups: existingGroups.map((g,gi)=>({
+              _gid: gi, id: g.id, name: g.name || '', total_units: g.total_units,
+              rows: (g.items && g.items.length ? g.items : [{label:'',color:'#999999',is_completion:false}]).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, _id: i })),
+              nextRowId: (g.items ? g.items.length : 1),
+            })),
+          };
           modal.innerHTML = `
             <div class="modal-head"><h2>แก้ไขแปลน — ${escapeHtml(plan.building_name)}</h2><button class="modal-close" id="vpModalClose">&times;</button></div>
             <div class="detail-grid">
               <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vpNewBuildingName" value="${escapeHtml(plan.building_name)}"></div>
               <div class="detail-field full"><label>เปลี่ยนไฟล์แปลน (ไม่บังคับ — ถ้าไม่เลือกจะใช้ไฟล์เดิม)</label><input type="file" id="vpNewFile" accept="application/pdf,image/*"></div>
-              <div class="detail-field full"><label>จำนวนฐาน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vpNewTotalUnits" value="${plan.total_units != null ? plan.total_units : ''}" placeholder="เช่น 55"></div>
               <div class="detail-field full">
-                <label>Legend (สถานะ + สี)</label>
-                <div id="vpLegendRows"></div>
-                <button type="button" class="btn btn-ghost" id="vpAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+                <label>Group ของสถานะงาน (แยกนับ % สำเร็จอิสระต่อกัน — เช่น ฐานราก, เสา)</label>
+                <div id="vpGroupsWrap"></div>
               </div>
             </div>
             <div class="btn-row" style="margin-top:14px;">
@@ -5982,32 +6146,24 @@
               <button class="btn btn-ghost" id="vpCancelPlanBtn">ยกเลิก</button>
             </div>
           `;
-          renderRows();
-          document.getElementById('vpAddLegendRow').addEventListener('click', ()=>{
-            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
-            renderRows();
-          });
+          const editorApi = wireVpGroupsEditor(modal, state);
           document.getElementById('vpModalClose').addEventListener('click', closeModal);
           document.getElementById('vpCancelPlanBtn').addEventListener('click', closeModal);
           document.getElementById('vpSavePlanBtn').addEventListener('click', async ()=>{
+            editorApi.syncGroupsFromDom();
             const name = document.getElementById('vpNewBuildingName').value.trim();
             const fileInput = document.getElementById('vpNewFile');
             const file = fileInput.files && fileInput.files[0];
-            const totalUnitsVal = document.getElementById('vpNewTotalUnits').value;
-            const rows = Array.from(modal.querySelectorAll('#vpLegendRows .list-row'));
-            const legend = rows.map(row=>({
-              label: row.querySelector('.vp-legend-label').value.trim(),
-              color: row.querySelector('.vp-legend-color').value,
-              is_completion: row.querySelector('.vp-legend-completion').checked,
-            })).filter(l=>l.label);
+            const legendGroups = buildLegendGroupsPayload(editorApi.getGroups());
             if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
-            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            if(!legendGroups.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
             const saveBtn = document.getElementById('vpSavePlanBtn');
             saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
             try{
+              const totalSum = legendGroups.reduce((sum,g)=> sum + (g.total_units||0), 0);
               const payload = {
                 building_name: name,
-                legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null,
+                legend: { groups: legendGroups }, total_units: totalSum || null,
               };
               let oldFileUrl = null;
               if(file){
@@ -6062,6 +6218,7 @@
         let vp3dStyleMode = 'normal';
         let vp3dCameraMode = 'perspective';
         let threeState = null;
+        let vp3dFsListenerAttached = false;
 
         function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
         function loadAssignmentsFor(planId, dateIso){
@@ -6304,36 +6461,39 @@
               <button type="button" class="btn btn-ghost" id="vp3dEditPlanBtn" style="flex:0 0 auto;margin-left:auto;">✏️ แก้ไขแปลน</button>
               <button type="button" class="btn btn-ghost" id="vp3dDeletePlanBtn" style="flex:0 0 auto;color:var(--danger);">🗑️ ลบแปลนนี้</button>
             </div>
-            <div class="vp-toolbar">
-              ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
-              <button type="button" class="btn btn-ghost" id="vp3dEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
-              <button type="button" class="btn btn-ghost" id="vp3dUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
-              <button type="button" class="btn btn-ghost" id="vp3dClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
-            </div>
-            <div class="vp-toolbar">
-              <button type="button" class="btn btn-ghost" id="vp3dFitAllBtn" style="flex:0 0 auto;">🔍 มุมมองรวมทั้งหมด</button>
-              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมองด้าน:</span>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="front" style="flex:0 0 auto;">หน้า</button>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="back" style="flex:0 0 auto;">หลัง</button>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="left" style="flex:0 0 auto;">ซ้าย</button>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="right" style="flex:0 0 auto;">ขวา</button>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="top" style="flex:0 0 auto;">บน</button>
-              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="bottom" style="flex:0 0 auto;">ล่าง</button>
-            </div>
-            <div class="vp-toolbar">
-              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมอง 3D:</span>
-              <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='perspective'?'active':''}" data-cammode="perspective" style="flex:0 0 auto;">📷 Perspective</button>
-              <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='iso'?'active':''}" data-cammode="iso" style="flex:0 0 auto;">📐 Isometric</button>
-              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;margin-left:12px;">รูปแบบโมเดล:</span>
-              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='normal'?'active':''}" data-style="normal" style="flex:0 0 auto;">👁️ ปกติ</button>
-              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='xray'?'active':''}" data-style="xray" style="flex:0 0 auto;">🌫️ X-ray</button>
-              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='wireframe'?'active':''}" data-style="wireframe" style="flex:0 0 auto;">📐 เส้นขอบ</button>
-            </div>
-            <div class="vp3d-layout">
-              <div class="vp3d-canvas-wrap" id="vp3dCanvasWrap"><div class="vp3d-loading">กำลังโหลดโมเดล 3D...</div></div>
-              <div class="vp3d-list-wrap">
-                <input type="text" id="vp3dSearchInput" placeholder="ค้นหาชิ้นส่วน...">
-                <div id="vp3dListBody"></div>
+            <div class="vp3d-fullscreen-wrap" id="vp3dFullscreenWrap">
+              <div class="vp-toolbar">
+                ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
+                <button type="button" class="btn btn-ghost" id="vp3dEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
+                <button type="button" class="btn btn-ghost" id="vp3dUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
+                <button type="button" class="btn btn-ghost" id="vp3dClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
+                <button type="button" class="btn btn-ghost" id="vp3dFullscreenBtn" style="flex:0 0 auto;margin-left:auto;">⛶ เต็มจอ</button>
+              </div>
+              <div class="vp-toolbar">
+                <button type="button" class="btn btn-ghost" id="vp3dFitAllBtn" style="flex:0 0 auto;">🔍 มุมมองรวมทั้งหมด</button>
+                <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมองด้าน:</span>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="front" style="flex:0 0 auto;">หน้า</button>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="back" style="flex:0 0 auto;">หลัง</button>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="left" style="flex:0 0 auto;">ซ้าย</button>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="right" style="flex:0 0 auto;">ขวา</button>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="top" style="flex:0 0 auto;">บน</button>
+                <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="bottom" style="flex:0 0 auto;">ล่าง</button>
+              </div>
+              <div class="vp-toolbar">
+                <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมอง 3D:</span>
+                <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='perspective'?'active':''}" data-cammode="perspective" style="flex:0 0 auto;">📷 Perspective</button>
+                <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='iso'?'active':''}" data-cammode="iso" style="flex:0 0 auto;">📐 Isometric</button>
+                <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;margin-left:12px;">รูปแบบโมเดล:</span>
+                <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='normal'?'active':''}" data-style="normal" style="flex:0 0 auto;">👁️ ปกติ</button>
+                <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='xray'?'active':''}" data-style="xray" style="flex:0 0 auto;">🌫️ X-ray</button>
+                <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='wireframe'?'active':''}" data-style="wireframe" style="flex:0 0 auto;">📐 เส้นขอบ</button>
+              </div>
+              <div class="vp3d-layout">
+                <div class="vp3d-canvas-wrap" id="vp3dCanvasWrap"><div class="vp3d-loading">กำลังโหลดโมเดล 3D...</div></div>
+                <div class="vp3d-list-wrap">
+                  <input type="text" id="vp3dSearchInput" placeholder="ค้นหาชิ้นส่วน...">
+                  <div id="vp3dListBody"></div>
+                </div>
               </div>
             </div>
             <div class="dash-note">คลิกเลือกสถานะจาก Legend ด้านบน แล้วคลิกชิ้นส่วนบนโมเดล 3D โดยตรง หรือคลิกเลือกจากรายการด้านขวา — หมุน/ซูมโมเดลด้วยเมาส์ (ลากซ้าย = หมุน, scroll = ซูม, ลากขวา = เลื่อน) — เปิด "โหมดลบ" แล้วคลิกชิ้นส่วนเพื่อลบสถานะ — กดปุ่ม "มุมมองด้าน" (หน้า/หลัง/ซ้าย/ขวา/บน/ล่าง) เพื่อดูตรงมุมนั้นทันที หรือกด "มุมมองรวมทั้งหมด" เพื่อขยายให้เห็นทั้งโมเดล — เลือก "มุมมอง 3D" เป็น Perspective (มีระยะใกล้ไกล) หรือ Isometric (มุมมองขนาน ไม่มีระยะบิดเบือน) และ "รูปแบบโมเดล" เป็น X-ray/เส้นขอบ ได้ตามต้องการ (แค่ปรับมุมมอง ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
@@ -6416,6 +6576,23 @@
             applyAssignmentsToScene(); refreshListDots(); refreshBadge();
           });
           document.getElementById('vp3dSaveBtn').addEventListener('click', ()=> save3DAssignments(plan));
+          const vp3dFsBtn = document.getElementById('vp3dFullscreenBtn');
+          if(vp3dFsBtn){
+            vp3dFsBtn.addEventListener('click', ()=>{
+              const wrap = document.getElementById('vp3dFullscreenWrap');
+              const reqFs = wrap.requestFullscreen || wrap.webkitRequestFullscreen || wrap.msRequestFullscreen;
+              const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+              if(!document.fullscreenElement){ reqFs.call(wrap); } else { exitFs.call(document); }
+            });
+            if(!vp3dFsListenerAttached){
+              vp3dFsListenerAttached = true;
+              document.addEventListener('fullscreenchange', ()=>{
+                const btn = document.getElementById('vp3dFullscreenBtn');
+                if(btn) btn.textContent = document.fullscreenElement ? '⤡ ออกจากเต็มจอ' : '⛶ เต็มจอ';
+                if(threeState) setTimeout(()=>{ if(threeState && threeState.onResize) threeState.onResize(); }, 60);
+              });
+            }
+          }
           document.getElementById('vp3dScreenshotBtn').addEventListener('click', ()=>{
             if(!threeState){ showToast('กรุณารอให้โมเดลโหลดเสร็จก่อน', true); return; }
             threeState.renderer.render(threeState.scene, threeState.camera);

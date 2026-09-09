@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Site Reports Hub</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 <style>
   :root{
     --ink:#1E2A3E; --charcoal:#122045; --paper:#F4F6F9; --paper-2:#FFFFFF; --line:#E1E5EC;
@@ -156,6 +164,19 @@
   .vp-date-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
   .vp-date-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .vp-badge{display:inline-block;background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--charcoal);margin-bottom:12px;}
+  .vp3d-layout{display:flex;gap:14px;flex-wrap:wrap;}
+  .vp3d-canvas-wrap{position:relative;flex:1 1 480px;min-width:280px;height:560px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#EAEDF0;}
+  .vp3d-canvas-wrap canvas{display:block;width:100%;height:100%;touch-action:none;}
+  .vp3d-list-wrap{flex:0 0 260px;max-width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:560px;overflow-y:auto;background:#fff;}
+  .vp3d-list-wrap input[type=text]{width:100%;margin-bottom:8px;}
+  .vp3d-list-row{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:6px;cursor:pointer;font-size:12px;}
+  .vp3d-list-row:hover{background:#F7F9FB;}
+  .vp3d-list-dot{width:12px;height:12px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,0.2);background:#ddd;}
+  .vp3d-list-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .vp3d-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--muted);background:#EAEDF0;}
+  .vp3d-style-btn.active{background:var(--amber);color:#fff;}
+  .vp3d-cammode-btn.active{background:var(--amber);color:#fff;}
+
 
   .dash-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
 
@@ -5587,12 +5608,14 @@
           if(!plan || !editor) return;
           const legend = legendOf(plan);
           const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
-          const completionItem = legend.find(l=>l.is_completion);
+          const completionItems = legend.filter(l=>l.is_completion);
           let badgeHtml = '';
-          if(completionItem && plan.total_units){
-            const cnt = vpShapes.filter(s=>s.color===completionItem.color).length;
-            const pct = Math.round((cnt/plan.total_units)*1000)/10;
-            badgeHtml = `<div class="vp-badge">${escapeHtml(completionItem.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+          if(completionItems.length && plan.total_units){
+            badgeHtml = completionItems.map(item=>{
+              const cnt = vpShapes.filter(s=>s.color===item.color).length;
+              const pct = Math.round((cnt/plan.total_units)*1000)/10;
+              return `<div class="vp-badge" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(item.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+            }).join('');
           }
           editor.innerHTML = `
             ${badgeHtml}
@@ -5619,7 +5642,7 @@
               <button type="button" class="btn btn-ghost" id="vpClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
             </div>
             <div class="vp-canvas-wrap" id="vpCanvasWrap"><div class="dash-note">กำลังโหลดแปลน...</div></div>
-            <div class="dash-note">คลิกเลือกสถานะจากด้านบน แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="dash-note">คลิกเลือกสถานะจากด้านบน แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — คลิกทับมาร์คที่วางไว้แล้วโดยเลือกสถานะใหม่ไว้ก่อน จะเปลี่ยนสีมาร์คนั้นเป็นสถานะใหม่ทันที (ไม่สร้างมาร์คซ้อนเพิ่ม) — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ (ใช้ได้ทั้งจุด เส้น และความหนาเส้นขอบของพื้นที่) — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
             <div class="btn-row">
               <button class="btn btn-primary" id="vpSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button>
               <button class="btn btn-ghost" id="vpDownloadBtn">⬇️ ดาวน์โหลด (${plan.file_type === 'pdf' ? 'PDF' : 'รูปภาพ'})</button>
@@ -5706,11 +5729,13 @@
           function redrawCanvas(draft){
             if(!base || !canvasEl) return;
             vpDrawCanvas(canvasEl, base, vpShapes, draft);
-            if(completionItem && plan.total_units){
-              const cnt = vpShapes.filter(s=>s.color===completionItem.color).length;
-              const pct = Math.round((cnt/plan.total_units)*1000)/10;
-              const badgeEl = editor.querySelector('.vp-badge');
-              if(badgeEl) badgeEl.textContent = `${completionItem.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+            if(completionItems.length && plan.total_units){
+              completionItems.forEach(item=>{
+                const cnt = vpShapes.filter(s=>s.color===item.color).length;
+                const pct = Math.round((cnt/plan.total_units)*1000)/10;
+                const badgeEl = editor.querySelector('.vp-badge[data-completion-color="' + item.color + '"]');
+                if(badgeEl) badgeEl.textContent = `${item.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+              });
             }
           }
           vpLoadPlanImage(plan).then(b=>{
@@ -5736,13 +5761,27 @@
               }
               if(vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
               const item = legend[vpActiveColorIdx];
+              // Clicking directly on an existing mark updates its status/color in
+              // place (e.g. moving a footing from "งานขุด" to "งานเทลีน") instead of
+              // stacking a brand-new overlapping mark on top of the old one.
+              const existingIdx = vpHitTest(vpShapes, base, relX, relY);
+              if(existingIdx >= 0){
+                const existing = vpShapes[existingIdx];
+                if(existing.color !== item.color || existing.label !== item.label){
+                  vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                  existing.color = item.color;
+                  existing.label = item.label;
+                  redrawCanvas();
+                }
+                return;
+              }
               dragging = true;
               if(vpShapeType === 'line' || vpShapeType === 'area'){
                 dragStart = { x: relX, y: relY };
                 if(vpShapeType === 'line'){
                   redrawCanvas({ type:'line', x1: relX, y1: relY, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
                 } else {
-                  redrawCanvas({ type:'area', x: relX, y: relY, w: 0, h: 0, color: item.color });
+                  redrawCanvas({ type:'area', x: relX, y: relY, w: 0, h: 0, color: item.color, size: vpLineSizeFrac() });
                 }
               } else {
                 redrawCanvas({ type:'square', x: relX, y: relY, color: item.color, size: vpSquareSizeFrac() });
@@ -5758,7 +5797,7 @@
                 redrawCanvas({ type:'line', x1: dragStart.x, y1: dragStart.y, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
               } else if(vpShapeType === 'area'){
                 const r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);
-                redrawCanvas({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color });
+                redrawCanvas({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, size: vpLineSizeFrac() });
               } else {
                 redrawCanvas({ type:'square', x: relX, y: relY, color: item.color, size: vpSquareSizeFrac() });
               }
@@ -5778,7 +5817,7 @@
               } else if(vpShapeType === 'area'){
                 let r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);
                 if(r.w < 0.01 || r.h < 0.01){ r = { x: dragStart.x, y: dragStart.y, w: Math.max(r.w, 0.05), h: Math.max(r.h, 0.05) }; }
-                vpShapes.push({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, label: item.label });
+                vpShapes.push({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, label: item.label, size: vpLineSizeFrac() });
               } else {
                 vpShapes.push({ type:'square', x: relX, y: relY, color: item.color, label: item.label, size: vpSquareSizeFrac() });
               }
@@ -5983,6 +6022,675 @@
               closeModal();
               showToast('บันทึกการแก้ไขแปลนสำเร็จ');
               switchModule('dash_visual_progress');
+            }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+            finally{ saveBtn.disabled = false; saveBtn.textContent = 'บันทึกการแก้ไข'; }
+          });
+          document.getElementById('modalBg').classList.add('show');
+        }
+
+        renderShell();
+      }
+    },
+    {
+      id:'dash_visual_progress_3d', label:'Visual Progress 3D', icon:'🧊', table:'visual_progress_3d_plans',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let plans = [], marks = [];
+        try{
+          plans = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans?select=*&order=sort_order.asc,created_at.asc');
+        }catch(e){
+          container.innerHTML = '<div class="dash-empty">ยังไม่พร้อมใช้งาน — กรุณารัน SQL สร้างตาราง visual_progress_3d_plans และ visual_progress_3d_marks ก่อน (ดูเอกสารประกอบ)</div>';
+          return;
+        }
+        try{
+          marks = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_3d_marks?select=*');
+        }catch(e){ marks = []; }
+
+        const marksByPlan = new Map();
+        marks.forEach(m=>{
+          if(!marksByPlan.has(m.plan_id)) marksByPlan.set(m.plan_id, []);
+          marksByPlan.get(m.plan_id).push(m);
+        });
+        marksByPlan.forEach(arr => arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1));
+
+        let vpActivePlanId = plans.length ? plans[0].id : null;
+        let vpSelectedDate = todayISO();
+        let vpAssignments = {};
+        let vpActiveColorIdx = -1;
+        let vpEraseMode = false;
+        let vpUndoStack = [];
+        let vp3dStyleMode = 'normal';
+        let vp3dCameraMode = 'perspective';
+        let threeState = null;
+
+        function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
+        function loadAssignmentsFor(planId, dateIso){
+          const arr = marksByPlan.get(planId) || [];
+          const row = arr.find(m => m.mark_date === dateIso);
+          return row ? JSON.parse(JSON.stringify(row.assignments || {})) : {};
+        }
+        function latestDateBefore(planId, dateIso){
+          const arr = marksByPlan.get(planId) || [];
+          const found = arr.find(m => m.mark_date < dateIso);
+          return found ? found.mark_date : null;
+        }
+        if(vpActivePlanId != null) vpAssignments = loadAssignmentsFor(vpActivePlanId, vpSelectedDate);
+
+        function currentPlan(){ return plans.find(p=>p.id===vpActivePlanId); }
+        function refreshBadge(){
+          const plan = currentPlan(); if(!plan) return;
+          const legend = legendOf(plan);
+          const completionItems = legend.filter(l=>l.is_completion);
+          if(!completionItems.length || !plan.total_units) return;
+          completionItems.forEach(item=>{
+            const badgeEl = document.querySelector('.vp-badge[data-completion-color="' + item.color + '"]');
+            if(!badgeEl) return;
+            const cnt = Object.values(vpAssignments).filter(c=>c===item.color).length;
+            const pct = Math.round((cnt/plan.total_units)*1000)/10;
+            badgeEl.textContent = `${item.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+          });
+        }
+        function applyAssignmentsToScene(){
+          if(!threeState) return;
+          Object.keys(threeState.coloredNodes).forEach(name=>{ const node = threeState.nodesByName.get(name); if(node) vp3dClearNode(node); });
+          threeState.coloredNodes = {};
+          Object.entries(vpAssignments).forEach(([name,color])=>{ const node = threeState.nodesByName.get(name); if(node){ vp3dColorNode(node, color); threeState.coloredNodes[name] = color; } });
+        }
+        function refreshListDots(){
+          if(!threeState || !threeState.listBody) return;
+          threeState.listBody.querySelectorAll('.vp3d-list-row').forEach(row=>{
+            const color = vpAssignments[row.dataset.name];
+            const dot = row.querySelector('.vp3d-list-dot');
+            if(dot) dot.style.background = color || '#ddd';
+          });
+        }
+        function handleNodeClick(name){
+          if(vpEraseMode){
+            if(vpAssignments[name] != null){
+              vpUndoStack.push(JSON.parse(JSON.stringify(vpAssignments)));
+              delete vpAssignments[name];
+              applyAssignmentsToScene(); refreshListDots(); refreshBadge();
+            }
+            return;
+          }
+          if(vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
+          const plan = currentPlan(); if(!plan) return;
+          const legend = legendOf(plan);
+          const item = legend[vpActiveColorIdx];
+          if(!item) return;
+          vpUndoStack.push(JSON.parse(JSON.stringify(vpAssignments)));
+          vpAssignments[name] = item.color;
+          applyAssignmentsToScene(); refreshListDots(); refreshBadge();
+        }
+
+        async function ensureSceneForPlan(plan, wrap){
+          if(threeState && threeState.planId === plan.id){
+            wrap.innerHTML = '';
+            wrap.appendChild(threeState.renderer.domElement);
+            threeState.onResize();
+            return threeState;
+          }
+          if(threeState) teardownScene();
+          wrap.innerHTML = '<div class="vp3d-loading">กำลังโหลดโมเดล 3D...</div>';
+          const { THREE, GLTFLoader, OrbitControls } = await vpEnsureThree();
+          const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+          const w = wrap.clientWidth || 480, h = wrap.clientHeight || 560;
+          renderer.setSize(w, h);
+          wrap.innerHTML = '';
+          wrap.appendChild(renderer.domElement);
+          const scene = new THREE.Scene();
+          scene.background = new THREE.Color(0xEAEDF0);
+          let camera = new THREE.PerspectiveCamera(50, w/h, 0.01, 5000);
+          let controls = new OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          let cameraMode = 'perspective';
+          scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+          const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          dirLight.position.set(5,10,7);
+          scene.add(dirLight);
+          const loader = new GLTFLoader();
+          const gltf = await loader.loadAsync(plan.model_url);
+          const root = gltf.scene;
+          scene.add(root);
+          function currentAspect(){ return (wrap.clientWidth||w) / (wrap.clientHeight||h); }
+          function fitAll(){ vp3dFrameCamera(THREE, camera, controls, root, currentAspect()); }
+          fitAll();
+          const nodesByName = vp3dCollectNodes(root);
+          const stateObj = { THREE, renderer, scene, camera, controls, root, nodesByName, coloredNodes:{}, planId: plan.id, animId:null, listBody:null, fitAll, cameraMode };
+          function onResize(){
+            const nw = wrap.clientWidth || w, nh = wrap.clientHeight || h;
+            renderer.setSize(nw, nh);
+            const aspect = nw/nh;
+            if(camera.isPerspectiveCamera){
+              camera.aspect = aspect;
+            } else {
+              const viewHeight = camera.top - camera.bottom;
+              const viewWidth = viewHeight * aspect;
+              camera.left = -viewWidth/2; camera.right = viewWidth/2;
+            }
+            camera.updateProjectionMatrix();
+          }
+          stateObj.onResize = onResize;
+          window.addEventListener('resize', onResize);
+
+          // ---- standard view buttons (replaces the old view-cube gizmo) ----
+          function setView(dirKey){
+            const dirs = { front:[0,0,1], back:[0,0,-1], left:[-1,0,0], right:[1,0,0], top:[0,1,0], bottom:[0,-1,0] };
+            const d = dirs[dirKey];
+            if(!d) return;
+            const dist = camera.position.distanceTo(controls.target) || 1;
+            camera.position.set(controls.target.x + d[0]*dist, controls.target.y + d[1]*dist, controls.target.z + d[2]*dist);
+            if(dirKey === 'top') camera.up.set(0,0,-1);
+            else if(dirKey === 'bottom') camera.up.set(0,0,1);
+            else camera.up.set(0,1,0);
+            controls.update();
+          }
+          stateObj.setView = setView;
+
+          // ---- Isometric (orthographic, no perspective distortion) vs Perspective camera mode ----
+          function switchCameraMode(mode){
+            if(mode === cameraMode || !threeState) return;
+            const dist = camera.position.distanceTo(controls.target) || 1;
+            const dir = camera.position.clone().sub(controls.target).normalize();
+            const target = controls.target.clone();
+            const up = camera.up.clone();
+            const aspect = currentAspect();
+            let newCamera;
+            if(mode === 'iso'){
+              const vFov = 50 * Math.PI/180;
+              const viewHeight = 2 * dist * Math.tan(vFov/2);
+              const viewWidth = viewHeight * aspect;
+              newCamera = new THREE.OrthographicCamera(-viewWidth/2, viewWidth/2, viewHeight/2, -viewHeight/2, 0.01, 5000);
+            } else {
+              newCamera = new THREE.PerspectiveCamera(50, aspect, 0.01, 5000);
+            }
+            newCamera.position.copy(target).add(dir.multiplyScalar(dist));
+            newCamera.up.copy(up);
+            newCamera.lookAt(target);
+            controls.dispose();
+            camera = newCamera;
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.copy(target);
+            controls.update();
+            cameraMode = mode;
+            stateObj.camera = camera; stateObj.controls = controls; stateObj.cameraMode = cameraMode;
+          }
+          stateObj.setCameraMode = switchCameraMode;
+
+          function animate(){
+            if(threeState !== stateObj) return;
+            if(!document.body.contains(renderer.domElement)){
+              cancelAnimationFrame(stateObj.animId);
+              window.removeEventListener('resize', onResize);
+              controls.dispose(); renderer.dispose();
+              if(threeState === stateObj) threeState = null;
+              return;
+            }
+            stateObj.animId = requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+          }
+          renderer.domElement.addEventListener('click', (e)=>{
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObject(root, true);
+            if(!hits.length) return;
+            let obj = hits[0].object;
+            while(obj && !obj.userData.__vp3dKey) obj = obj.parent;
+            if(obj) handleNodeClick(obj.userData.__vp3dKey);
+          });
+          threeState = stateObj;
+          animate();
+          return stateObj;
+        }
+        function teardownScene(){
+          if(!threeState) return;
+          const st = threeState;
+          cancelAnimationFrame(st.animId);
+          window.removeEventListener('resize', st.onResize);
+          st.controls.dispose();
+          st.renderer.dispose();
+          threeState = null;
+        }
+
+        function renderShell(){
+          const tabsHtml = plans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}">${escapeHtml(p.building_name)}</button>`).join('');
+          container.innerHTML = `
+            <div class="vp-plan-tabs">
+              ${tabsHtml}
+              <button type="button" class="chip" id="vp3dAddPlanBtn">＋ เพิ่มโมเดลใหม่</button>
+            </div>
+            ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีโมเดล 3D — กด "เพิ่มโมเดลใหม่" ด้านบนเพื่อเริ่มต้น (ต้อง export จาก SketchUp เป็นไฟล์ .glb ก่อน)</div>'}
+          `;
+          container.querySelectorAll('.vp-tab').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              vpActivePlanId = Number(btn.dataset.planId);
+              vpSelectedDate = todayISO();
+              vpAssignments = loadAssignmentsFor(vpActivePlanId, vpSelectedDate);
+              vpActiveColorIdx = -1; vpEraseMode = false; vpUndoStack = []; vp3dStyleMode = 'normal'; vp3dCameraMode = 'perspective';
+              renderShell();
+            });
+          });
+          document.getElementById('vp3dAddPlanBtn').addEventListener('click', openAdd3DPlanModal);
+          if(vpActivePlanId != null) renderPlanArea();
+        }
+
+        function renderPlanArea(){
+          const plan = plans.find(p=>p.id===vpActivePlanId);
+          const editor = document.getElementById('vpPlanEditor');
+          if(!plan || !editor) return;
+          const legend = legendOf(plan);
+          const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
+          const completionItems = legend.filter(l=>l.is_completion);
+          let badgeHtml = '';
+          if(completionItems.length && plan.total_units){
+            badgeHtml = completionItems.map(item=>{
+              const cnt = Object.values(vpAssignments).filter(c=>c===item.color).length;
+              const pct = Math.round((cnt/plan.total_units)*1000)/10;
+              return `<div class="vp-badge" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(item.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+            }).join('');
+          }
+          editor.innerHTML = `
+            ${badgeHtml}
+            <div class="vp-date-row">
+              <label>วันที่:</label>
+              <input type="date" id="vp3dDateInput" value="${vpSelectedDate}" style="width:auto;">
+              <button type="button" class="btn btn-ghost" id="vp3dLoadPrevBtn" style="flex:0 0 auto;">โหลดจากวันก่อนหน้า</button>
+              ${datesForPlan.length ? `<select id="vp3dDateJump" style="max-width:220px;"><option value="">-- วันที่มีบันทึกไว้ --</option>${datesForPlan.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>` : ''}
+              <button type="button" class="btn btn-ghost" id="vp3dEditPlanBtn" style="flex:0 0 auto;margin-left:auto;">✏️ แก้ไขแปลน</button>
+              <button type="button" class="btn btn-ghost" id="vp3dDeletePlanBtn" style="flex:0 0 auto;color:var(--danger);">🗑️ ลบแปลนนี้</button>
+            </div>
+            <div class="vp-toolbar">
+              ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
+              <button type="button" class="btn btn-ghost" id="vp3dEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
+              <button type="button" class="btn btn-ghost" id="vp3dUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
+              <button type="button" class="btn btn-ghost" id="vp3dClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
+            </div>
+            <div class="vp-toolbar">
+              <button type="button" class="btn btn-ghost" id="vp3dFitAllBtn" style="flex:0 0 auto;">🔍 มุมมองรวมทั้งหมด</button>
+              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมองด้าน:</span>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="front" style="flex:0 0 auto;">หน้า</button>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="back" style="flex:0 0 auto;">หลัง</button>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="left" style="flex:0 0 auto;">ซ้าย</button>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="right" style="flex:0 0 auto;">ขวา</button>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="top" style="flex:0 0 auto;">บน</button>
+              <button type="button" class="btn btn-ghost vp3d-view-btn" data-view="bottom" style="flex:0 0 auto;">ล่าง</button>
+            </div>
+            <div class="vp-toolbar">
+              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;">มุมมอง 3D:</span>
+              <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='perspective'?'active':''}" data-cammode="perspective" style="flex:0 0 auto;">📷 Perspective</button>
+              <button type="button" class="btn btn-ghost vp3d-cammode-btn ${vp3dCameraMode==='iso'?'active':''}" data-cammode="iso" style="flex:0 0 auto;">📐 Isometric</button>
+              <span style="flex:0 0 auto;color:var(--muted);font-size:12px;align-self:center;margin-left:12px;">รูปแบบโมเดล:</span>
+              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='normal'?'active':''}" data-style="normal" style="flex:0 0 auto;">👁️ ปกติ</button>
+              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='xray'?'active':''}" data-style="xray" style="flex:0 0 auto;">🌫️ X-ray</button>
+              <button type="button" class="btn btn-ghost vp3d-style-btn ${vp3dStyleMode==='wireframe'?'active':''}" data-style="wireframe" style="flex:0 0 auto;">📐 เส้นขอบ</button>
+            </div>
+            <div class="vp3d-layout">
+              <div class="vp3d-canvas-wrap" id="vp3dCanvasWrap"><div class="vp3d-loading">กำลังโหลดโมเดล 3D...</div></div>
+              <div class="vp3d-list-wrap">
+                <input type="text" id="vp3dSearchInput" placeholder="ค้นหาชิ้นส่วน...">
+                <div id="vp3dListBody"></div>
+              </div>
+            </div>
+            <div class="dash-note">คลิกเลือกสถานะจาก Legend ด้านบน แล้วคลิกชิ้นส่วนบนโมเดล 3D โดยตรง หรือคลิกเลือกจากรายการด้านขวา — หมุน/ซูมโมเดลด้วยเมาส์ (ลากซ้าย = หมุน, scroll = ซูม, ลากขวา = เลื่อน) — เปิด "โหมดลบ" แล้วคลิกชิ้นส่วนเพื่อลบสถานะ — กดปุ่ม "มุมมองด้าน" (หน้า/หลัง/ซ้าย/ขวา/บน/ล่าง) เพื่อดูตรงมุมนั้นทันที หรือกด "มุมมองรวมทั้งหมด" เพื่อขยายให้เห็นทั้งโมเดล — เลือก "มุมมอง 3D" เป็น Perspective (มีระยะใกล้ไกล) หรือ Isometric (มุมมองขนาน ไม่มีระยะบิดเบือน) และ "รูปแบบโมเดล" เป็น X-ray/เส้นขอบ ได้ตามต้องการ (แค่ปรับมุมมอง ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="vp3dSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button>
+              <button class="btn btn-ghost" id="vp3dScreenshotBtn">📷 บันทึกภาพหน้าจอ</button>
+            </div>
+          `;
+          document.getElementById('vp3dDateInput').addEventListener('change', (e)=>{
+            vpSelectedDate = e.target.value || todayISO();
+            vpAssignments = loadAssignmentsFor(plan.id, vpSelectedDate);
+            vpUndoStack = [];
+            renderPlanArea();
+          });
+          document.getElementById('vp3dLoadPrevBtn').addEventListener('click', ()=>{
+            const prevDate = latestDateBefore(plan.id, vpSelectedDate);
+            if(!prevDate){ showToast('ไม่พบข้อมูลวันก่อนหน้า', true); return; }
+            vpUndoStack.push(JSON.parse(JSON.stringify(vpAssignments)));
+            vpAssignments = loadAssignmentsFor(plan.id, prevDate);
+            renderPlanArea();
+            showToast('โหลดข้อมูลจากวันที่ ' + prevDate + ' มาต่อแล้ว (ยังไม่บันทึก)');
+          });
+          const jumpSel = document.getElementById('vp3dDateJump');
+          if(jumpSel) jumpSel.addEventListener('change', (e)=>{
+            if(!e.target.value) return;
+            vpSelectedDate = e.target.value;
+            vpAssignments = loadAssignmentsFor(plan.id, vpSelectedDate);
+            vpUndoStack = [];
+            renderPlanArea();
+          });
+          document.getElementById('vp3dEditPlanBtn').addEventListener('click', ()=> openEdit3DPlanModal(plan));
+          document.getElementById('vp3dDeletePlanBtn').addEventListener('click', ()=> delete3DPlan(plan));
+          document.getElementById('vp3dFitAllBtn').addEventListener('click', ()=>{
+            if(!threeState){ showToast('กรุณารอให้โมเดลโหลดเสร็จก่อน', true); return; }
+            threeState.fitAll();
+          });
+          container.querySelectorAll('.vp3d-view-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              if(!threeState){ showToast('กรุณารอให้โมเดลโหลดเสร็จก่อน', true); return; }
+              threeState.setView(btn.dataset.view);
+            });
+          });
+          container.querySelectorAll('.vp3d-cammode-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              vp3dCameraMode = btn.dataset.cammode;
+              if(threeState) threeState.setCameraMode(vp3dCameraMode);
+              container.querySelectorAll('.vp3d-cammode-btn').forEach(b=> b.classList.toggle('active', b.dataset.cammode === vp3dCameraMode));
+            });
+          });
+          container.querySelectorAll('.vp3d-style-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              vp3dStyleMode = btn.dataset.style;
+              applyStyleModeToScene();
+              container.querySelectorAll('.vp3d-style-btn').forEach(b=> b.classList.toggle('active', b.dataset.style === vp3dStyleMode));
+            });
+          });
+          container.querySelectorAll('.vp-legend-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              const idx = Number(btn.dataset.idx);
+              vpActiveColorIdx = (vpActiveColorIdx === idx) ? -1 : idx;
+              vpEraseMode = false;
+              renderPlanArea();
+            });
+          });
+          document.getElementById('vp3dEraseBtn').addEventListener('click', ()=>{
+            vpEraseMode = !vpEraseMode;
+            if(vpEraseMode) vpActiveColorIdx = -1;
+            renderPlanArea();
+          });
+          document.getElementById('vp3dUndoBtn').addEventListener('click', ()=>{
+            if(!vpUndoStack.length){ showToast('ไม่มีการแก้ไขให้ Undo', true); return; }
+            vpAssignments = vpUndoStack.pop();
+            applyAssignmentsToScene(); refreshListDots(); refreshBadge();
+          });
+          document.getElementById('vp3dClearBtn').addEventListener('click', ()=>{
+            if(!Object.keys(vpAssignments).length) return;
+            if(!confirm('ล้างสถานะทั้งหมดของวันที่ ' + vpSelectedDate + ' ?')) return;
+            vpUndoStack.push(JSON.parse(JSON.stringify(vpAssignments)));
+            vpAssignments = {};
+            applyAssignmentsToScene(); refreshListDots(); refreshBadge();
+          });
+          document.getElementById('vp3dSaveBtn').addEventListener('click', ()=> save3DAssignments(plan));
+          document.getElementById('vp3dScreenshotBtn').addEventListener('click', ()=>{
+            if(!threeState){ showToast('กรุณารอให้โมเดลโหลดเสร็จก่อน', true); return; }
+            threeState.renderer.render(threeState.scene, threeState.camera);
+            const url = threeState.renderer.domElement.toDataURL('image/png');
+            const safeName = (plan.building_name || 'model').replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
+            const a = document.createElement('a');
+            a.href = url; a.download = safeName + '_' + vpSelectedDate + '.png';
+            document.body.appendChild(a); a.click(); a.remove();
+          });
+
+          const wrap = document.getElementById('vp3dCanvasWrap');
+          let nodeLabels = Object.assign({}, plan.node_labels || {});
+          async function renameNode(originalName){
+            const currentLabel = nodeLabels[originalName] || originalName;
+            const input = prompt('ตั้งชื่อที่แสดงสำหรับชิ้นส่วนนี้ (ชื่อเดิมในไฟล์: "' + originalName + '")\nเว้นว่างเพื่อใช้ชื่อเดิม:', currentLabel === originalName ? '' : currentLabel);
+            if(input === null) return;
+            const trimmed = input.trim();
+            if(trimmed && trimmed !== originalName) nodeLabels[originalName] = trimmed; else delete nodeLabels[originalName];
+            plan.node_labels = nodeLabels;
+            const search = document.getElementById('vp3dSearchInput');
+            if(window.__vp3dDrawList) window.__vp3dDrawList(search ? search.value : '');
+            try{
+              const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans?id=eq.' + plan.id, { method:'PATCH', headers:{ ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify({ node_labels: nodeLabels }) });
+              if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+            }catch(e){ console.error(e); showToast('บันทึกชื่อไม่สำเร็จ: ' + e.message, true); }
+          }
+          ensureSceneForPlan(plan, wrap).then(state=>{
+            const names = Array.from(state.nodesByName.keys()).sort();
+            function drawList(filter){
+              const f = (filter||'').toLowerCase();
+              const listBody = document.getElementById('vp3dListBody');
+              if(!listBody) return;
+              listBody.innerHTML = names.filter(n=>{
+                const label = nodeLabels[n] || n;
+                return n.toLowerCase().includes(f) || label.toLowerCase().includes(f);
+              }).map(n=>{
+                const color = vpAssignments[n];
+                const label = nodeLabels[n] || n;
+                return `<div class="vp3d-list-row"><span class="vp3d-list-dot" data-name="${escapeHtml(n)}" style="${color?('background:'+color+';'):''}cursor:pointer;flex:0 0 auto;"></span><span class="vp3d-list-name" data-name="${escapeHtml(n)}" style="flex:1;cursor:pointer;" title="${escapeHtml(n)}">${escapeHtml(label)}</span><span class="vp3d-rename-btn" data-name="${escapeHtml(n)}" title="ตั้งชื่อที่แสดง" style="cursor:pointer;opacity:.55;flex:0 0 auto;">✏️</span></div>`;
+              }).join('');
+              listBody.querySelectorAll('.vp3d-list-dot,.vp3d-list-name').forEach(el=>{
+                el.addEventListener('click', ()=> handleNodeClick(el.dataset.name));
+              });
+              listBody.querySelectorAll('.vp3d-rename-btn').forEach(el=>{
+                el.addEventListener('click', (e)=>{ e.stopPropagation(); renameNode(el.dataset.name); });
+              });
+            }
+            window.__vp3dDrawList = drawList;
+            drawList('');
+            state.listBody = document.getElementById('vp3dListBody');
+            const search = document.getElementById('vp3dSearchInput');
+            if(search) search.addEventListener('input', (e)=> drawList(e.target.value));
+            applyAssignmentsToScene();
+            applyStyleModeToScene();
+            if(vp3dCameraMode !== state.cameraMode) state.setCameraMode(vp3dCameraMode);
+          }).catch(e=>{ console.error(e); wrap.innerHTML = '<div class="dash-empty">โหลดโมเดลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
+        }
+
+        function applyStyleModeToScene(){
+          if(!threeState) return;
+          const THREE = threeState.THREE;
+          threeState.root.traverse(child=>{
+            if(!child.isMesh) return;
+            if(!child.userData.__vpMatClone){
+              child.material = Array.isArray(child.material) ? child.material.map(m=>m.clone()) : child.material.clone();
+              child.userData.__vpMatClone = true;
+            }
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(m=>{
+              if(!m.userData.__vpOrigStyle){
+                m.userData.__vpOrigStyle = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite };
+              }
+              const orig = m.userData.__vpOrigStyle;
+              if(vp3dStyleMode === 'xray'){
+                m.transparent = true; m.opacity = 0.32; m.depthWrite = false;
+              } else {
+                m.transparent = orig.transparent; m.opacity = orig.opacity; m.depthWrite = orig.depthWrite;
+              }
+              m.needsUpdate = true;
+            });
+            if(!child.userData.__vpEdgeLines){
+              const edgeGeo = new THREE.EdgesGeometry(child.geometry, 20);
+              const edgeMat = new THREE.LineBasicMaterial({ color: 0x1B2430 });
+              const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+              edges.visible = false;
+              child.add(edges);
+              child.userData.__vpEdgeLines = edges;
+            }
+            child.userData.__vpEdgeLines.visible = (vp3dStyleMode === 'wireframe');
+          });
+        }
+
+        async function save3DAssignments(plan){
+          const btn = document.getElementById('vp3dSaveBtn');
+          btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+          try{
+            const payload = { plan_id: plan.id, mark_date: vpSelectedDate, assignments: vpAssignments, updated_at: new Date().toISOString() };
+            const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_marks?on_conflict=plan_id,mark_date', {
+              method:'POST', headers:{ ...HEADERS, 'Prefer':'resolution=merge-duplicates,return=minimal' },
+              body: JSON.stringify(payload)
+            });
+            if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+            let arr = marksByPlan.get(plan.id);
+            if(!arr){ arr = []; marksByPlan.set(plan.id, arr); }
+            const idx = arr.findIndex(m=>m.mark_date===vpSelectedDate);
+            const savedRow = { plan_id: plan.id, mark_date: vpSelectedDate, assignments: JSON.parse(JSON.stringify(vpAssignments)) };
+            if(idx>=0) arr[idx] = savedRow; else arr.push(savedRow);
+            arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1);
+            showToast('บันทึกข้อมูลวันที่ ' + vpSelectedDate + ' สำเร็จ');
+            renderPlanArea();
+          }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+          finally{ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; }
+        }
+
+        async function delete3DPlan(plan){
+          if(!confirm('ลบแปลน 3D "' + plan.building_name + '" พร้อมข้อมูลที่มาร์คไว้ทั้งหมด? การลบนี้ย้อนกลับไม่ได้')) return;
+          try{
+            await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_marks?plan_id=eq.' + plan.id, { method:'DELETE', headers: HEADERS });
+            await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans?id=eq.' + plan.id, { method:'DELETE', headers: HEADERS });
+            await deleteStorageObjectByUrl(plan.model_url);
+            showToast('ลบแปลนแล้ว');
+            switchModule('dash_visual_progress_3d');
+          }catch(e){ console.error(e); showToast('ลบไม่สำเร็จ: ' + e.message, true); }
+        }
+
+        function openAdd3DPlanModal(){
+          const modal = document.getElementById('modalContent');
+          let legendRows = [
+            { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
+            { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
+            { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
+            { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
+          ];
+          let nextRowId = legendRows.length;
+          function renderRows(){
+            modal.querySelector('#vp3dLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="color" class="vp3d-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
+              <input type="text" class="vp3d-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp3d-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
+              <button type="button" class="vp3d-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
+            </div>`).join('');
+            modal.querySelectorAll('.vp3d-rm-row').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                const rid = Number(btn.dataset.row);
+                legendRows = legendRows.filter(r=>r._id !== rid);
+                renderRows();
+              });
+            });
+          }
+          modal.innerHTML = `
+            <div class="modal-head"><h2>เพิ่มโมเดล 3D ใหม่ (Visual Progress 3D)</h2><button class="modal-close" id="vp3dModalClose">&times;</button></div>
+            <div class="detail-grid">
+              <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vp3dNewBuildingName" placeholder="เช่น WHA, WHB, MPB, TLB"></div>
+              <div class="detail-field full"><label>ไฟล์โมเดล 3D (.glb ที่ export จาก SketchUp)</label><input type="file" id="vp3dNewFile" accept=".glb,.gltf,model/gltf-binary"></div>
+              <div class="detail-field full"><label>จำนวนชิ้นส่วน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vp3dNewTotalUnits" placeholder="เช่น 55"></div>
+              <div class="detail-field full">
+                <label>Legend (สถานะ + สี)</label>
+                <div id="vp3dLegendRows"></div>
+                <button type="button" class="btn btn-ghost" id="vp3dAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn btn-primary" id="vp3dSavePlanBtn">บันทึกโมเดลใหม่</button>
+              <button class="btn btn-ghost" id="vp3dCancelPlanBtn">ยกเลิก</button>
+            </div>
+          `;
+          renderRows();
+          document.getElementById('vp3dAddLegendRow').addEventListener('click', ()=>{
+            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
+            renderRows();
+          });
+          document.getElementById('vp3dModalClose').addEventListener('click', closeModal);
+          document.getElementById('vp3dCancelPlanBtn').addEventListener('click', closeModal);
+          document.getElementById('vp3dSavePlanBtn').addEventListener('click', async ()=>{
+            const name = document.getElementById('vp3dNewBuildingName').value.trim();
+            const fileInput = document.getElementById('vp3dNewFile');
+            const file = fileInput.files && fileInput.files[0];
+            const totalUnitsVal = document.getElementById('vp3dNewTotalUnits').value;
+            const rows = Array.from(modal.querySelectorAll('#vp3dLegendRows .list-row'));
+            const legend = rows.map(row=>({
+              label: row.querySelector('.vp3d-legend-label').value.trim(),
+              color: row.querySelector('.vp3d-legend-color').value,
+              is_completion: row.querySelector('.vp3d-legend-completion').checked,
+            })).filter(l=>l.label);
+            if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
+            if(!file){ showToast('กรุณาเลือกไฟล์โมเดล .glb', true); return; }
+            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            const saveBtn = document.getElementById('vp3dSavePlanBtn');
+            saveBtn.disabled = true; saveBtn.textContent = 'กำลังอัปโหลด...';
+            try{
+              const modelUrl = await uploadVpBlob('visual-progress-3d-plans', file, file.name, file.type || 'model/gltf-binary');
+              const payload = { building_name: name, model_url: modelUrl, legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null, sort_order: plans.length };
+              const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans', { method:'POST', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
+              if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+              closeModal();
+              showToast('เพิ่มโมเดล 3D ใหม่สำเร็จ');
+              switchModule('dash_visual_progress_3d');
+            }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+            finally{ saveBtn.disabled = false; saveBtn.textContent = 'บันทึกโมเดลใหม่'; }
+          });
+          document.getElementById('modalBg').classList.add('show');
+        }
+
+        function openEdit3DPlanModal(plan){
+          const modal = document.getElementById('modalContent');
+          let legendRows = legendOf(plan).map((it,i)=>({ label: it.label, color: it.color, is_completion: !!it.is_completion, _id: i }));
+          if(!legendRows.length) legendRows = [{ label:'', color:'#999999', is_completion:false, _id:0 }];
+          let nextRowId = legendRows.length;
+          function renderRows(){
+            modal.querySelector('#vp3dLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="color" class="vp3d-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
+              <input type="text" class="vp3d-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp3d-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
+              <button type="button" class="vp3d-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
+            </div>`).join('');
+            modal.querySelectorAll('.vp3d-rm-row').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                const rid = Number(btn.dataset.row);
+                legendRows = legendRows.filter(r=>r._id !== rid);
+                renderRows();
+              });
+            });
+          }
+          modal.innerHTML = `
+            <div class="modal-head"><h2>แก้ไขโมเดล 3D — ${escapeHtml(plan.building_name)}</h2><button class="modal-close" id="vp3dModalClose">&times;</button></div>
+            <div class="detail-grid">
+              <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vp3dNewBuildingName" value="${escapeHtml(plan.building_name)}"></div>
+              <div class="detail-field full"><label>เปลี่ยนไฟล์โมเดล .glb (ไม่บังคับ — ถ้าไม่เลือกจะใช้ไฟล์เดิม)</label><input type="file" id="vp3dNewFile" accept=".glb,.gltf,model/gltf-binary"></div>
+              <div class="detail-field full"><label>จำนวนชิ้นส่วน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vp3dNewTotalUnits" value="${plan.total_units != null ? plan.total_units : ''}" placeholder="เช่น 55"></div>
+              <div class="detail-field full">
+                <label>Legend (สถานะ + สี)</label>
+                <div id="vp3dLegendRows"></div>
+                <button type="button" class="btn btn-ghost" id="vp3dAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn btn-primary" id="vp3dSavePlanBtn">บันทึกการแก้ไข</button>
+              <button class="btn btn-ghost" id="vp3dCancelPlanBtn">ยกเลิก</button>
+            </div>
+          `;
+          renderRows();
+          document.getElementById('vp3dAddLegendRow').addEventListener('click', ()=>{
+            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
+            renderRows();
+          });
+          document.getElementById('vp3dModalClose').addEventListener('click', closeModal);
+          document.getElementById('vp3dCancelPlanBtn').addEventListener('click', closeModal);
+          document.getElementById('vp3dSavePlanBtn').addEventListener('click', async ()=>{
+            const name = document.getElementById('vp3dNewBuildingName').value.trim();
+            const fileInput = document.getElementById('vp3dNewFile');
+            const file = fileInput.files && fileInput.files[0];
+            const totalUnitsVal = document.getElementById('vp3dNewTotalUnits').value;
+            const rows = Array.from(modal.querySelectorAll('#vp3dLegendRows .list-row'));
+            const legend = rows.map(row=>({
+              label: row.querySelector('.vp3d-legend-label').value.trim(),
+              color: row.querySelector('.vp3d-legend-color').value,
+              is_completion: row.querySelector('.vp3d-legend-completion').checked,
+            })).filter(l=>l.label);
+            if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
+            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            const saveBtn = document.getElementById('vp3dSavePlanBtn');
+            saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
+            try{
+              const payload = { building_name: name, legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null };
+              let oldModelUrl = null;
+              if(file){
+                payload.model_url = await uploadVpBlob('visual-progress-3d-plans', file, file.name, file.type || 'model/gltf-binary');
+                oldModelUrl = plan.model_url;
+              }
+              const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_3d_plans?id=eq.' + plan.id, { method:'PATCH', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
+              if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+              if(oldModelUrl) await deleteStorageObjectByUrl(oldModelUrl);
+              closeModal();
+              showToast('บันทึกการแก้ไขโมเดลสำเร็จ');
+              switchModule('dash_visual_progress_3d');
             }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
             finally{ saveBtn.disabled = false; saveBtn.textContent = 'บันทึกการแก้ไข'; }
           });
@@ -6406,6 +7114,7 @@
   const VP_DEFAULT_LINE_WIDTH = 0.006;
   function vpShapeSquareSizePx(base, shape){ return Math.max(10, base.w * ((shape && shape.size) || VP_DEFAULT_SQUARE_SIZE)); }
   function vpShapeLineWidthPx(base, shape){ return Math.max(2, base.w * ((shape && shape.size) || VP_DEFAULT_LINE_WIDTH)); }
+  function vpShapeAreaBorderWidthPx(base, shape){ return Math.max(2, base.w * ((shape && shape.size) || VP_DEFAULT_LINE_WIDTH)); }
   function vpPointToSegDist(px,py,x1,y1,x2,y2){
     const dx = x2-x1, dy = y2-y1;
     const lenSq = dx*dx+dy*dy;
@@ -6429,26 +7138,39 @@
     const b = parseInt(full.substring(4,6),16) || 0;
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
-  async function vpLoadPlanImage(plan){
-    if(plan.file_type === 'pdf'){
-      if(!window.pdfjsLib) throw new Error('pdf.js โหลดไม่สำเร็จ');
-      const pdf = await window.pdfjsLib.getDocument(plan.file_url).promise;
-      const page = await pdf.getPage(1);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const targetW = 1700;
-      const scale = targetW / baseViewport.width;
-      const viewport = page.getViewport({ scale });
-      const off = document.createElement('canvas');
-      off.width = Math.round(viewport.width); off.height = Math.round(viewport.height);
-      await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
-      return { canvas: off, w: off.width, h: off.height };
-    }
-    const img = await new Promise((resolve, reject)=>{
-      const im = new Image(); im.crossOrigin = 'anonymous';
-      im.onload = ()=>resolve(im); im.onerror = ()=>reject(new Error('โหลดรูปไม่สำเร็จ'));
-      im.src = plan.file_url;
-    });
-    return { canvas: img, w: img.naturalWidth, h: img.naturalHeight };
+  // Cache the decoded plan image/PDF page per (plan id + file url) so switching
+  // legend/erase/shape-type/size — every one of which used to re-render the whole
+  // panel and re-decode the PDF/image from scratch on every single click — reuses
+  // the already-decoded canvas instead. Keyed by file_url too so editing a plan's
+  // file (new PDF/image upload) naturally busts the cache for that plan.
+  const vpPlanImageCache = new Map();
+  function vpLoadPlanImage(plan){
+    const key = plan.id + '::' + plan.file_url;
+    if(vpPlanImageCache.has(key)) return vpPlanImageCache.get(key);
+    const promise = (async ()=>{
+      if(plan.file_type === 'pdf'){
+        if(!window.pdfjsLib) throw new Error('pdf.js โหลดไม่สำเร็จ');
+        const pdf = await window.pdfjsLib.getDocument(plan.file_url).promise;
+        const page = await pdf.getPage(1);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const targetW = 1700;
+        const scale = targetW / baseViewport.width;
+        const viewport = page.getViewport({ scale });
+        const off = document.createElement('canvas');
+        off.width = Math.round(viewport.width); off.height = Math.round(viewport.height);
+        await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
+        return { canvas: off, w: off.width, h: off.height };
+      }
+      const img = await new Promise((resolve, reject)=>{
+        const im = new Image(); im.crossOrigin = 'anonymous';
+        im.onload = ()=>resolve(im); im.onerror = ()=>reject(new Error('โหลดรูปไม่สำเร็จ'));
+        im.src = plan.file_url;
+      });
+      return { canvas: img, w: img.naturalWidth, h: img.naturalHeight };
+    })();
+    vpPlanImageCache.set(key, promise);
+    promise.catch(()=>{ vpPlanImageCache.delete(key); });
+    return promise;
   }
   function vpDrawCanvas(canvas, base, shapes, draft){
     const ctx = canvas.getContext('2d');
@@ -6470,7 +7192,7 @@
         const ax = m.x*base.w, ay = m.y*base.h;
         ctx.fillStyle = vpHexToRgba(m.color, 0.28);
         ctx.fillRect(ax, ay, aw, ah);
-        ctx.lineWidth = Math.max(2, base.w*0.006);
+        ctx.lineWidth = vpShapeAreaBorderWidthPx(base, m);
         ctx.strokeRect(ax, ay, aw, ah);
       } else {
         const sz = vpShapeSquareSizePx(base, m);
@@ -6501,6 +7223,105 @@
       }
     }
     return -1;
+  }
+  // ---------- Visual Progress 3D board: Three.js helpers ----------
+  let __vpThreePromise = null;
+  function vpEnsureThree(){
+    if(__vpThreePromise) return __vpThreePromise;
+    __vpThreePromise = (async ()=>{
+      const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+      const { GLTFLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js');
+      const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js');
+      return { THREE, GLTFLoader, OrbitControls };
+    })();
+    return __vpThreePromise;
+  }
+  function vp3dFrameCamera(THREE, camera, controls, root, aspect){
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    camera.up.set(0,1,0);
+    camera.position.set(center.x + maxDim, center.y + maxDim*0.7, center.z + maxDim);
+    camera.near = Math.max(maxDim/1000, 0.001); camera.far = maxDim*100;
+    if(camera.isOrthographicCamera){
+      const asp = aspect || ((camera.right - camera.left) / (camera.top - camera.bottom)) || 1;
+      const viewHeight = maxDim * 1.8;
+      const viewWidth = viewHeight * asp;
+      camera.left = -viewWidth/2; camera.right = viewWidth/2; camera.top = viewHeight/2; camera.bottom = -viewHeight/2;
+    }
+    camera.updateProjectionMatrix();
+    controls.target.copy(center); controls.update();
+  }
+  function vp3dCollectNodes(root){
+    // NOTE: SketchUp glTF exporters commonly produce nested named wrappers around
+    // a single part, e.g. a named Group "C1" that itself contains one child mesh
+    // node also named (e.g. "Geom3D_C1" from another export pipeline). If we just
+    // picked "every named node that contains a mesh", both the group AND its inner
+    // mesh node would show up as two separate rows for the exact same physical
+    // part (seen in real testing). We instead resolve, bottom-up, exactly one
+    // representative node per distinct physical part:
+    //  - a named node whose subtree contains NO other named+mesh-bearing node is a
+    //    genuine leaf part -> keep it.
+    //  - a named node that wraps exactly ONE such nested node is just a duplicate
+    //    wrapper around the same single part -> keep the OUTER node (its name is
+    //    normally the meaningful SketchUp Group/Component name) and drop the inner
+    //    duplicate.
+    //  - a named node that wraps MORE THAN ONE such nested node is an assembly of
+    //    multiple distinct parts (e.g. a top-level "Assembly-5" container) -> drop
+    //    the wrapper itself and use its nested parts individually instead.
+    // Also: some exporters (e.g. SimLab) give EVERY leaf geometry node the exact
+    // same generic name (seen in a real export: every part named "Geom3D_"). If we
+    // keyed purely by obj.name, duplicate-named parts would collide into one entry
+    // (only the first found would be trackable/paintable). So after resolving the
+    // final one-node-per-part list, disambiguate repeated raw names by order and
+    // stamp the resolved key directly on the object (userData.__vp3dKey) so
+    // raycasting/click-picking can resolve the exact instance clicked.
+    function hasMeshDescendant(obj){
+      let found = false;
+      obj.traverse(c=>{ if(c.isMesh) found = true; });
+      return found;
+    }
+    function collectParts(obj){
+      let childParts = [];
+      obj.children.forEach(child=>{ childParts = childParts.concat(collectParts(child)); });
+      if(obj.name && hasMeshDescendant(obj)){
+        if(childParts.length <= 1) return [obj];
+        return childParts;
+      }
+      return childParts;
+    }
+    const parts = collectParts(root);
+    const map = new Map();
+    const nameCounts = {};
+    parts.forEach(obj=>{
+      const n = (nameCounts[obj.name] = (nameCounts[obj.name] || 0) + 1);
+      const key = n === 1 ? obj.name : (obj.name + ' (' + n + ')');
+      obj.userData.__vp3dKey = key;
+      map.set(key, obj);
+    });
+    return map;
+  }
+  function vp3dColorNode(node, colorHex){
+    node.traverse(child=>{
+      if(!child.isMesh) return;
+      if(!child.userData.__vpMatClone){
+        child.material = Array.isArray(child.material) ? child.material.map(m=>m.clone()) : child.material.clone();
+        child.userData.__vpMatClone = true;
+      }
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(m=>{
+        if('emissive' in m){ m.emissive.setStyle(colorHex); m.emissiveIntensity = 0.75; }
+        else if('color' in m){ m.color.setStyle(colorHex); }
+      });
+    });
+  }
+  function vp3dClearNode(node){
+    node.traverse(child=>{
+      if(!child.isMesh || !child.userData.__vpMatClone) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(m=>{ if('emissive' in m){ m.emissive.setStyle('#000000'); m.emissiveIntensity = 0; } });
+    });
   }
   function nextFindingNumber(dateISO){
     const year = (dateISO || todayISO()).slice(0,4);

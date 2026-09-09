@@ -146,6 +146,17 @@
   .dash-weekpicker-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .dash-weekpicker-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .dash-weekpicker-row select{max-width:260px;}
+  .vp-plan-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .vp-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
+  .vp-legend-btn{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:7px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--charcoal);}
+  .vp-legend-btn.active{border-color:var(--ink);box-shadow:0 0 0 2px rgba(0,0,0,0.10) inset;}
+  .vp-legend-swatch{width:14px;height:14px;border-radius:3px;flex:0 0 auto;border:1.5px solid rgba(0,0,0,0.25);}
+  .vp-canvas-wrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:auto;background:#fff;max-height:70vh;}
+  .vp-canvas-wrap canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%;}
+  .vp-date-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
+  .vp-date-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
+  .vp-badge{display:inline-block;background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--charcoal);margin-bottom:12px;}
+
   .dash-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
 
   /* ---------- Safety KPI report page + Dashboard Safety KPI cards ---------- */
@@ -554,6 +565,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 (function(){
   const SUPABASE_URL = "https://gkbqauxjariovuseoydi.supabase.co";
@@ -5500,6 +5512,332 @@
         });
       }
     },
+    {
+      id:'dash_visual_progress', label:'Visual Progress', icon:'🗺️', table:'visual_progress_plans',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลดข้อมูล...</div>';
+        let plans = [], marks = [];
+        try{
+          plans = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_plans?select=*&order=sort_order.asc,created_at.asc');
+        }catch(e){
+          container.innerHTML = '<div class="dash-empty">ยังไม่พร้อมใช้งาน — กรุณารัน SQL สร้างตาราง visual_progress_plans และ visual_progress_marks ก่อน (ดูเอกสารประกอบ)</div>';
+          return;
+        }
+        try{
+          marks = await fetchAllRows(SUPABASE_URL + '/rest/v1/visual_progress_marks?select=*');
+        }catch(e){ marks = []; }
+
+        const marksByPlan = new Map();
+        marks.forEach(m=>{
+          if(!marksByPlan.has(m.plan_id)) marksByPlan.set(m.plan_id, []);
+          marksByPlan.get(m.plan_id).push(m);
+        });
+        marksByPlan.forEach(arr => arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1));
+
+        let vpActivePlanId = plans.length ? plans[0].id : null;
+        let vpSelectedDate = todayISO();
+        let vpShapes = [];
+        let vpActiveColorIdx = -1;
+        let vpEraseMode = false;
+        let vpUndoStack = [];
+
+        function legendOf(plan){ return Array.isArray(plan.legend) ? plan.legend : []; }
+        function loadShapesFor(planId, dateIso){
+          const arr = marksByPlan.get(planId) || [];
+          const row = arr.find(m => m.mark_date === dateIso);
+          return row ? JSON.parse(JSON.stringify(row.shapes || [])) : [];
+        }
+        function latestDateBefore(planId, dateIso){
+          const arr = marksByPlan.get(planId) || [];
+          const found = arr.find(m => m.mark_date < dateIso);
+          return found ? found.mark_date : null;
+        }
+        if(vpActivePlanId != null) vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
+
+        function renderShell(){
+          const tabsHtml = plans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}">${escapeHtml(p.building_name)}</button>`).join('');
+          container.innerHTML = `
+            <div class="vp-plan-tabs">
+              ${tabsHtml}
+              <button type="button" class="chip" id="vpAddPlanBtn">＋ เพิ่มแปลนใหม่</button>
+            </div>
+            ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
+          `;
+          container.querySelectorAll('.vp-tab').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              vpActivePlanId = Number(btn.dataset.planId);
+              vpSelectedDate = todayISO();
+              vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
+              vpActiveColorIdx = -1; vpEraseMode = false; vpUndoStack = [];
+              renderShell();
+            });
+          });
+          document.getElementById('vpAddPlanBtn').addEventListener('click', openAddPlanModal);
+          if(vpActivePlanId != null) renderPlanArea();
+        }
+
+        function renderPlanArea(){
+          const plan = plans.find(p=>p.id===vpActivePlanId);
+          const editor = document.getElementById('vpPlanEditor');
+          if(!plan || !editor) return;
+          const legend = legendOf(plan);
+          const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
+          const completionItem = legend.find(l=>l.is_completion);
+          let badgeHtml = '';
+          if(completionItem && plan.total_units){
+            const cnt = vpShapes.filter(s=>s.color===completionItem.color).length;
+            const pct = Math.round((cnt/plan.total_units)*1000)/10;
+            badgeHtml = `<div class="vp-badge">${escapeHtml(completionItem.label)} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
+          }
+          editor.innerHTML = `
+            ${badgeHtml}
+            <div class="vp-date-row">
+              <label>วันที่:</label>
+              <input type="date" id="vpDateInput" value="${vpSelectedDate}" style="width:auto;">
+              <button type="button" class="btn btn-ghost" id="vpLoadPrevBtn" style="flex:0 0 auto;">โหลดจากวันก่อนหน้า</button>
+              ${datesForPlan.length ? `<select id="vpDateJump" style="max-width:220px;"><option value="">-- วันที่มีบันทึกไว้ --</option>${datesForPlan.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>` : ''}
+              <button type="button" class="btn btn-ghost" id="vpDeletePlanBtn" style="flex:0 0 auto;margin-left:auto;color:var(--danger);">🗑️ ลบแปลนนี้</button>
+            </div>
+            <div class="vp-toolbar">
+              ${legend.map((l,i)=>`<button type="button" class="vp-legend-btn ${i===vpActiveColorIdx?'active':''}" data-idx="${i}"><span class="vp-legend-swatch" style="background:${l.color}"></span>${escapeHtml(l.label)}</button>`).join('')}
+              <button type="button" class="btn btn-ghost" id="vpEraseBtn" style="flex:0 0 auto;${vpEraseMode?'background:var(--danger);color:#fff;':''}">🧽 โหมดลบ</button>
+              <button type="button" class="btn btn-ghost" id="vpUndoBtn" style="flex:0 0 auto;">↩️ Undo</button>
+              <button type="button" class="btn btn-ghost" id="vpClearBtn" style="flex:0 0 auto;">ล้างทั้งหมด</button>
+            </div>
+            <div class="vp-canvas-wrap" id="vpCanvasWrap"><div class="dash-note">กำลังโหลดแปลน...</div></div>
+            <div class="dash-note">คลิกเลือกสถานะจากด้านบน แล้วคลิกบนแปลนเพื่อวางจุด — เปิด "โหมดลบ" แล้วคลิกที่จุดเพื่อลบ — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="btn-row"><button class="btn btn-primary" id="vpSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button></div>
+          `;
+          document.getElementById('vpDateInput').addEventListener('change', (e)=>{
+            vpSelectedDate = e.target.value || todayISO();
+            vpShapes = loadShapesFor(plan.id, vpSelectedDate);
+            vpUndoStack = [];
+            renderPlanArea();
+          });
+          document.getElementById('vpLoadPrevBtn').addEventListener('click', ()=>{
+            const prevDate = latestDateBefore(plan.id, vpSelectedDate);
+            if(!prevDate){ showToast('ไม่พบข้อมูลวันก่อนหน้า', true); return; }
+            vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+            vpShapes = loadShapesFor(plan.id, prevDate);
+            renderPlanArea();
+            showToast('โหลดข้อมูลจากวันที่ ' + prevDate + ' มาต่อแล้ว (ยังไม่บันทึก)');
+          });
+          const jumpSel = document.getElementById('vpDateJump');
+          if(jumpSel) jumpSel.addEventListener('change', (e)=>{
+            if(!e.target.value) return;
+            vpSelectedDate = e.target.value;
+            vpShapes = loadShapesFor(plan.id, vpSelectedDate);
+            vpUndoStack = [];
+            renderPlanArea();
+          });
+          document.getElementById('vpDeletePlanBtn').addEventListener('click', ()=> deletePlan(plan));
+          container.querySelectorAll('.vp-legend-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              const idx = Number(btn.dataset.idx);
+              vpActiveColorIdx = (vpActiveColorIdx === idx) ? -1 : idx;
+              vpEraseMode = false;
+              renderPlanArea();
+            });
+          });
+          document.getElementById('vpEraseBtn').addEventListener('click', ()=>{
+            vpEraseMode = !vpEraseMode;
+            if(vpEraseMode) vpActiveColorIdx = -1;
+            renderPlanArea();
+          });
+          document.getElementById('vpUndoBtn').addEventListener('click', ()=>{
+            if(!vpUndoStack.length){ showToast('ไม่มีการแก้ไขให้ Undo', true); return; }
+            vpShapes = vpUndoStack.pop();
+            redrawCanvas();
+          });
+          document.getElementById('vpClearBtn').addEventListener('click', ()=>{
+            if(!vpShapes.length) return;
+            if(!confirm('ล้างจุดทั้งหมดของวันที่ ' + vpSelectedDate + ' ?')) return;
+            vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+            vpShapes = [];
+            redrawCanvas();
+          });
+          document.getElementById('vpSaveBtn').addEventListener('click', ()=> saveShapes(plan));
+
+          const wrap = document.getElementById('vpCanvasWrap');
+          let base = null, canvasEl = null;
+          function redrawCanvas(draft){
+            if(!base || !canvasEl) return;
+            vpDrawCanvas(canvasEl, base, vpShapes, draft);
+            if(completionItem && plan.total_units){
+              const cnt = vpShapes.filter(s=>s.color===completionItem.color).length;
+              const pct = Math.round((cnt/plan.total_units)*1000)/10;
+              const badgeEl = editor.querySelector('.vp-badge');
+              if(badgeEl) badgeEl.textContent = `${completionItem.label} — ทั้งหมด ${plan.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%`;
+            }
+          }
+          vpLoadPlanImage(plan).then(b=>{
+            base = b;
+            canvasEl = document.createElement('canvas');
+            wrap.innerHTML = '';
+            wrap.appendChild(canvasEl);
+            redrawCanvas();
+            let dragging = false;
+            canvasEl.addEventListener('pointerdown', (e)=>{
+              const rect = canvasEl.getBoundingClientRect();
+              const relX = (e.clientX - rect.left) / rect.width;
+              const relY = (e.clientY - rect.top) / rect.height;
+              if(vpEraseMode){
+                const idx = vpHitTest(vpShapes, base, relX, relY);
+                if(idx >= 0){
+                  vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                  vpShapes.splice(idx, 1);
+                  redrawCanvas();
+                }
+                return;
+              }
+              if(vpActiveColorIdx < 0){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
+              const item = legend[vpActiveColorIdx];
+              dragging = true;
+              redrawCanvas({ x: relX, y: relY, color: item.color });
+            });
+            canvasEl.addEventListener('pointermove', (e)=>{
+              if(!dragging) return;
+              const rect = canvasEl.getBoundingClientRect();
+              const relX = (e.clientX - rect.left) / rect.width;
+              const relY = (e.clientY - rect.top) / rect.height;
+              const item = legend[vpActiveColorIdx];
+              redrawCanvas({ x: relX, y: relY, color: item.color });
+            });
+            const commitPoint = (e)=>{
+              if(!dragging) return;
+              dragging = false;
+              const rect = canvasEl.getBoundingClientRect();
+              const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+              const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+              const item = legend[vpActiveColorIdx];
+              vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+              vpShapes.push({ x: relX, y: relY, color: item.color, label: item.label });
+              redrawCanvas();
+            };
+            canvasEl.addEventListener('pointerup', commitPoint);
+            canvasEl.addEventListener('pointerleave', ()=>{ if(dragging){ dragging = false; redrawCanvas(); } });
+          }).catch(e=>{ wrap.innerHTML = '<div class="dash-empty">โหลดแปลนไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
+        }
+
+        async function saveShapes(plan){
+          const btn = document.getElementById('vpSaveBtn');
+          btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+          try{
+            const payload = { plan_id: plan.id, mark_date: vpSelectedDate, shapes: vpShapes, updated_at: new Date().toISOString() };
+            const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_marks?on_conflict=plan_id,mark_date', {
+              method:'POST', headers:{ ...HEADERS, 'Prefer':'resolution=merge-duplicates,return=minimal' },
+              body: JSON.stringify(payload)
+            });
+            if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+            let arr = marksByPlan.get(plan.id);
+            if(!arr){ arr = []; marksByPlan.set(plan.id, arr); }
+            const existingIdx = arr.findIndex(m=>m.mark_date===vpSelectedDate);
+            const savedRow = { plan_id: plan.id, mark_date: vpSelectedDate, shapes: JSON.parse(JSON.stringify(vpShapes)) };
+            if(existingIdx >= 0) arr[existingIdx] = savedRow; else arr.push(savedRow);
+            arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1);
+            showToast('บันทึกข้อมูลวันที่ ' + vpSelectedDate + ' สำเร็จ');
+            renderPlanArea();
+          }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+          finally{ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; }
+        }
+
+        async function deletePlan(plan){
+          if(!confirm('ลบแปลน "' + plan.building_name + '" พร้อมข้อมูลที่มาร์คไว้ทั้งหมด? การลบนี้ย้อนกลับไม่ได้')) return;
+          try{
+            await fetch(SUPABASE_URL + '/rest/v1/visual_progress_marks?plan_id=eq.' + plan.id, { method:'DELETE', headers: HEADERS });
+            await fetch(SUPABASE_URL + '/rest/v1/visual_progress_plans?id=eq.' + plan.id, { method:'DELETE', headers: HEADERS });
+            await deleteStorageObjectByUrl(plan.file_url);
+            showToast('ลบแปลนแล้ว');
+            switchModule('dash_visual_progress');
+          }catch(e){ console.error(e); showToast('ลบไม่สำเร็จ: ' + e.message, true); }
+        }
+
+        function openAddPlanModal(){
+          const modal = document.getElementById('modalContent');
+          let legendRows = [
+            { label:'งานขุด FOOTING', color:'#F5A623', is_completion:false, _id:0 },
+            { label:'งานเทลีน FOOTING', color:'#E04B2B', is_completion:false, _id:1 },
+            { label:'งานเข้าแบบผูกเหล็ก FOOTING', color:'#6C4CE0', is_completion:false, _id:2 },
+            { label:'งานเทคอนกรีต FOOTING', color:'#3FB950', is_completion:true, _id:3 },
+          ];
+          let nextRowId = legendRows.length;
+          function renderRows(){
+            modal.querySelector('#vpLegendRows').innerHTML = legendRows.map(it=>`<div class="list-row" data-row="${it._id}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="color" class="vp-legend-color" value="${it.color}" style="width:40px;height:34px;padding:2px;flex:0 0 auto;">
+              <input type="text" class="vp-legend-label" value="${escapeHtml(it.label)}" placeholder="ชื่อสถานะ" style="flex:1 1 auto;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;white-space:nowrap;"><input type="checkbox" class="vp-legend-completion" ${it.is_completion?'checked':''}> % สำเร็จ</label>
+              <button type="button" class="vp-rm-row" data-row="${it._id}" style="flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;">&times;</button>
+            </div>`).join('');
+            modal.querySelectorAll('.vp-rm-row').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                const rid = Number(btn.dataset.row);
+                legendRows = legendRows.filter(r=>r._id !== rid);
+                renderRows();
+              });
+            });
+          }
+          modal.innerHTML = `
+            <div class="modal-head"><h2>เพิ่มแปลนใหม่ (Visual Progress)</h2><button class="modal-close" id="vpModalClose">&times;</button></div>
+            <div class="detail-grid">
+              <div class="detail-field full"><label>ชื่ออาคาร / แปลน</label><input type="text" id="vpNewBuildingName" placeholder="เช่น WHA, WHB, MPB, TLB"></div>
+              <div class="detail-field full"><label>ไฟล์แปลน (PDF หรือรูปภาพ)</label><input type="file" id="vpNewFile" accept="application/pdf,image/*"></div>
+              <div class="detail-field full"><label>จำนวนฐาน/จุดทั้งหมด (ถ้าต้องการแสดง % สำเร็จ)</label><input type="number" id="vpNewTotalUnits" placeholder="เช่น 55"></div>
+              <div class="detail-field full">
+                <label>Legend (สถานะ + สี)</label>
+                <div id="vpLegendRows"></div>
+                <button type="button" class="btn btn-ghost" id="vpAddLegendRow" style="margin-top:4px;">+ เพิ่มสถานะ</button>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn btn-primary" id="vpSavePlanBtn">บันทึกแปลนใหม่</button>
+              <button class="btn btn-ghost" id="vpCancelPlanBtn">ยกเลิก</button>
+            </div>
+          `;
+          renderRows();
+          document.getElementById('vpAddLegendRow').addEventListener('click', ()=>{
+            legendRows.push({ label:'', color:'#999999', is_completion:false, _id: nextRowId++ });
+            renderRows();
+          });
+          document.getElementById('vpModalClose').addEventListener('click', closeModal);
+          document.getElementById('vpCancelPlanBtn').addEventListener('click', closeModal);
+          document.getElementById('vpSavePlanBtn').addEventListener('click', async ()=>{
+            const name = document.getElementById('vpNewBuildingName').value.trim();
+            const fileInput = document.getElementById('vpNewFile');
+            const file = fileInput.files && fileInput.files[0];
+            const totalUnitsVal = document.getElementById('vpNewTotalUnits').value;
+            const rows = Array.from(modal.querySelectorAll('#vpLegendRows .list-row'));
+            const legend = rows.map(row=>({
+              label: row.querySelector('.vp-legend-label').value.trim(),
+              color: row.querySelector('.vp-legend-color').value,
+              is_completion: row.querySelector('.vp-legend-completion').checked,
+            })).filter(l=>l.label);
+            if(!name){ showToast('กรุณาระบุชื่ออาคาร/แปลน', true); return; }
+            if(!file){ showToast('กรุณาเลือกไฟล์แปลน', true); return; }
+            if(!legend.length){ showToast('กรุณาระบุ Legend อย่างน้อย 1 รายการ', true); return; }
+            const saveBtn = document.getElementById('vpSavePlanBtn');
+            saveBtn.disabled = true; saveBtn.textContent = 'กำลังอัปโหลด...';
+            try{
+              const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+              const fileUrl = await uploadVpBlob('visual-progress-plans', file, file.name, file.type);
+              const payload = {
+                building_name: name, file_url: fileUrl, file_type: isPdf ? 'pdf' : 'image',
+                legend, total_units: totalUnitsVal ? Number(totalUnitsVal) : null,
+                sort_order: plans.length,
+              };
+              const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_plans', { method:'POST', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
+              if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+              closeModal();
+              showToast('เพิ่มแปลนใหม่สำเร็จ');
+              switchModule('dash_visual_progress');
+            }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+            finally{ saveBtn.disabled = false; saveBtn.textContent = 'บันทึกแปลนใหม่'; }
+          });
+          document.getElementById('modalBg').classList.add('show');
+        }
+
+        renderShell();
+      }
+    },
   ];
   // ================= CUSTOM REPORTS (non-generic entry pages, listed under 📝 Report) =================
   // Safety KPI & Safe Days: a live-editable summary/counter page (not a per-day journal like the
@@ -5900,6 +6238,64 @@
   async function deleteStorageObjectByUrl(url){
     try{ const path = url.split(STORAGE_PUBLIC)[1]; if(!path) return; await fetch(STORAGE_OBJ + path, { method:'DELETE', headers: HEADERS }); }
     catch(e){ console.warn('could not delete storage object', e); }
+  }
+  async function uploadVpBlob(folderPrefix, blob, filename, contentType){
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = folderPrefix + '/' + Date.now() + '_' + safeName;
+    const res = await fetch(STORAGE_OBJ + path, { method:'POST', headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type': contentType || blob.type || 'application/octet-stream' }, body: blob });
+    if(!res.ok) throw new Error('upload failed: ' + res.status + ' ' + await res.text());
+    return STORAGE_PUBLIC + path;
+  }
+  if(window.pdfjsLib){ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }
+  // ---------- Visual Progress board: shared canvas/pdf helpers ----------
+  function vpMarkerSizePx(canvasW){ return Math.max(14, canvasW * 0.026); }
+  async function vpLoadPlanImage(plan){
+    if(plan.file_type === 'pdf'){
+      if(!window.pdfjsLib) throw new Error('pdf.js โหลดไม่สำเร็จ');
+      const pdf = await window.pdfjsLib.getDocument(plan.file_url).promise;
+      const page = await pdf.getPage(1);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetW = 1700;
+      const scale = targetW / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+      const off = document.createElement('canvas');
+      off.width = Math.round(viewport.width); off.height = Math.round(viewport.height);
+      await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
+      return { canvas: off, w: off.width, h: off.height };
+    }
+    const img = await new Promise((resolve, reject)=>{
+      const im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = ()=>resolve(im); im.onerror = ()=>reject(new Error('โหลดรูปไม่สำเร็จ'));
+      im.src = plan.file_url;
+    });
+    return { canvas: img, w: img.naturalWidth, h: img.naturalHeight };
+  }
+  function vpDrawCanvas(canvas, base, shapes, draft){
+    const ctx = canvas.getContext('2d');
+    canvas.width = base.w; canvas.height = base.h;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(base.canvas, 0, 0, base.w, base.h);
+    const sz = vpMarkerSizePx(base.w);
+    shapes.forEach(m=>{
+      const cx = m.x * base.w, cy = m.y * base.h;
+      ctx.strokeStyle = m.color; ctx.lineWidth = Math.max(2, sz*0.14);
+      ctx.strokeRect(cx - sz/2, cy - sz/2, sz, sz);
+    });
+    if(draft){
+      const cx = draft.x * base.w, cy = draft.y * base.h;
+      ctx.strokeStyle = draft.color; ctx.lineWidth = Math.max(2, sz*0.14); ctx.setLineDash([4,3]);
+      ctx.strokeRect(cx - sz/2, cy - sz/2, sz, sz);
+      ctx.setLineDash([]);
+    }
+  }
+  function vpHitTest(shapes, base, relX, relY){
+    const szX = vpMarkerSizePx(base.w) / base.w;
+    const szY = vpMarkerSizePx(base.w) / base.h;
+    for(let i = shapes.length - 1; i >= 0; i--){
+      const m = shapes[i];
+      if(Math.abs(relX - m.x) <= szX*0.7 && Math.abs(relY - m.y) <= szY*0.7) return i;
+    }
+    return -1;
   }
   function nextFindingNumber(dateISO){
     const year = (dateISO || todayISO()).slice(0,4);

@@ -8045,7 +8045,7 @@
     } else if(f.type === 'number'){
       return `<input type="number" step="any" id="${id}"${ro ? ' readonly style="background:#F7F9FB;color:var(--charcoal);font-weight:700;"' : ''}>`;
     } else if(f.type === 'ot-list'){
-      return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มรายการ OT</button><div class="note">ระบุเว෥าสิ้นสุด OT / จำนวนคน / งานที่ทำ ต่อ 1 รายการ — เพิ่มได้หลายรายการต่อวัน</div>`;
+      return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มรายการ OT</button><div class="note">ระบุเวลาสิ้นสุด OT / จำนวนคน / งานที่ทำ ต่อ 1 รายการ — เพิ่มได้หลายรายการต่อวัน</div>`;
     } else if(f.type === 'area-manpower-list'){
       return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มพื้นที่</button><div class="note">F = Foreman, S = Safety, W = Worker, O = Other</div>`;
     } else if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){

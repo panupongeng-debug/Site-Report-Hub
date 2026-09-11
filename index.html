@@ -857,6 +857,7 @@
         {key:'state_personnel_site', label:'👥 State Personnel — Area Construction Site', type:'personnel-list', default:[{position:'Worker (M)',count:1},{position:'Worker (W)',count:1}]},
         {key:'state_personnel_workshop', label:'👥 State Personnel — Area Workshop', type:'personnel-list', default:[]},
         {key:'equipment', label:'🚜 Machinery / Equipment', type:'personnel-list', itemPlaceholder:'Equipment', default:[{position:'',count:1}]},
+        {key:'ot_records', label:'⏱️ บันทึก OT (Over Time)', type:'ot-list', default:[]},
         {key:'activities', label:'🎯 Daily Activity & Goals', type:'textarea', required:true, placeholder:'Describe completed tasks and goals...'},
         {key:'progress_summary', label:'📊 Progress Summary', type:'textarea', placeholder:'Enter progress summary...'},
       ],
@@ -8043,6 +8044,8 @@
       return `<input type="time" id="${id}">`;
     } else if(f.type === 'number'){
       return `<input type="number" step="any" id="${id}"${ro ? ' readonly style="background:#F7F9FB;color:var(--charcoal);font-weight:700;"' : ''}>`;
+    } else if(f.type === 'ot-list'){
+      return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มรายการ OT</button><div class="note">ระบุเว෥าสิ้นสุด OT / จำนวนคน / งานที่ทำ ต่อ 1 รายการ — เพิ่มได้หลายรายการต่อวัน</div>`;
     } else if(f.type === 'area-manpower-list'){
       return `<div class="list-rows" id="${id}"></div><button type="button" class="list-add-btn" data-key="${f.key}" data-listtype="${f.type}">+ เพิ่มพื้นที่</button><div class="note">F = Foreman, S = Safety, W = Worker, O = Other</div>`;
     } else if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){
@@ -8099,6 +8102,40 @@
     if(!container) return;
     container.innerHTML = '';
     (arr && arr.length ? arr : []).forEach(v => addListRow(key, listType, v, placeholder));
+  }
+  // ---------- ot-list: OT (over-time) records — end time / headcount / work, per entry ----------
+  function addOtRow(key, value){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    const rowId = uid();
+    const endTime = (value && value.end_time) || '';
+    const headcount = (value && value.headcount != null) ? value.headcount : '';
+    const work = (value && value.work) || '';
+    container.insertAdjacentHTML('beforeend', `
+      <div class="list-row" data-row="${rowId}">
+        <input type="time" class="lr-ot-endtime" value="${escapeHtml(endTime)}" title="OT ถึงเลาถ" style="flex:0 0 110px;">
+        <input type="number" min="0" class="lr-ot-headcount" placeholder="จำนวนคน" value="${escapeHtml(String(headcount))}" style="flex:0 0 90px;">
+        <input type="text" class="lr-ot-work" placeholder="งานที่ทำ" value="${escapeHtml(work)}" style="flex:1.6 1 auto;min-width:0;">
+        <button type="button" class="rm-row" data-row="${rowId}">✕</button>
+      </div>`);
+    container.querySelector(`.rm-row[data-row="${rowId}"]`).addEventListener('click', ()=>{
+      container.querySelector(`.list-row[data-row="${rowId}"]`).remove();
+    });
+  }
+  function getOtValue(key){
+    const container = document.getElementById('field_' + key);
+    if(!container) return [];
+    return Array.from(container.querySelectorAll('.list-row')).map(row => ({
+      end_time: row.querySelector('.lr-ot-endtime').value,
+      headcount: parseInt(row.querySelector('.lr-ot-headcount').value, 10) || 0,
+      work: row.querySelector('.lr-ot-work').value.trim(),
+    })).filter(r => r.work || r.end_time || r.headcount);
+  }
+  function setOtValue(key, arr){
+    const container = document.getElementById('field_' + key);
+    if(!container) return;
+    container.innerHTML = '';
+    (arr && arr.length ? arr : []).forEach(v => addOtRow(key, v));
   }
   // ---------- area-manpower-list: per-area Foreman/Safety/Worker breakdown ----------
   function areaManpowerOptionsFor(key){
@@ -8210,6 +8247,7 @@
     $$('.list-add-btn').forEach(btn => btn.addEventListener('click', ()=>{
       const lt = btn.dataset.listtype;
       if(lt === 'area-manpower-list'){ addAreaManpowerRow(btn.dataset.key, {}); recomputeManpowerTotals(); return; }
+      if(lt === 'ot-list'){ addOtRow(btn.dataset.key, {}); return; }
       const def = lt === 'personnel-list' ? {position:'',count:1} : (lt === 'volume-list' ? {position:'',count:''} : '');
       addListRow(btn.dataset.key, lt, def, btn.dataset.placeholder);
     }));
@@ -8263,6 +8301,7 @@
   }
   function getFieldValue(f){
     if(f.type === 'area-manpower-list') return getAreaManpowerValue(f.key);
+    if(f.type === 'ot-list') return getOtValue(f.key);
     if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list') return getListValue(f.key, f.type);
     const el = document.getElementById('field_' + f.key);
     if(!el) return '';
@@ -8270,6 +8309,7 @@
   }
   function setFieldValue(f, val){
     if(f.type === 'area-manpower-list'){ setAreaManpowerValue(f.key, val); return; }
+    if(f.type === 'ot-list'){ setOtValue(f.key, val); return; }
     if(f.type === 'personnel-list' || f.type === 'text-list' || f.type === 'volume-list'){ setListValue(f.key, f.type, val, f.itemPlaceholder); return; }
     const el = document.getElementById('field_' + f.key); if(el) el.value = (val === undefined || val === null) ? '' : val;
   }
@@ -8445,6 +8485,11 @@
       const arr = Array.isArray(val) ? val : [];
       if(!arr.length) return '-';
       return arr.map(p => `${escapeHtml(p.location)} (F:${p.foreman||0} S:${p.safety||0} W:${p.worker||0} O:${p.other||0})`).join('<br>');
+    }
+    if(f.type === 'ot-list'){
+      const arr = Array.isArray(val) ? val : [];
+      if(!arr.length) return '-';
+      return arr.map(p => `OT ถึง ${escapeHtml(p.end_time||'-')} · ${escapeHtml(String(p.headcount||0))} คน · ${escapeHtml(p.work||'-')}`).join('<br>');
     }
     if(f.type === 'text-list'){
       const arr = Array.isArray(val) ? val : [];
@@ -8718,6 +8763,7 @@
         else{
           const fdef = fieldByKey[h];
           if(fdef && fdef.type === 'area-manpower-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.location}:F${p.foreman},S${p.safety},W${p.worker},O${p.other}`).join(' | '); }
+          else if(fdef && fdef.type === 'ot-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`ถึง ${p.end_time}:${p.headcount} คน:${p.work}`).join(' | '); }
           else if(fdef && (fdef.type === 'personnel-list' || fdef.type === 'volume-list')){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.position}:${p.count}`).join(' | '); }
           else if(fdef && fdef.type === 'text-list'){ v = (Array.isArray(f[h])?f[h]:[]).join(' | '); }
           else{ v = f[h] ?? ''; }

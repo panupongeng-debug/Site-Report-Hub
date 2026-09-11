@@ -2672,13 +2672,13 @@
         const today = todayISO();
         const yesterday = addDays(today, -1);
         const dayBeforeYesterday = addDays(today, -2);
-        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], kpiCategories=[], hseSettings=null;
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null;
         try{
           const [r1,r2,r3,r4,r5,r6,r7] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=id,report_date,foreman_count,safety_count,worker_count,other_count', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=id,report_date,foreman_count,safety_count,worker_count,other_count,photo_urls', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
             fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
             fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=report_id,structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
@@ -2690,6 +2690,10 @@
           if(r5.ok) concreteSummaryData = await r5.json();
           pileData = r6 || [];
           if(r7.ok) concretePourEntriesData = await r7.json();
+          try{
+            const r8 = await fetch(SUPABASE_URL + '/rest/v1/concrete_structure_items?select=id,location,structure_name,plan_m3,sort_order&is_active=eq.true&order=location.asc,sort_order.asc', { headers: HEADERS });
+            if(r8.ok) concStructureItemsAll = await r8.json();
+          }catch(e){ concStructureItemsAll = []; }
           try{ kpiCategories = await fetchSafetyKpiCategories(); }catch(e){ kpiCategories = []; }
           try{ hseSettings = await fetchSafetyHseSettings(); }catch(e){ hseSettings = null; }
         }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
@@ -3295,6 +3299,40 @@
           if(!cur || r.report_date > cur.report_date) concLatestByItem[r.structure_item_id] = r;
         });
         const concLatestRows = Object.values(concLatestByItem);
+        // ---- แผนงานย่อยแยกตามอาคาร/พื้นที่ (จาก concrete_structure_items) เพื่อแสดงใน toggle ----
+        const concItemsByLocation = {};
+        concStructureItemsAll.forEach(it=>{ (concItemsByLocation[it.location] = concItemsByLocation[it.location] || []).push(it); });
+        function concLocItemsBreakdownHtml(loc){
+          const items = concItemsByLocation[loc] || [];
+          if(!items.length) return '<div class="dash-note" style="margin:6px 0 0;">ยังไม่มีรายการงานย่อยของพื้นที่นี้ใน concrete_structure_items</div>';
+          return `
+          <div style="overflow-x:auto;margin-top:6px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px;">
+              <thead>
+                <tr style="background:#F7F9FB;">
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1.3px solid var(--line);white-space:nowrap;">รายการ</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:1.3px solid var(--line);white-space:nowrap;">สะสม (m³)</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:1.3px solid var(--line);white-space:nowrap;">แผน (m³)</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:1.3px solid var(--line);white-space:nowrap;">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(it=>{
+                  const latest = concLatestByItem[it.id];
+                  const totalM3 = latest ? (Number(latest.total_m3)||0) : 0;
+                  const planM3 = Number(it.plan_m3) || 0;
+                  const pct = planM3 > 0 ? Math.round(totalM3/planM3*100) : null;
+                  return `<tr>
+                    <td style="padding:5px 8px;border-bottom:1px solid var(--line);color:var(--charcoal);">${escapeHtml(it.structure_name||'')}</td>
+                    <td style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);">${Math.round(totalM3*100)/100}</td>
+                    <td style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);color:var(--muted);">${planM3 > 0 ? (Math.round(planM3*100)/100) : '-'}</td>
+                    <td style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);font-weight:700;color:${pct==null?'var(--muted)':(pct>=100?'var(--closed)':'var(--progress)')};">${pct==null ? '-' : pct + '%'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        }
         const concByLocationTotal = {};
         concLatestRows.forEach(r=>{ concByLocationTotal[r.location] = (concByLocationTotal[r.location]||0) + (Number(r.total_m3)||0); });
         const concLocEntries = Object.entries(concByLocationTotal).sort((a,b)=>b[1]-a[1]);
@@ -3302,12 +3340,17 @@
         const concByLocationHtml = concLocEntries.length ? concLocEntries.map(([loc, val])=>{
           const pct = concMaxLoc ? Math.round((val/concMaxLoc)*1000)/10 : 0;
           return `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-            <div style="flex:0 0 90px;font-weight:700;color:var(--charcoal);font-size:13px;">${escapeHtml(loc)}</div>
-            <div style="flex:1 1 auto;height:14px;background:#EEF1F4;border-radius:7px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#0EA394,#2563EB);border-radius:7px;"></div>
+          <div class="conc-loc-row" style="margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button type="button" class="conc-loc-toggle" data-loc="${escapeHtml(loc)}" style="flex:0 0 96px;display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:0;font-weight:700;color:var(--charcoal);font-size:13px;">
+                <span class="conc-loc-caret">▸</span><span>${escapeHtml(loc)}</span>
+              </button>
+              <div style="flex:1 1 auto;height:14px;background:#EEF1F4;border-radius:7px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#0EA394,#2563EB);border-radius:7px;"></div>
+              </div>
+              <div style="flex:0 0 90px;text-align:right;font-weight:700;color:#0EA394;font-size:13px;">${Math.round(val*100)/100} m³</div>
             </div>
-            <div style="flex:0 0 90px;text-align:right;font-weight:700;color:#0EA394;font-size:13px;">${Math.round(val*100)/100} m³</div>
+            <div class="conc-loc-detail" hidden style="padding-left:24px;">${concLocItemsBreakdownHtml(loc)}</div>
           </div>`;
         }).join('') : '<div class="dash-note">ยังไม่มีข้อมูลปริมาณคอนกรีต</div>';
         const concWithPlan = concLatestRows.filter(r=> r.plan_m3 != null && r.plan_m3 > 0);
@@ -3431,6 +3474,19 @@
             </table>
           </div>`;
         }
+        // ---- ส่วนแสดงรูปถ่ายรายวัน (เลือกวันที่จาก Concrete Report, default = เมื่อวาน) ----
+        const concReportDatesDesc = concreteReportsData.map(r=>r.report_date).filter(Boolean).sort().reverse();
+        let briefConcSelectedPhotoDate = concReportByDate(yesterday) ? yesterday : (concReportDatesDesc[0] || '');
+        function concPhotoUrlsFor(dateIso){
+          const r = concReportByDate(dateIso);
+          return (r && Array.isArray(r.photo_urls)) ? r.photo_urls : [];
+        }
+        function renderConcPhotoBlockHtml(dateIso){
+          if(!dateIso) return '<div class="dash-note">ยังไม่มีข้อมูล Concrete Report ให้เลือกดูรูปภาพ</div>';
+          const urls = concPhotoUrlsFor(dateIso);
+          if(!urls.length) return '<div class="dash-note">ไม่มีรูปภาพของวันที่ ' + escapeHtml(dateIso) + '</div>';
+          return `<div class="photo-grid">${urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('')}</div>`;
+        }
         const slideConcrete = {
           title:'งานคอนกรีต',
           html:`
@@ -3441,6 +3497,15 @@
             <div class="brief-kpi"><div class="lbl">ปริมาณเทคอนกรีตสะสมทั้งหมด</div><div class="cmp"><div><span class="v">${Math.round(concTotalPoured*100)/100}</span><span class="t">m³</span></div></div><div class="t" style="margin-top:10px;">เฉลี่ยกำลังคน ${concAvgManpower} คน/วัน</div></div>
           </div>
           ${(!concReportByDate(today)) ? '<div class="dash-note" style="margin-bottom:14px;">⚠️ ยังไม่มีการกรอก Concrete Report ของวันนี้</div>' : ''}
+          <div class="dash-section" style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <h3 style="margin:0;">📷 รูปถ่ายหน้างาน (ตามวันที่ Report)</h3>
+              <select id="briefConcPhotoDateSelect" class="kpi-input" style="width:auto;">
+                ${concReportDatesDesc.length ? concReportDatesDesc.map(d=>`<option value="${escapeHtml(d)}" ${d===briefConcSelectedPhotoDate?'selected':''}>${escapeHtml(d)}${d===yesterday?' (เมื่อวาน)':''}${d===today?' (วันนี้)':''}</option>`).join('') : '<option value="">ไม่มีข้อมูล</option>'}
+              </select>
+            </div>
+            <div id="briefConcPhotoBlock">${renderConcPhotoBlockHtml(briefConcSelectedPhotoDate)}</div>
+          </div>
           <div>
             <div class="dash-section" style="margin-bottom:14px;">
               <h3 style="margin:0 0 8px;">ยอดสะสมแยกตามพื้นที่ (m³)</h3>
@@ -3487,6 +3552,28 @@
               if(dateStartInput) dateStartInput.value = '';
               if(dateEndInput) dateEndInput.value = '';
               applyConcFilters();
+            });
+            document.querySelectorAll('#briefConcPhotoBlock .photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+            const photoDateSelect = document.getElementById('briefConcPhotoDateSelect');
+            if(photoDateSelect) photoDateSelect.addEventListener('change', e=>{
+              briefConcSelectedPhotoDate = e.target.value;
+              const block = document.getElementById('briefConcPhotoBlock');
+              if(block){
+                block.innerHTML = renderConcPhotoBlockHtml(briefConcSelectedPhotoDate);
+                block.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+              }
+            });
+            document.querySelectorAll('.conc-loc-toggle').forEach(btn=>{
+              btn.addEventListener('click', ()=>{
+                const row = btn.closest('.conc-loc-row');
+                if(!row) return;
+                const detail = row.querySelector('.conc-loc-detail');
+                const caret = btn.querySelector('.conc-loc-caret');
+                if(!detail) return;
+                const isHidden = detail.hidden;
+                detail.hidden = !isHidden;
+                if(caret) caret.textContent = isHidden ? '▾' : '▸';
+              });
             });
           }
         };

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Reports Hub — เครื่องมือล้างไฟล์ที่ไม่มีการอ้างอิงใน Supabase Storage</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F5F7F9;color:#1F2937;margin:0;padding:24px;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 6px;}
+  p.sub{color:#6B7280;font-size:13.5px;margin:0 0 20px;line-height:1.6;}
+  .card{background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:18px;margin-bottom:16px;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  button{font-size:13.5px;padding:9px 16px;border-radius:7px;border:1px solid #D1D5DB;background:#fff;cursor:pointer;font-weight:600;}
+  button.primary{background:#2563EB;border-color:#2563EB;color:#fff;}
+  button.danger{background:#DC2626;border-color:#DC2626;color:#fff;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .stat{font-size:13px;color:#374151;}
+  .stat b{color:#111827;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px;}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #F0F1F3;}
+  th{color:#6B7280;font-weight:600;position:sticky;top:0;background:#fff;}
+  td.path{word-break:break-all;font-family:ui-monospace,monospace;font-size:11.5px;}
+  .tablewrap{max-height:420px;overflow:auto;border:1px solid #F0F1F3;border-radius:6px;}
+  .log{background:#0B1220;color:#D1D5DB;font-family:ui-monospace,monospace;font-size:11.5px;padding:12px;border-radius:8px;max-height:220px;overflow:auto;white-space:pre-wrap;margin-top:12px;}
+  .warn{background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;line-height:1.6;}
+  .empty{color:#6B7280;font-size:13px;padding:20px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧹 ล้างไฟล์ที่ไม่มีการอ้างอิงใน Supabase Storage</h1>
+  <p class="sub">
+    เครื่องมือนี้ตรวจหาไฟล์ใน Storage bucket <code>evidence-photos</code> ของ Site Reports Hub ที่ "ไม่มีแถวข้อมูลใดในตารางไหนเลย" อ้างอิงถึงอีกต่อไป
+    (เช่น รูป/ไฟล์แปลนที่แถวข้อมูลถูกลบไปแล้ว แต่ตัวไฟล์จริงในที่เก็บยังค้างอยู่) — เป็นการ<strong>ตรวจสอบแบบอ่านอย่างเดียวก่อนเสมอ</strong>
+    จะไม่มีการลบอะไรจนกว่าคุณจะกดปุ่ม "ลบไฟล์ที่เลือก" เอง และไฟล์ที่จะลบได้ต้องเป็นไฟล์ที่ไม่มีการอ้างอิงเหลืออยู่เลยเท่านั้น
+    จึงไม่กระทบเว็บที่ใช้งานอยู่ (ไม่มีหน้าไหนในระบบเปิดไฟล์เหล่านี้อยู่แล้ว)
+  </p>
+
+  <div class="warn">
+    ⚠️ การลบไฟล์ใน Storage <strong>ย้อนกลับไม่ได้</strong> — แนะนำให้ตรวจสอบรายการก่อนลบเสมอ โดยเฉพาะถ้าเพิ่งอัปโหลด/ลบข้อมูลอะไรในช่วง 1-2 นาทีที่ผ่านมา
+    (เผื่อกรณีอัปโหลดค้างระหว่างขั้นตอน ยังไม่ทันบันทึกแถวข้อมูลลงตาราง) เปิดหน้านี้จากเครื่องที่เชื่อถือได้เท่านั้น เพราะไฟล์นี้มี URL/anon key ของฐานข้อมูลอยู่ในตัว
+    (ค่าเดียวกับที่ฝังอยู่ในเว็บ Site Reports Hub ที่ deploy จริงอยู่แล้ว ไม่ใช่ความลับใหม่ที่หลุดออกไป)
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button class="primary" id="btnScan">🔍 เริ่มตรวจสอบ (อ่านอย่างเดียว)</button>
+      <span class="stat" id="scanStatus"></span>
+    </div>
+    <div class="log" id="log" hidden></div>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <div class="row" style="justify-content:space-between;">
+      <div class="stat">พบไฟล์ที่ไม่มีการอ้างอิง: <b id="orphanCount">0</b> ไฟล์ — รวม <b id="orphanSize">0</b></div>
+      <div class="row">
+        <button id="btnSelectAll">เลือกทั้งหมด</button>
+        <button id="btnSelectNone">ไม่เลือกเลย</button>
+        <button class="danger" id="btnDelete" disabled>🗑️ ลบไฟล์ที่เลือก</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table id="orphanTable">
+        <thead><tr><th style="width:26px;"></th><th>Path ในที่เก็บ</th><th style="width:90px;">ขนาด</th><th style="width:150px;">แก้ไขล่าสุด</th></tr></thead>
+        <tbody id="orphanBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://gkbqauxjariovuseoydi.supabase.co";
+const SUPABASE_KEY = "sb_publishable_PuNS8PUd323lbU-gi4vzeA_46oMYVtx";
+const BUCKET = "evidence-photos";
+const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
+const STORAGE_PUBLIC = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/';
+const STORAGE_OBJ = SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/';
+
+// Every table + column in the live app that can hold a URL pointing into
+// this bucket. Kept in sync with index.html's upload call sites: the
+// per-module report tables all use a jsonb `photo_urls` array; the two
+// Visual Progress plan tables use a single `file_url` / `model_url` column.
+const SOURCES = [
+  { table: 'findings', cols: ['photo_urls'] },
+  { table: 'environment_reports', cols: ['photo_urls'] },
+  { table: 'daily_reports', cols: ['photo_urls'] },
+  { table: 'qc_reports', cols: ['photo_urls'] },
+  { table: 'concrete_reports', cols: ['photo_urls'] },
+  { table: 'pile_reports', cols: ['photo_urls'] },
+  { table: 'visual_progress_plans', cols: ['file_url'] },
+  { table: 'visual_progress_3d_plans', cols: ['model_url'] },
+];
+
+const logEl = document.getElementById('log');
+function log(msg){ logEl.hidden = false; logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; }
+
+function fmtBytes(n){
+  if(!n && n !== 0) return '-';
+  const units = ['B','KB','MB','GB'];
+  let i = 0; let v = n;
+  while(v >= 1024 && i < units.length - 1){ v /= 1024; i++; }
+  return v.toFixed(v < 10 && i > 0 ? 1 : 0) + ' ' + units[i];
+}
+
+// Recursively list every real file under `prefix` in the bucket.
+// Supabase's list endpoint returns one folder level at a time; an entry
+// with metadata === null is itself a subfolder, so we recurse into it.
+async function listAllFiles(prefix){
+  const out = [];
+  const limit = 1000;
+  let offset = 0;
+  while(true){
+    const res = await fetch(SUPABASE_URL + '/storage/v1/object/list/' + BUCKET, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ prefix, limit, offset, sortBy: { column: 'name', order: 'asc' } })
+    });
+    if(!res.ok) throw new Error('list failed at "' + prefix + '": ' + res.status + ' ' + await res.text());
+    const entries = await res.json();
+    for(const e of entries){
+      const full = prefix + e.name;
+      if(e.id == null && e.metadata == null){
+        const sub = await listAllFiles(full + '/');
+        out.push(...sub);
+      } else {
+        out.push({ path: full, size: e.metadata ? e.metadata.size : null, updated_at: e.updated_at || e.created_at || null });
+      }
+    }
+    if(entries.length < limit) break;
+    offset += limit;
+  }
+  return out;
+}
+
+async function fetchAllRows(table, cols){
+  const out = [];
+  const pageSize = 1000;
+  let offset = 0;
+  while(true){
+    const url = SUPABASE_URL + '/rest/v1/' + table + '?select=' + cols.join(',') + '&limit=' + pageSize + '&offset=' + offset;
+    const res = await fetch(url, { headers: HEADERS });
+    if(!res.ok) throw new Error('fetch ' + table + ' failed: ' + res.status + ' ' + await res.text());
+    const rows = await res.json();
+    out.push(...rows);
+    if(rows.length < pageSize) break;
+    offset += pageSize;
+  }
+  return out;
+}
+
+function pathFromUrl(u){
+  if(!u || typeof u !== 'string') return null;
+  const idx = u.indexOf(STORAGE_PUBLIC);
+  if(idx === -1) return null;
+  return u.slice(idx + STORAGE_PUBLIC.length);
+}
+
+let orphans = [];
+
+async function runScan(){
+  const btn = document.getElementById('btnScan');
+  const statusEl = document.getElementById('scanStatus');
+  btn.disabled = true;
+  logEl.textContent = '';
+  document.getElementById('resultCard').hidden = true;
+  try{
+    statusEl.textContent = 'กำลังไล่ดูไฟล์ทั้งหมดใน storage...';
+    log('เริ่มลิสต์ไฟล์ทั้งหมดใน bucket "' + BUCKET + '" ...');
+    const allFiles = await listAllFiles('');
+    log('พบไฟล์ทั้งหมด ' + allFiles.length + ' ไฟล์ในที่เก็บ');
+
+    statusEl.textContent = 'กำลังอ่านข้อมูลที่ยังอ้างอิงอยู่จากทุกตาราง...';
+    const referenced = new Set();
+    for(const src of SOURCES){
+      log('อ่านตาราง ' + src.table + ' (คอลัมน์: ' + src.cols.join(', ') + ') ...');
+      const rows = await fetchAllRows(src.table, src.cols);
+      for(const row of rows){
+        for(const col of src.cols){
+          const v = row[col];
+          if(Array.isArray(v)){
+            for(const u of v){ const p = pathFromUrl(u); if(p) referenced.add(p); }
+          } else if(typeof v === 'string'){
+            const p = pathFromUrl(v); if(p) referenced.add(p);
+          }
+        }
+      }
+      log('  → ' + rows.length + ' แถว');
+    }
+    log('รวมไฟล์ที่ยังถูกอ้างอิงอยู่: ' + referenced.size + ' ไฟล์');
+
+    orphans = allFiles.filter(f => !referenced.has(f.path));
+    log('==> ไฟล์ที่ไม่มีการอ้างอิงเหลืออยู่เลย: ' + orphans.length + ' ไฟล์');
+
+    renderResults();
+    statusEl.textContent = 'ตรวจสอบเสร็จแล้ว';
+  }catch(e){
+    log('เกิดข้อผิดพลาด: ' + e.message);
+    statusEl.textContent = 'ตรวจสอบไม่สำเร็จ ดูรายละเอียดใน log ด้านบน';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function renderResults(){
+  const card = document.getElementById('resultCard');
+  const body = document.getElementById('orphanBody');
+  const countEl = document.getElementById('orphanCount');
+  const sizeEl = document.getElementById('orphanSize');
+  body.innerHTML = '';
+  card.hidden = false;
+  countEl.textContent = orphans.length;
+  const totalSize = orphans.reduce((a,f)=> a + (f.size||0), 0);
+  sizeEl.textContent = fmtBytes(totalSize);
+  if(!orphans.length){
+    body.innerHTML = '<tr><td colspan="4" class="empty">ไม่พบไฟล์ที่ไม่มีการอ้างอิง — ที่เก็บสะอาดแล้ว 🎉</td></tr>';
+    document.getElementById('btnDelete').disabled = true;
+    return;
+  }
+  orphans.forEach((f, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="checkbox" class="orphan-cb" data-i="${i}"></td>
+      <td class="path">${f.path}</td>
+      <td>${fmtBytes(f.size)}</td>
+      <td>${f.updated_at ? new Date(f.updated_at).toLocaleString('th-TH') : '-'}</td>`;
+    body.appendChild(tr);
+  });
+  updateDeleteBtn();
+  document.querySelectorAll('.orphan-cb').forEach(cb => cb.addEventListener('change', updateDeleteBtn));
+}
+
+function updateDeleteBtn(){
+  const anyChecked = Array.from(document.querySelectorAll('.orphan-cb')).some(cb => cb.checked);
+  document.getElementById('btnDelete').disabled = !anyChecked;
+}
+
+document.getElementById('btnSelectAll').addEventListener('click', ()=>{
+  document.querySelectorAll('.orphan-cb').forEach(cb => cb.checked = true);
+  updateDeleteBtn();
+});
+document.getElementById('btnSelectNone').addEventListener('click', ()=>{
+  document.querySelectorAll('.orphan-cb').forEach(cb => cb.checked = false);
+  updateDeleteBtn();
+});
+
+document.getElementById('btnDelete').addEventListener('click', async ()=>{
+  const checked = Array.from(document.querySelectorAll('.orphan-cb')).filter(cb => cb.checked).map(cb => orphans[Number(cb.dataset.i)]);
+  if(!checked.length) return;
+  if(!confirm('ยืนยันลบไฟล์ที่ไม่มีการอ้างอิง ' + checked.length + ' ไฟล์? การลบนี้ย้อนกลับไม่ได้')) return;
+  const btn = document.getElementById('btnDelete');
+  btn.disabled = true;
+  log('เริ่มลบไฟล์ที่เลือก ' + checked.length + ' ไฟล์ ...');
+  let ok = 0, fail = 0;
+  for(const f of checked){
+    try{
+      // Supabase Storage's single-object DELETE route (DELETE
+      // /object/{bucket}/{path}) returns 400 on this project's storage-api
+      // version — deletes have to go through the bucket-level bulk-remove
+      // route instead, with the path listed in the JSON body.
+      const res = await fetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET, {
+        method: 'DELETE', headers: HEADERS, body: JSON.stringify({ prefixes: [f.path] })
+      });
+      if(res.ok){ ok++; log('ลบแล้ว: ' + f.path); }
+      else { fail++; log('ลบไม่สำเร็จ (' + res.status + '): ' + f.path + ' — ' + await res.text()); }
+    }catch(e){ fail++; log('ลบไม่สำเร็จ: ' + f.path + ' — ' + e.message); }
+  }
+  log('เสร็จสิ้น — ลบสำเร็จ ' + ok + ' ไฟล์, ล้มเหลว ' + fail + ' ไฟล์');
+  await runScan();
+});
+
+document.getElementById('btnScan').addEventListener('click', runScan);
+</script>
+</body>
+</html>

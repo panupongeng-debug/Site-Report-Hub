@@ -423,6 +423,10 @@
   .gantt-bar{position:absolute;top:11px;height:18px;border-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.12);cursor:default;}
   .gantt-bar .lbl{position:absolute;left:calc(100% + 6px);top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);white-space:nowrap;}
   .gantt-milestone{position:absolute;top:12px;width:16px;height:16px;transform:translateX(-8px) rotate(45deg);border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  /* ป้ายชื่อกิจกรรมลอยอยู่เหนือแท่งงานในกราฟ (แบบ Primavera P6) — ไม่รับ mouse event เพื่อไม่ให้บัง tooltip ของแท่ง */
+  .gantt-bar-name{position:absolute;top:-1px;font-size:10px;line-height:12px;font-weight:700;color:#0F172A;white-space:nowrap;pointer-events:none;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 2px #fff;}
+  .gantt-io-chk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--charcoal);cursor:pointer;user-select:none;}
+  .gantt-io-chk input{margin:0;cursor:pointer;}
   .gantt-today{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;z-index:1;}
   .gantt-today .tag{position:absolute;top:-2px;left:4px;font-size:10px;font-weight:700;color:#DC2626;background:#fff;padding:0 4px;border-radius:4px;white-space:nowrap;}
   .gantt-label .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -512,12 +516,28 @@
       </div>
       <div class="form-grid" id="dynamicFields"></div>
       <div id="concretePourSection"></div>
-      <div class="form-grid" style="padding-top:0">
+      <div class="form-grid" style="padding-top:0" id="photoUploadSection">
         <div class="field">
           <label>Photos — รูปหลักฐาน</label>
           <label class="upload-btn">📷 เลือกรูปภาพ (เลือกได้หลายรูป)<input type="file" id="f_photoInput" accept="image/*" multiple></label>
           <div class="photo-status" id="photoStatus"></div>
           <div class="photo-grid" id="photoGrid"></div>
+        </div>
+      </div>
+      <div class="form-grid" style="padding-top:0;display:none;" id="photoUploadSectionFindingsOpen">
+        <div class="field">
+          <label>📸 Open Picture — รูปตอนเปิด</label>
+          <label class="upload-btn">เลือกรูป (เลือกได้หลายรูป)<input type="file" id="f_photoInputOpen" accept="image/*" multiple></label>
+          <div class="photo-status" id="photoStatusOpen"></div>
+          <div class="photo-grid" id="photoGridOpen"></div>
+        </div>
+      </div>
+      <div class="form-grid" style="padding-top:0;display:none;" id="photoUploadSectionFindingsClose">
+        <div class="field">
+          <label>📸 Close Picture — รูปตอนปิด</label>
+          <label class="upload-btn">เลือกรูป (เลือกได้หลายรูป)<input type="file" id="f_photoInputClose" accept="image/*" multiple></label>
+          <div class="photo-status" id="photoStatusClose"></div>
+          <div class="photo-grid" id="photoGridClose"></div>
         </div>
       </div>
       <div class="btn-row">
@@ -604,6 +624,24 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script>
+  // Safety Finding — รูปที่อัพโหลดไว้ก่อนหน้า (คอลัมน์ photo_urls เดิม) ให้ถือว่าอยู่ในหมวด Open Picture
+  // ใช้เฉพาะกรณีที่ยังไม่มีข้อมูลใน photo_urls_open / photo_urls_close (เรคคอร์ดเก่าที่ยังไม่เคยแก้ไข)
+  window.findingOpenUrls = function(f){
+    if(!f) return [];
+    const open  = Array.isArray(f.photo_urls_open)  ? f.photo_urls_open  : [];
+    const close = Array.isArray(f.photo_urls_close) ? f.photo_urls_close : [];
+    if(open.length || close.length) return open;
+    return Array.isArray(f.photo_urls) ? f.photo_urls : [];
+  };
+  window.findingCloseUrls = function(f){
+    if(!f) return [];
+    return Array.isArray(f.photo_urls_close) ? f.photo_urls_close : [];
+  };
+  window.findingAllUrls = function(f){
+    return window.findingOpenUrls(f).concat(window.findingCloseUrls(f));
+  };
+</script>
 <script>
 (function(){
   const SUPABASE_URL = "https://gkbqauxjariovuseoydi.supabase.co";
@@ -1166,27 +1204,33 @@
   }
   function openFindingDetailStatic(f){
     const findingsModule = MODULES.find(m=>m.id==='findings');
-    const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+    const urlsOpen = findingOpenUrls(f);
+    const urlsClose = findingCloseUrls(f);
     const fieldsHtml = renderDetailFieldsHtml(findingsModule.fields, f, findingsModule);
     const modal = $('#modalContent');
     modal.innerHTML = `
       <div class="modal-head"><h2>${escapeHtml(f.finding_number || '')}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
       <div class="detail-grid">
         ${fieldsHtml}
-        <div class="detail-field full detail-photos"><label>Photos</label>
-          <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
+        <div class="detail-field full"><label><strong>${escapeHtml(f.description || '-')}</strong></label></div>
+        ${f.corrective_action ? `<div class="detail-field full" style="background:#f9fafb;padding:12px;border-radius:6px;margin-top:8px;"><label style="font-weight:bold;">Corrective Action</label><div style="margin-top:6px;">${escapeHtml(f.corrective_action)}</div></div>` : ''}
+        <div class="detail-field full detail-photos" style="margin-top:12px;"><label>📸 Open Picture</label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">${urlsOpen.length ? urlsOpen.map(u=>`<div style="width:200px;height:200px;border-radius:6px;overflow:hidden;border:1px solid var(--line);"><img src="${u}" data-full="${u}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพ Open</span>'}</div>
+        </div>
+        <div class="detail-field full detail-photos"><label>📸 Close Picture</label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">${urlsClose.length ? urlsClose.map(u=>`<div style="width:200px;height:200px;border-radius:6px;overflow:hidden;border:1px solid var(--line);"><img src="${u}" data-full="${u}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพ Close</span>'}</div>
         </div>
       </div>`;
     $('#modalBg').classList.add('show');
     $('#modalCloseBtn').addEventListener('click', ()=> $('#modalBg').classList.remove('show'));
-    modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+    modal.querySelectorAll('[data-full]').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
   }
   function renderRecentFindingsSafety(list, containerId){
     const container = document.getElementById(containerId || 'recentFindingsList');
     if(!container || !list.length) return;
     const today = todayISO();
     container.innerHTML = list.map(f=>{
-      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const urls = findingAllUrls(f);
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
       const dayTag = f.finding_date === today ? 'วันนี้ · ' : '';
       return `
@@ -1216,7 +1260,7 @@
     const container = document.getElementById('recognitionList');
     if(!container || !list.length) return;
     container.innerHTML = list.map(f=>{
-      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const urls = findingAllUrls(f);
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">🎉</div>`;
       return `
       <div class="finding sev-none" data-recognition-id="${f.id}">
@@ -1244,7 +1288,7 @@
     if(!container || !list.length) return;
     const today = todayISO();
     container.innerHTML = list.map(f=>{
-      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const urls = findingAllUrls(f);
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️</div>`;
       const isOverdue = f.due_date && f.due_date < today;
       return `
@@ -1617,7 +1661,7 @@
             recContainer.innerHTML = '<div class="dash-empty" style="padding:20px;">ยังไม่มีรายการชื่นชมในสัปดาห์นี้</div>';
           }else{
             recContainer.innerHTML = recognitionList.map(f=>{
-              const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+              const urls = findingAllUrls(f);
               const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">🎉</div>`;
               return `
               <div class="finding sev-none" data-recognition-id="${f.id}">
@@ -2721,8 +2765,10 @@
           </div>`;
         }
         function briefFindingCardHtml(f){
-          const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-          const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">⚠️<span>ไม่มีรูป</span></div>`;
+          const urlsOpen = findingOpenUrls(f);
+          const urlsClose = findingCloseUrls(f);
+          const totalPhotos = urlsOpen.length + urlsClose.length;
+          const coverHtml = urlsOpen.length ? `<img src="${urlsOpen[0]}" loading="lazy;">` : (urlsClose.length ? `<img src="${urlsClose[0]}" loading="lazy;">` : `<div class="ph-empty">⚠️<span>ไม่มีรูป</span></div>`);
           return `
           <div class="finding-card ${findingSevClassStatic(f)}" data-brief-finding-id="${f.id}">
             <div class="fc-cover">${coverHtml}</div>
@@ -3684,6 +3730,9 @@
           DRA:'Drainage System', SPL:'Sampling Unit'
         };
         let schZoom = 'month';
+        // แสดงชื่อกิจกรรมกำกับแท่งงานในกราฟ (ค่าเริ่มต้นเปิด) — จำค่าไว้ต่อเบราว์เซอร์
+        let schShowBarNames = true;
+        try{ const sv = localStorage.getItem('srh_sch_bar_names'); if(sv !== null) schShowBarNames = (sv === '1'); }catch(e){}
         let schViewMode = 'gantt'; // 'gantt' | 'table' | 'scurve'
         let lastFiltered = [];
         const schCollapsed = new Set();
@@ -3986,6 +4035,9 @@
               <button class="gantt-io-btn gantt-io-btn-add" id="schAddTaskBtn" type="button" title="เพิ่ม Activity (Task) ใหม่เข้าตารางงาน">➕ เพิ่ม Activity ใหม่</button>
               <button class="gantt-io-btn" id="schWbsWeightBtn" type="button" title="แก้ % Weight ของแต่ละ Discipline หรือเพิ่ม/ลบ Discipline ที่ใช้คำนวณ Overall Progress (Weighted WBS)">⚙️ Discipline / Weight</button>
               <button class="gantt-io-btn" id="schPhaseWeightBtn" type="button" title="แก้ % Weight ของแต่ละ Phase (CON/PRO/ENG/ASB/...) หรือเพิ่ม/ลบ Phase ที่ใช้รวมเข้า Overall Progress">⚙️ Phase / Weight</button>
+              <label class="gantt-io-chk" title="แสดงชื่อกิจกรรมกำกับแท่งงานในกราฟ Gantt (แบบ Primavera P6) — ถ้าซูมออกมากแท่งจะชิดกันจนชื่อทับกัน ปิดได้ที่นี่">
+                <input type="checkbox" id="schShowBarNames"${schShowBarNames ? ' checked' : ''}> แสดงชื่อกิจกรรมในกราฟ
+              </label>
               <span class="gantt-io-sep"></span>
               <button class="gantt-io-btn" id="schExportCsvBtn" type="button" title="ส่งออก Activity หลัก ตามตัวกรองปัจจุบันเป็น CSV">⬇️ Export CSV</button>
               <button class="gantt-io-btn" id="schExportSubCsvBtn" type="button" title="ส่งออก Sub Activities (BOQ) ของ Activity ที่อยู่ในตัวกรองปัจจุบัน เป็น CSV">⬇️ Export Sub Activities CSV</button>
@@ -5267,16 +5319,26 @@
             const canManageSub = !r.is_milestone;
             const subExpanded = canManageSub && schExpandedSub.has(r.task_code);
             let bar = '';
+            // ป้ายชื่อกิจกรรมเหนือแท่งงาน — left ชิดจุดเริ่มแท่ง แต่ clamp ไม่ให้ล้นขอบขวาของแกนเวลา
+            // (ประมาณความกว้างข้อความจากจำนวนตัวอักษร เพราะวัดจริงต้องรอ layout)
+            function barNameHtml(startX){
+              if(!schShowBarNames) return '';
+              const nm = r.task_name || '';
+              if(!nm) return '';
+              const approxW = nm.length * 5.6 + 6;
+              const left = Math.max(0, Math.min(startX, timelineWidth - approxW));
+              return `<div class="gantt-bar-name" style="left:${left}px;">${escapeHtml(nm)}</div>`;
+            }
             if(r.is_milestone){
               const d = r.end_date || r.start_date;
               if(d){ const left = dayOffset(d)*pxPerDay;
-                bar = `<div class="gantt-milestone" style="left:${left}px;background:#F59E0B;" title="${titleAttr}"></div>`;
+                bar = `<div class="gantt-milestone" style="left:${left}px;background:#F59E0B;" title="${titleAttr}"></div>` + barNameHtml(left + 10);
               }
             } else if(r.start_date && r.end_date){
               const sx = dayOffset(r.start_date)*pxPerDay;
               const ex = sx + Math.max(4, (dayOffset(r.end_date)-dayOffset(r.start_date))*pxPerDay);
               if(pct >= 100){
-                bar = `<div class="gantt-bar" style="left:${sx}px;width:${ex-sx}px;background:#16A34A;" title="${titleAttr}"></div>`;
+                bar = `<div class="gantt-bar" style="left:${sx}px;width:${ex-sx}px;background:#16A34A;" title="${titleAttr}"></div>` + barNameHtml(sx);
               } else {
                 // ด้านที่ทำไปแล้ว (ตาม %) = เขียว, ช่วงที่ผ่านวันนี้มาแล้วแต่ยังไม่เสร็จ (ดีเลย์ แม้ 0%) = แดงอ่อน, ช่วงในอนาคตที่ยังไม่ถึงกำหนด = สีสถานะปกติ
                 const doneW = (ex - sx) * pct / 100;
@@ -5291,7 +5353,7 @@
                 } else if(ex > doneEndX){
                   segs.push([doneEndX, ex - doneEndX, normalColor]);
                 }
-                bar = segs.map(([x,w,c])=>`<div class="gantt-bar" style="left:${x}px;width:${w}px;background:${c};" title="${titleAttr}"></div>`).join('');
+                bar = segs.map(([x,w,c])=>`<div class="gantt-bar" style="left:${x}px;width:${w}px;background:${c};" title="${titleAttr}"></div>`).join('') + barNameHtml(sx);
               }
             }
             rowsHtml += `<div class="gantt-label task" style="height:${TASK_ROW_H}px;">
@@ -5628,6 +5690,11 @@
             document.querySelectorAll('.gantt-zoom-btn').forEach(b=>b.classList.toggle('active', b===btn));
             renderGantt();
           });
+        });
+        document.getElementById('schShowBarNames').addEventListener('change', (e)=>{
+          schShowBarNames = e.target.checked;
+          try{ localStorage.setItem('srh_sch_bar_names', schShowBarNames ? '1' : '0'); }catch(err){}
+          renderGantt();
         });
         document.getElementById('schToggleAllSub').addEventListener('click', ()=>{
           const codes = Array.from(subActByTask.keys());
@@ -6996,21 +7063,29 @@
 
           <div class="tagcard" style="padding:16px;margin-top:16px;">
             <h3 style="margin:0 0 6px;">Safe Man-Hours / Safe Working Days (hse_safe_days_counter)</h3>
-            <div class="dash-note" style="margin-bottom:14px;">Safe Working Days และ Safe Man-Hours คำนวณอัตโนมัติถึง "วันนี้" เสมอ (กำลังคนรวมต่อวัน × 10 ชม. สะสมตั้งแต่ "วันเริ่มนับ") — ไม่ต้องกรอก/กดอัพเดทรายวัน ปรับได้แค่ "วันเริ่มนับ" (reset หลังเกิด LTI)</div>
-            <div class="two-col" style="grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div class="dash-note" style="margin-bottom:14px;">Safe Working Days และ Safe Man-Hours คำนวณอัตโนมัติ (กำลังคนรวมต่อวันจาก Daily Report × 10 ชม. สะสมตั้งแต่ "วันเริ่มนับ") — ไม่ต้องกรอก/กดอัพเดทรายวัน<br>เลือก <b>"ข้อมูล ณ วันที่"</b> ย้อนหลังได้เพื่อดูตัวเลขย้อนหลัง ณ วันนั้น (ค่าเริ่มต้น = วันนี้) — ช่องนี้เป็นตัวกรองสำหรับดูเท่านั้น ไม่ถูกบันทึกลงฐานข้อมูล สิ่งที่บันทึกคือ "วันเริ่มนับ" อย่างเดียว (reset หลังเกิด LTI) และการ์ดบน Dashboard ยังคิดถึงวันนี้เสมอ</div>
+            <div class="two-col" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;">
               <div class="field">
                 <label>วันเริ่มนับ</label>
                 <input type="date" id="hseStartDate" value="${settings ? escapeHtml(settings.start_date) : ''}">
               </div>
               <div class="field">
-                <label>ข้อมูล ณ วันที่ (Auto = วันนี้)</label>
-                <input class="kpi-input" type="text" id="hseAsOfDate" value="" readonly>
+                <label>ข้อมูล ณ วันที่ <span style="font-weight:400;color:var(--muted);">(เลือกย้อนหลังได้)</span></label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input type="date" id="hseAsOfDate" value="${todayISO()}" max="${todayISO()}" style="flex:1 1 auto;min-width:0;">
+                  <button class="btn btn-ghost" type="button" id="btnHseAsOfToday" style="flex:0 0 auto;padding:8px 10px;white-space:nowrap;">วันนี้</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Safe Working Days (Auto)</label>
+                <input class="kpi-input" type="text" id="hseSafeDays" value="กำลังคำนวณ..." readonly>
               </div>
               <div class="field">
                 <label>Safe Man-Hours สะสม (Auto)</label>
                 <input class="kpi-input" type="text" id="hseManHours" value="กำลังคำนวณ..." readonly>
               </div>
             </div>
+            <div class="dash-note" id="hseManDayBreakdown" style="margin:10px 0 0;">—</div>
             <div class="btn-row" style="padding:14px 0 0;">
               <button class="btn btn-primary" id="btnSaveStartDate" type="button" style="flex:0 0 auto;">บันทึกวันเริ่มนับ</button>
             </div>
@@ -7019,30 +7094,50 @@
 
         renderTable();
 
-        // format today's date the same way the rest of the app shows Buddhist-era dates in dashboards, but plain is fine here
-        $('#hseAsOfDate').value = todayISO();
-
         // compute Safe Man-Hours = sum over [start_date..today] of (total manpower reported that day in
         // Daily Report เท่านั้น) × 10 hrs — days with no report count as 0 manpower for that day
         // (ปรับ 2026-09-08 ตามที่ผู้ใช้ระบุ "ให้รวม Man hour เฉพาะที่อยู่ใน Daily Report" — เดิมรวม
         // concrete_reports (foreman/safety/worker/other) เข้าไปด้วย ตัดออกแล้ว ใช้แค่ daily_reports)
+        // ช่วงที่คิด = [วันเริ่มนับ .. ข้อมูล ณ วันที่] โดย "ข้อมูล ณ วันที่" เลือกย้อนหลังได้ (ค่าเริ่มต้น = วันนี้)
+        // ทำให้ดูตัวเลข ณ วันใดวันหนึ่งย้อนหลังได้ โดยไม่ต้องแก้ "วันเริ่มนับ" และไม่บันทึกค่านี้ลงฐานข้อมูล
         async function computeSafeManHours(){
           const startDate = $('#hseStartDate').value;
-          if(!startDate){ $('#hseManHours').value = '- (ยังไม่ตั้งวันเริ่มนับ)'; return; }
+          const asOf = $('#hseAsOfDate').value || todayISO();
+          const daysEl = $('#hseSafeDays'), mhEl = $('#hseManHours'), bdEl = $('#hseManDayBreakdown');
+          if(!startDate){
+            daysEl.value = '- (ยังไม่ตั้งวันเริ่มนับ)';
+            mhEl.value = '- (ยังไม่ตั้งวันเริ่มนับ)';
+            bdEl.textContent = '—';
+            return;
+          }
+          if(asOf < startDate){
+            daysEl.value = '0 วัน';
+            mhEl.value = '- ("ข้อมูล ณ วันที่" อยู่ก่อนวันเริ่มนับ)';
+            bdEl.textContent = 'กรุณาเลือก "ข้อมูล ณ วันที่" ให้เป็นวันเดียวกับหรือหลัง "วันเริ่มนับ" (' + startDate + ')';
+            return;
+          }
+          daysEl.value = daysBetweenInclusive(startDate, asOf).toLocaleString() + ' วัน (' + startDate + ' → ' + asOf + ')';
+          mhEl.value = 'กำลังคำนวณ...';
           try{
-            const dailyRes = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop&report_date=gte.' + startDate, { headers: HEADERS });
+            const dailyRes = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop&report_date=gte.' + startDate + '&report_date=lte.' + asOf, { headers: HEADERS });
             const dailyRows = dailyRes.ok ? await dailyRes.json() : [];
-            const byDate = {};
+            let repcoManDays = 0, stateManDays = 0;
             dailyRows.forEach(r=>{
-              const mp = sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
-              byDate[r.report_date] = (byDate[r.report_date]||0) + mp;
+              repcoManDays += sumPersonnel(r.repco_personnel);
+              stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
             });
-            const totalManpower = Object.values(byDate).reduce((s,v)=>s+v, 0);
+            const totalManpower = repcoManDays + stateManDays;
             const manHours = totalManpower * 10;
-            $('#hseManHours').value = manHours.toLocaleString() + ' ชม. (กำลังคนสะสม ' + totalManpower.toLocaleString() + ' คน-วัน)';
-          }catch(e){ $('#hseManHours').value = 'คำนวณไม่สำเร็จ: ' + e.message; }
+            mhEl.value = manHours.toLocaleString() + ' ชม. (กำลังคนสะสม ' + totalManpower.toLocaleString() + ' คน-วัน)';
+            bdEl.innerHTML = 'Man-Day สะสม: REPCO <b>' + repcoManDays.toLocaleString() + '</b> · STATE <b>' + stateManDays.toLocaleString() + '</b> · รวมทั้งโครงการ <b>' + totalManpower.toLocaleString() + '</b> คน-วัน'
+              + ' — มี Daily Report ' + dailyRows.length + ' วันในช่วงนี้'
+              + (asOf < todayISO() ? ' · <b>ดูย้อนหลัง ณ ' + asOf + '</b>' : '');
+          }catch(e){ mhEl.value = 'คำนวณไม่สำเร็จ: ' + e.message; bdEl.textContent = '—'; }
         }
         computeSafeManHours();
+        $('#hseStartDate').addEventListener('change', computeSafeManHours);
+        $('#hseAsOfDate').addEventListener('change', computeSafeManHours);
+        $('#btnHseAsOfToday').addEventListener('click', ()=>{ $('#hseAsOfDate').value = todayISO(); computeSafeManHours(); });
 
         $('#btnAddKpiCategory').addEventListener('click', async ()=>{
           const name = $('#newKpiName').value.trim();
@@ -7109,6 +7204,10 @@
   let editingId = null;
   let pendingPhotos = [];
   let removedExistingUrls = [];
+  let pendingPhotosOpen = [];
+  let pendingPhotosClose = [];
+  let removedExistingUrlsOpen = [];
+  let removedExistingUrlsClose = [];
   let currentFilterStatus = 'all';
   // ---------- Piling: กรอกกลุ่ม (bulk assign RFI No. / Production Day / Delivery Day) ----------
   let bulkSelectedIds = new Set();
@@ -7879,6 +7978,17 @@
     status.textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป พร้อมบันทึก') : '';
     renderPhotoGrid();
   }
+  // แสดง/ซ่อนช่องอัพโหลดรูปตามโมดูลที่เลือก — findings ใช้ Open/Close, โมดูลอื่นใช้ช่องเดิม
+  // ต้องเรียกทั้งตอนสลับโมดูลและตอนโหลดหน้าแรก (init ไม่ได้เรียก switchModule)
+  function applyPhotoSectionVisibility(){
+    const isFindings = activeModule && activeModule.id === 'findings';
+    const secDefault = $('#photoUploadSection');
+    const secOpen    = $('#photoUploadSectionFindingsOpen');
+    const secClose   = $('#photoUploadSectionFindingsClose');
+    if(secDefault) secDefault.style.display = isFindings ? 'none' : '';
+    if(secOpen)    secOpen.style.display    = isFindings ? '' : 'none';
+    if(secClose)   secClose.style.display   = isFindings ? '' : 'none';
+  }
   function renderPhotoGrid(){
     const grid = $('#photoGrid');
     grid.innerHTML = pendingPhotos.map(p => `
@@ -7897,7 +8007,9 @@
       $('#photoStatus').textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป พร้อมบันทึก') : '';
     }));
   }
-  $('#f_photoInput').addEventListener('change', (e)=>{ if(e.target.files && e.target.files.length){ handleFileSelect(e.target.files); e.target.value=''; } });
+  $('#f_photoInput').addEventListener('change', (e)=>{ if(e.target.files && e.target.files.length){ handleFileSelect(e.target.files, 'default'); e.target.value=''; } });
+  $('#f_photoInputOpen').addEventListener('change', (e)=>{ if(e.target.files && e.target.files.length){ handleFileSelect(e.target.files, 'open'); e.target.value=''; } });
+  $('#f_photoInputClose').addEventListener('change', (e)=>{ if(e.target.files && e.target.files.length){ handleFileSelect(e.target.files, 'close'); e.target.value=''; } });
   let lbGallery = [];
   let lbIndex = 0;
   function showLbImage(){
@@ -7981,6 +8093,7 @@
     $('#panel-custom').hidden = true;
     $('.main').classList.remove('wide');
     activeModule = MODULES.find(m => m.id === id) || MODULES[0];
+    applyPhotoSectionVisibility();
     currentFilterStatus = 'all'; currentSearch = ''; $('#searchBox').value = '';
     renderModuleRow();
     renderFilterRow();
@@ -8351,7 +8464,7 @@
     const container = $('#listContainer');
     if(list.length === 0){ container.innerHTML = '<div class="empty-state"><div class="mark">🗂️</div>ไม่พบรายการที่ตรงกับเงื่อนไข</div>'; return; }
     container.innerHTML = list.map(f=>{
-      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      const urls = (activeModule.id === 'findings') ? findingAllUrls(f) : (Array.isArray(f.photo_urls) ? f.photo_urls : []);
       const coverHtml = urls.length ? `<img src="${urls[0]}" loading="lazy">` : `<div class="ph-empty">${activeModule.icon}</div>`;
       const badges = activeModule.badgeFields.map(bf => f[bf] ? `<span class="pill ${badgeClass(bf, f[bf])==='loc'?'loc':badgeClass(bf,f[bf])}">${escapeHtml(f[bf])}</span>` : '').join('')
         + (activeModule.renderExtraMeta ? activeModule.renderExtraMeta(f) : '');
@@ -8549,7 +8662,7 @@
   function openDetail(id){
     const f = rows.find(x => String(x.id) === String(id));
     if(!f) return;
-    const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+    const urls = (activeModule.id === 'findings') ? findingAllUrls(f) : (Array.isArray(f.photo_urls) ? f.photo_urls : []);
     const fieldsHtml = renderDetailFieldsHtml(activeModule.fields, f);
     const extraHtml = activeModule.detailExtra ? activeModule.detailExtra(f) : '';
     const modal = $('#modalContent');
@@ -8588,7 +8701,14 @@
     const f = rows.find(x => String(x.id) === String(id));
     try{
       await deleteRecord(id);
-      if(f && Array.isArray(f.photo_urls)){ for(const u of f.photo_urls) await deleteStorageObjectByUrl(u); }
+      if(f){
+        const allUrls = [];
+        for(const key of ['photo_urls','photo_urls_open','photo_urls_close']){
+          const arr = Array.isArray(f[key]) ? f[key] : [];
+          for(const u of arr){ if(u && !allUrls.includes(u)) allUrls.push(u); }
+        }
+        for(const u of allUrls) await deleteStorageObjectByUrl(u);
+      }
       closeModal(); showToast('ลบรายการแล้ว'); await refreshAndRender();
     }catch(e){ console.error(e); showToast('ลบไม่สำเร็จ: ' + e.message, true); }
   }
@@ -8596,6 +8716,8 @@
   // ---------- form ----------
   function clearForm(){
     editingId = null; pendingPhotos = []; removedExistingUrls = [];
+    pendingPhotosOpen = []; pendingPhotosClose = [];
+    removedExistingUrlsOpen = []; removedExistingUrlsClose = [];
     renderFormFields();
     activeModule.fields.forEach(f=>{
       if(f.type === 'date' && f.key === activeModule.dateField) setFieldValue(f, todayISO());
@@ -8610,6 +8732,11 @@
     $('#validationMsg').classList.remove('show');
     $('#photoStatus').textContent = '';
     renderPhotoGrid();
+    applyPhotoSectionVisibility();
+    const stOpen = $('#photoStatusOpen');   if(stOpen)   stOpen.textContent = '';
+    const stClose = $('#photoStatusClose'); if(stClose)  stClose.textContent = '';
+    const grOpen = $('#photoGridOpen');     if(grOpen)   grOpen.innerHTML = '';
+    const grClose = $('#photoGridClose');   if(grClose)  grClose.innerHTML = '';
     if(activeModule.id === 'concrete'){ renderConcretePourSection({}); }
     else{ const sec = document.getElementById('concretePourSection'); if(sec) sec.innerHTML = ''; }
   }
@@ -8622,9 +8749,24 @@
     $('#previewNum').textContent = activeModule.hasAutoNumber ? f[activeModule.numberField] : activeModule.idLabel(f);
     $('#formModeHint').textContent = 'แก้ไข: ' + activeModule.idLabel(f);
     $('#btnCopyPrev').style.display = 'none';
-    const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
-    pendingPhotos = urls.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
-    $('#photoStatus').textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป (เดิม)') : '';
+    removedExistingUrlsOpen = []; removedExistingUrlsClose = [];
+    if(activeModule.id === 'findings'){
+      const urlsOpen = findingOpenUrls(f);
+      const urlsClose = findingCloseUrls(f);
+      pendingPhotosOpen = urlsOpen.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
+      pendingPhotosClose = urlsClose.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
+      $('#photoStatusOpen').textContent = pendingPhotosOpen.length ? (pendingPhotosOpen.length + ' รูป (เดิม)') : '';
+      $('#photoStatusClose').textContent = pendingPhotosClose.length ? (pendingPhotosClose.length + ' รูป (เดิม)') : '';
+      // Update grids
+      const gridOpen = $('#photoGridOpen');
+      if(gridOpen) gridOpen.innerHTML = pendingPhotosOpen.map(p => `<div class="photo-thumb" data-id="${p.id}"><img src="${p.url}" alt=""><button type="button" class="rm" data-id="${p.id}">✕</button><span class="up-badge">OLD</span></div>`).join('');
+      const gridClose = $('#photoGridClose');
+      if(gridClose) gridClose.innerHTML = pendingPhotosClose.map(p => `<div class="photo-thumb" data-id="${p.id}"><img src="${p.url}" alt=""><button type="button" class="rm" data-id="${p.id}">✕</button><span class="up-badge">OLD</span></div>`).join('');
+    } else {
+      const urls = Array.isArray(f.photo_urls) ? f.photo_urls : [];
+      pendingPhotos = urls.map(u => ({ id: uid(), name: u.split('/').pop(), url: u, isExisting: true }));
+      $('#photoStatus').textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป (เดิม)') : '';
+    }
     renderPhotoGrid();
     if(activeModule.id === 'concrete'){
       fetchPourEntriesForReport(f.id).then(map => renderConcretePourSection(map));
@@ -8668,7 +8810,25 @@
         }
         record[f.key] = v;
       });
-      record.photo_urls = finalUrls;
+      // Handle photos: findings uses separate open/close, others use single array
+      if(activeModule.id === 'findings'){
+        record.photo_urls_open = [];
+        record.photo_urls_close = [];
+        for(const p of pendingPhotosOpen){
+          if(p.isExisting){ record.photo_urls_open.push(p.url); }
+          else{ const url = await uploadPhotoBlob(folderPrefix, p.blob, p.name); record.photo_urls_open.push(url); }
+        }
+        for(const u of removedExistingUrlsOpen) await deleteStorageObjectByUrl(u);
+        for(const p of pendingPhotosClose){
+          if(p.isExisting){ record.photo_urls_close.push(p.url); }
+          else{ const url = await uploadPhotoBlob(folderPrefix, p.blob, p.name); record.photo_urls_close.push(url); }
+        }
+        for(const u of removedExistingUrlsClose) await deleteStorageObjectByUrl(u);
+        // ย้ายรูปเดิมเข้า Open Picture เรียบร้อยแล้ว — ล้างคอลัมน์ photo_urls เดิมกันข้อมูลซ้ำ
+        record.photo_urls = [];
+      } else {
+        record.photo_urls = finalUrls;
+      }
       if(activeModule.id === 'findings' && !editingId){
         record.finding_number = nextFindingNumber(record.finding_date);
       } else if(activeModule.id === 'findings' && editingId){
@@ -8753,13 +8913,16 @@
   $('#btnRefresh').addEventListener('click', refreshAndRender);
 
   $('#btnExport').addEventListener('click', ()=>{
-    const headers = activeModule.fields.map(f=>f.key).concat(['photo_urls']);
+    const photoHeaders = (activeModule.id === 'findings') ? ['photo_urls_open','photo_urls_close'] : ['photo_urls'];
+    const headers = activeModule.fields.map(f=>f.key).concat(photoHeaders);
     const fieldByKey = {}; activeModule.fields.forEach(f => fieldByKey[f.key] = f);
     const csvRows = [headers.join(',')];
     rows.forEach(f=>{
       const row = headers.map(h=>{
         let v;
-        if(h === 'photo_urls'){ v = Array.isArray(f[h]) ? f[h].join(';') : ''; }
+        if(h === 'photo_urls_open'){ v = findingOpenUrls(f).join(';'); }
+        else if(h === 'photo_urls_close'){ v = findingCloseUrls(f).join(';'); }
+        else if(h === 'photo_urls'){ v = Array.isArray(f[h]) ? f[h].join(';') : ''; }
         else{
           const fdef = fieldByKey[h];
           if(fdef && fdef.type === 'area-manpower-list'){ v = (Array.isArray(f[h])?f[h]:[]).map(p=>`${p.location}:F${p.foreman},S${p.safety},W${p.worker},O${p.other}`).join(' | '); }

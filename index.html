@@ -155,6 +155,12 @@
   .dash-weekpicker-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .dash-weekpicker-row select{max-width:260px;}
   .vp-plan-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .vp-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .vp-filter-btn{padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);}
+  .vp-filter-btn.active{background:var(--charcoal);border-color:var(--charcoal);color:#fff;}
+  .vp-tab-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .vp-tab-dot.has{background:#2E9E5B;}
+  .vp-tab-dot.none{background:#C9CDD3;}
   .vp-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
   .vp-legend-btn{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:7px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--charcoal);}
   .vp-legend-btn.active{border-color:var(--ink);box-shadow:0 0 0 2px rgba(0,0,0,0.10) inset;}
@@ -2904,6 +2910,28 @@
           cumulativeManHours = cumulativeManpowerDays * 10;
         }
 
+        // Incident Performance Pyramid (เหมือน Dashboard Safety) — ผู้ใช้ขอเพิ่มในหน้า Cover ของ Daily Meeting (2026-09-16)
+        // นับสะสมตั้งแต่ "วันเริ่มนับ" (hse_safe_days_counter.start_date) ถึงวันที่เลือก (today) เช่นเดียวกับการ์ดอื่นในสไลด์นี้
+        let coverPyramidHtml = '';
+        if(kpiCategories.length){
+          const pyramidStart = hseSettings ? hseSettings.start_date : null;
+          const pyramidCutoff = pyramidStart || '0000-01-01';
+          const pyramidNearMissCount = findingsData.filter(f => f.finding_type === 'Near Miss' && f.finding_date >= pyramidCutoff && f.finding_date <= today).length;
+          const pyramidUnsafeFindingCount = findingsData.filter(f => f.finding_date >= pyramidCutoff && f.finding_date <= today && f.category !== 'ชื่นชม').length;
+          const pyramidCounts = {
+            lti: kpiTotal(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)')),
+            mti: kpiTotal(findKpiByName(kpiCategories, 'Medical Treatment Injury (MTI)')),
+            propertyDamage: kpiTotal(findKpiByName(kpiCategories, 'Property damage')),
+            nearMiss: pyramidNearMissCount,
+            unsafeFinding: pyramidUnsafeFindingCount,
+          };
+          coverPyramidHtml = `
+          <div class="dash-section" style="margin-top:24px;">
+            <h3>Incident Performance Pyramid</h3>
+            ${renderIncidentPyramidHtml(pyramidCounts, pyramidStart)}
+          </div>`;
+        }
+
         const slideCover = {
           title:'Cover',
           html:`
@@ -2920,6 +2948,7 @@
             </div></div>
             <div class="brief-kpi"><div class="lbl">ความคืบหน้างานเสาเข็ม</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted}/${pileTotalExclRepl} ต้น</span></div></div></div>
           </div>
+          ${coverPyramidHtml}
           <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`
         };
 
@@ -5845,6 +5874,7 @@
         let vpFsListenerAttached = false;
         let vpActiveGroupId = null;
         let vpHiddenGroups = new Set();
+        let vpTabFilter = 'all'; // 'all' | 'has' | 'none' — กรองแปลนที่มี/ไม่มีการอัพโหลด Visual Progress แล้ว (เพิ่ม 2026-09-16)
         function vpSquareSizeFrac(){ return VP_DEFAULT_SQUARE_SIZE * vpSizeMult; }
         function vpLineSizeFrac(){ return VP_DEFAULT_LINE_WIDTH * vpSizeMult; }
 
@@ -5862,11 +5892,20 @@
         if(vpActivePlanId != null) vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
         function shapeGroupId(s){ return s.group || '_default'; }
 
+        function vpHasData(planId){ return (marksByPlan.get(planId) || []).length > 0; }
         function renderShell(){
-          const tabsHtml = plans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}">${escapeHtml(p.building_name)}</button>`).join('');
+          const hasCount = plans.filter(p=>vpHasData(p.id)).length;
+          const noneCount = plans.length - hasCount;
+          const visiblePlans = plans.filter(p => vpTabFilter==='all' ? true : (vpTabFilter==='has' ? vpHasData(p.id) : !vpHasData(p.id)));
+          const tabsHtml = visiblePlans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}" title="${vpHasData(p.id)?'มีการอัพโหลด Visual Progress แล้ว':'ยังไม่มีการอัพโหลด Visual Progress'}"><span class="vp-tab-dot ${vpHasData(p.id)?'has':'none'}"></span>${escapeHtml(p.building_name)}</button>`).join('');
           container.innerHTML = `
+            ${plans.length ? `<div class="vp-filter-bar">
+              <button type="button" class="vp-filter-btn ${vpTabFilter==='all'?'active':''}" data-filter="all">ทั้งหมด (${plans.length})</button>
+              <button type="button" class="vp-filter-btn ${vpTabFilter==='has'?'active':''}" data-filter="has">🟢 มีข้อมูลแล้ว (${hasCount})</button>
+              <button type="button" class="vp-filter-btn ${vpTabFilter==='none'?'active':''}" data-filter="none">⚪ ยังไม่มีข้อมูล (${noneCount})</button>
+            </div>` : ''}
             <div class="vp-plan-tabs">
-              ${tabsHtml}
+              ${tabsHtml || (plans.length ? '<span class="dash-empty" style="padding:6px 0;">ไม่มีแปลนตรงตัวกรองนี้</span>' : '')}
               <button type="button" class="chip" id="vpAddPlanBtn">＋ เพิ่มแปลนใหม่</button>
             </div>
             ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
@@ -5880,8 +5919,14 @@
               renderShell();
             });
           });
+          container.querySelectorAll('.vp-filter-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              vpTabFilter = btn.dataset.filter;
+              renderShell();
+            });
+          });
           document.getElementById('vpAddPlanBtn').addEventListener('click', openAddPlanModal);
-          if(vpActivePlanId != null) renderPlanArea();
+          if(vpActivePlanId != null && container.querySelector('#vpPlanEditor')) renderPlanArea();
         }
 
         function renderPlanArea(){
@@ -8081,15 +8126,53 @@
       reader.readAsDataURL(file);
     });
   }
-  async function handleFileSelect(fileList){
-    const status = $('#photoStatus'); status.textContent = 'กำลังประมวลผลรูปภาพ...';
+  // (แก้บั๊ก 2026-09-16) เดิมฟังก์ชันนี้ไม่รับ/ไม่ใช้พารามิเตอร์ mode เลย — ไม่ว่าจะเลือกรูปจากช่อง
+  // Open Picture หรือ Close Picture ของ Safety Finding ก็จะถูกยัดเข้า pendingPhotos (ช่องเดิม) เสมอ
+  // แล้ว render ไปที่ #photoGrid ซึ่งถูกซ่อนไว้ (display:none) สำหรับโมดูล findings — ผู้ใช้เลือกรูปแล้ว
+  // ไม่เห็นอะไรขึ้นบนจอเลย และตอนกดบันทึกก็อ่านจาก pendingPhotosOpen/pendingPhotosClose (คนละตัวแปร)
+  // ซึ่งไม่มีรูปใหม่ถูกเติมเข้าไปเลย ทำให้ "อัพโหลดรูป Safety Finding ไม่ได้" ตามที่ผู้ใช้แจ้ง
+  function targetPendingArr(mode){ return mode==='open' ? pendingPhotosOpen : mode==='close' ? pendingPhotosClose : pendingPhotos; }
+  function statusSelFor(mode){ return mode==='open' ? '#photoStatusOpen' : mode==='close' ? '#photoStatusClose' : '#photoStatus'; }
+  async function handleFileSelect(fileList, mode){
+    mode = mode || 'default';
+    const status = $(statusSelFor(mode)); if(status) status.textContent = 'กำลังประมวลผลรูปภาพ...';
+    const arr = targetPendingArr(mode);
     for(const file of Array.from(fileList)){
       try{ const blob = await fileToCompressedBlob(file, 1280, 0.72); const previewUrl = URL.createObjectURL(blob);
-        pendingPhotos.push({ id: uid(), name: file.name, blob, previewUrl, isExisting:false });
+        arr.push({ id: uid(), name: file.name, blob, previewUrl, isExisting:false });
       }catch(e){ console.error(e); }
     }
-    status.textContent = pendingPhotos.length ? (pendingPhotos.length + ' รูป พร้อมบันทึก') : '';
-    renderPhotoGrid();
+    if(status) status.textContent = arr.length ? (arr.length + ' รูป พร้อมบันทึก') : '';
+    if(mode === 'open') renderPhotoGridGeneric('#photoGridOpen', pendingPhotosOpen, 'open');
+    else if(mode === 'close') renderPhotoGridGeneric('#photoGridClose', pendingPhotosClose, 'close');
+    else renderPhotoGrid();
+  }
+  // ใช้ร่วมกันสำหรับช่อง Open/Close Picture ของ Safety Finding (แสดงรูป + ปุ่มลบ + เปิด lightbox)
+  // เหมือน renderPhotoGrid() เดิมทุกอย่าง เปลี่ยนแค่ grid/array/mode ให้ยืดหยุ่นใช้ได้ทั้ง Open และ Close
+  function renderPhotoGridGeneric(gridSel, arr, mode){
+    const grid = $(gridSel);
+    if(!grid) return;
+    grid.innerHTML = arr.map(p => `
+      <div class="photo-thumb" data-id="${p.id}">
+        <img src="${p.isExisting ? p.url : p.previewUrl}" data-full="${p.isExisting ? p.url : p.previewUrl}">
+        ${!p.isExisting ? '<span class="up-badge">ใหม่</span>' : ''}
+        <button class="rm" data-id="${p.id}">&times;</button>
+      </div>`).join('');
+    grid.querySelectorAll('img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
+    grid.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const idx = arr.findIndex(x => x.id === btn.dataset.id);
+      if(idx === -1) return;
+      const p = arr[idx];
+      if(p.isExisting){
+        if(mode === 'open') removedExistingUrlsOpen.push(p.url);
+        else if(mode === 'close') removedExistingUrlsClose.push(p.url);
+      }
+      arr.splice(idx, 1);
+      renderPhotoGridGeneric(gridSel, arr, mode);
+      const status = $(statusSelFor(mode));
+      if(status) status.textContent = arr.length ? (arr.length + ' รูป พร้อมบันทึก') : '';
+    }));
   }
   // แสดง/ซ่อนช่องอัพโหลดรูปตามโมดูลที่เลือก — findings ใช้ Open/Close, โมดูลอื่นใช้ช่องเดิม
   // ต้องเรียกทั้งตอนสลับโมดูลและตอนโหลดหน้าแรก (init ไม่ได้เรียก switchModule)

@@ -272,6 +272,24 @@
   .pill.status-closed{background:#DCFCE7;color:var(--closed);}
   .pill.status-overdue{background:#FEE2E2;color:var(--danger);}
   .pill.photos{background:#E0F2EF;color:var(--amber-deep);}
+  .pill.status-hold{background:#EDE9FE;color:#6D28D9;}
+  .pill.prio-low{background:#DCFCE7;color:var(--closed);}
+  .pill.prio-medium{background:#FEF3C7;color:#B45309;}
+  .pill.prio-high{background:#FEE2E2;color:var(--danger);}
+  .sli-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .sli-filter-btn{padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);}
+  .sli-filter-btn.active{background:var(--charcoal);border-color:var(--charcoal);color:#fff;}
+  .sli-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .sli-card{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;background:var(--paper-2);padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .sli-card.prio-high{border-left-color:var(--danger);}
+  .sli-card.prio-medium{border-left-color:var(--amber);}
+  .sli-card.prio-low{border-left-color:var(--closed);}
+  .sli-card-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .sli-no{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--charcoal);margin-right:auto;}
+  .sli-issue-text{font-size:13.5px;line-height:1.42;color:var(--ink);}
+  .sli-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);}
+  .sli-note{font-size:12px;color:var(--charcoal);background:#F7F9FB;border-radius:6px;padding:6px 8px;}
+  .sli-actions{display:flex;gap:8px;margin-top:auto;}
   .finding-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--paper-2);cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .15s;}
   .finding-card:hover{box-shadow:0 2px 10px rgba(15,23,42,.1);}
   .finding-card .fc-cover{height:150px;background:#EEF1F5;overflow:hidden;}
@@ -2798,7 +2816,7 @@
         const today = briefRefDate || realToday;
         const yesterday = addDays(today, -1);
         const dayBeforeYesterday = addDays(today, -2);
-        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null;
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null, siteLogIssues=[];
         try{
           const [r1,r2,r3,r4,r5,r6,r7] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
@@ -2822,6 +2840,9 @@
           }catch(e){ concStructureItemsAll = []; }
           try{ kpiCategories = await fetchSafetyKpiCategories(); }catch(e){ kpiCategories = []; }
           try{ hseSettings = await fetchSafetyHseSettings(); }catch(e){ hseSettings = null; }
+          // Site Log Issue — widget ในสไลด์ Cover เท่านั้น (ผู้ใช้ขอ 2026-09-17) แยก try/catch ต่างหาก
+          // เพราะตาราง site_log_issues เป็นตารางใหม่ที่ผู้ใช้ต้องรัน SQL สร้างเองก่อน ถ้ายังไม่รันต้องไม่ทำให้ทั้งสไลด์พัง
+          try{ siteLogIssues = await fetchAllRows(SUPABASE_URL + '/rest/v1/site_log_issues?select=*'); }catch(e){ siteLogIssues = []; }
         }catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; return; }
 
         function briefKpiCard(label, todayVal, yestVal, unit){
@@ -2932,6 +2953,195 @@
           </div>`;
         }
 
+        // ===== Site Log Issue — widget ติดตามปัญหาประจำวัน ในสไลด์ Cover (ผู้ใช้ขอ 2026-09-17) =====
+        // ใช้ตาราง site_log_issues ใหม่ (ต้องรัน SQL แยก) เป็น widget เดี่ยวในหน้า Cover เท่านั้น
+        // ไม่ทำเป็นโมดูล Report แยก/ไม่มีแท็บฝั่ง sidebar ตามที่ผู้ใช้ระบุ — เพิ่ม/แก้/ลบได้จากในสไลด์นี้เลย
+        // "Follow up Issue" = ประเด็น/ปัญหาที่กำลังติดตามอยู่ (ฟิลด์ข้อความหลักของ Issue นั้น) ตามที่ผู้ใช้ยืนยัน
+        const SLI_PRIORITY_RANK = { High:0, Medium:1, Low:2 };
+        function sortSli(list){
+          return [...list].sort((a,b)=>{
+            const pa = SLI_PRIORITY_RANK[a.priority] ?? 3, pb = SLI_PRIORITY_RANK[b.priority] ?? 3;
+            if(pa !== pb) return pa - pb;
+            const da = a.due_date || '9999-99-99', db = b.due_date || '9999-99-99';
+            return da < db ? -1 : da > db ? 1 : 0;
+          });
+        }
+        function sliStatusPillClass(st){
+          return st==='Open' ? 'status-open' : st==='In Progress' ? 'status-in-progress' : st==='Closed' ? 'status-closed' : st==='On Hold' ? 'status-hold' : 'loc';
+        }
+        function sliPriorityClass(pr){
+          return pr==='High' ? 'prio-high' : pr==='Medium' ? 'prio-medium' : pr==='Low' ? 'prio-low' : '';
+        }
+        function sliCardHtml(it){
+          const overdue = it.due_date && it.status !== 'Closed' && it.due_date < today;
+          return `<div class="sli-card ${sliPriorityClass(it.priority)}" data-sli-id="${it.id}" data-sli-status="${escapeHtml(it.status||'')}">
+            <div class="sli-card-head">
+              <span class="sli-no">${escapeHtml(it.issue_no||'')}</span>
+              ${it.priority ? `<span class="pill ${sliPriorityClass(it.priority)}">${escapeHtml(it.priority)}</span>` : ''}
+              <span class="pill ${sliStatusPillClass(it.status)}">${escapeHtml(it.status||'-')}</span>
+              ${overdue ? '<span class="pill status-overdue">⏰ เกินกำหนด</span>' : ''}
+            </div>
+            <div class="sli-issue-text">${escapeHtml(it.follow_up_issue||'-')}</div>
+            <div class="sli-meta">
+              <span>🏷️ ${escapeHtml(it.discipline||'-')}</span>
+              <span>🧩 ${escapeHtml(it.part||'-')}</span>
+              <span>👤 ${escapeHtml(it.person_in_charge||'-')}</span>
+              <span>📅 Due ${escapeHtml(it.due_date||'-')}</span>
+              ${it.log_date ? `<span>🗓️ Log ${escapeHtml(it.log_date)}</span>` : ''}
+            </div>
+            ${it.note ? `<div class="sli-note">📝 ${escapeHtml(it.note)}</div>` : ''}
+            <div class="sli-actions">
+              <button type="button" class="btn btn-ghost sli-edit-btn" data-sli-id="${it.id}" style="padding:4px 10px;font-size:12px;">✏️ แก้ไข</button>
+              <button type="button" class="btn btn-ghost sli-del-btn" data-sli-id="${it.id}" style="padding:4px 10px;font-size:12px;color:var(--danger);">🗑️ ลบ</button>
+            </div>
+          </div>`;
+        }
+        const sliSorted = sortSli(siteLogIssues);
+        const sliActive = sliSorted.filter(x => x.status !== 'Closed');
+        const sliCounts = {
+          open: siteLogIssues.filter(x=>x.status==='Open').length,
+          inprog: siteLogIssues.filter(x=>x.status==='In Progress').length,
+          hold: siteLogIssues.filter(x=>x.status==='On Hold').length,
+          closed: siteLogIssues.filter(x=>x.status==='Closed').length,
+        };
+        const siteLogWidgetHtml = `
+        <div class="dash-section" style="margin-top:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <h3 style="margin:0;">📋 Site Log Issue — ติดตามปัญหาประจำวัน</h3>
+            <button type="button" class="btn btn-primary" id="sliAddBtn" style="padding:6px 14px;font-size:13px;">+ เพิ่ม Issue</button>
+          </div>
+          <div class="stat-row" style="margin-bottom:12px;">
+            <div class="stat-chip c1"><div class="n">${sliCounts.open}</div><div class="l">Open</div></div>
+            <div class="stat-chip c2"><div class="n">${sliCounts.inprog}</div><div class="l">In Progress</div></div>
+            <div class="stat-chip" style="border-color:#DDD6FE;"><div class="n" style="color:#6D28D9;">${sliCounts.hold}</div><div class="l">On Hold</div></div>
+            <div class="stat-chip c4"><div class="n">${sliCounts.closed}</div><div class="l">Closed</div></div>
+          </div>
+          <div class="sli-filter-bar" id="sliFilterBar">
+            <button type="button" class="sli-filter-btn active" data-filter="active">ที่ต้องติดตาม (${sliActive.length})</button>
+            <button type="button" class="sli-filter-btn" data-filter="all">ทั้งหมด (${siteLogIssues.length})</button>
+          </div>
+          <div class="sli-grid" id="sliGrid">
+            ${siteLogIssues.length ? sliSorted.map(sliCardHtml).join('') : '<div class="dash-empty">ยังไม่มี Site Log Issue — กด "+ เพิ่ม Issue" เพื่อเริ่มบันทึก</div>'}
+          </div>
+        </div>`;
+        function applySliFilter(filter){
+          document.querySelectorAll('#sliGrid .sli-card').forEach(card=>{
+            const show = filter === 'all' || card.dataset.sliStatus !== 'Closed';
+            card.style.display = show ? '' : 'none';
+          });
+        }
+        function nextSliIssueNumber(){
+          const year = today.slice(0,4);
+          const countThisYear = siteLogIssues.filter(x => x.issue_no && x.issue_no.includes('-' + year + '-')).length;
+          return 'SLI-' + year + '-' + String(countThisYear + 1).padStart(3, '0');
+        }
+        function openSliModal(item){
+          const modal = document.getElementById('modalContent');
+          const isEdit = !!item;
+          const v = item || { issue_no: nextSliIssueNumber(), log_date: realToday, follow_up_issue:'', discipline:'', part:'', person_in_charge:'', priority:'Medium', status:'Open', due_date:'', note:'', date_closed:null };
+          modal.innerHTML = `
+            <div class="modal-head"><h2>${isEdit ? '✏️ แก้ไข Issue ' + escapeHtml(v.issue_no) : '+ เพิ่ม Site Log Issue'}</h2><button class="modal-close" id="sliModalClose">&times;</button></div>
+            <div class="detail-grid">
+              <div class="detail-field"><label>Issue No.</label><input type="text" id="sliIssueNo" value="${escapeHtml(v.issue_no)}" ${isEdit?'readonly':''}></div>
+              <div class="detail-field"><label>Log Date — วันที่บันทึก</label><input type="date" id="sliLogDate" value="${v.log_date||''}"></div>
+              <div class="detail-field full"><label>Follow up Issue — ประเด็นที่ติดตาม *</label><textarea id="sliFollowUp" rows="3">${escapeHtml(v.follow_up_issue||'')}</textarea></div>
+              <div class="detail-field"><label>Discipline</label><select id="sliDiscipline">
+                ${['','EE','CV','ME','HSE','QM'].map(o=>`<option value="${o}" ${v.discipline===o?'selected':''}>${o||'เลือก...'}</option>`).join('')}
+              </select></div>
+              <div class="detail-field"><label>Part</label><select id="sliPart">
+                ${['','Construction','Engineering','Procurement'].map(o=>`<option value="${o}" ${v.part===o?'selected':''}>${o||'เลือก...'}</option>`).join('')}
+              </select></div>
+              <div class="detail-field"><label>Person In Charge</label><input type="text" id="sliPic" value="${escapeHtml(v.person_in_charge||'')}"></div>
+              <div class="detail-field"><label>Priority</label><select id="sliPriority">
+                ${['Low','Medium','High'].map(o=>`<option value="${o}" ${v.priority===o?'selected':''}>${o}</option>`).join('')}
+              </select></div>
+              <div class="detail-field"><label>Status</label><select id="sliStatus">
+                ${['Open','In Progress','On Hold','Closed'].map(o=>`<option value="${o}" ${v.status===o?'selected':''}>${o}</option>`).join('')}
+              </select></div>
+              <div class="detail-field"><label>Due Date</label><input type="date" id="sliDueDate" value="${v.due_date||''}"></div>
+              <div class="detail-field"><label>Date Closed</label><input type="date" id="sliDateClosed" value="${v.date_closed||''}"></div>
+              <div class="detail-field full"><label>Note</label><textarea id="sliNote" rows="2">${escapeHtml(v.note||'')}</textarea></div>
+            </div>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn btn-primary" id="sliSaveBtn">บันทึก</button>
+              <button class="btn btn-ghost" id="sliCancelBtn">ยกเลิก</button>
+            </div>
+          `;
+          document.getElementById('sliModalClose').addEventListener('click', closeModal);
+          document.getElementById('sliCancelBtn').addEventListener('click', closeModal);
+          document.getElementById('sliSaveBtn').addEventListener('click', async ()=>{
+            const followUp = document.getElementById('sliFollowUp').value.trim();
+            if(!followUp){ showToast('กรุณาระบุ Follow up Issue', true); return; }
+            const statusVal = document.getElementById('sliStatus').value;
+            const dateClosedVal = document.getElementById('sliDateClosed').value || null;
+            const payload = {
+              issue_no: document.getElementById('sliIssueNo').value.trim(),
+              log_date: document.getElementById('sliLogDate').value || null,
+              follow_up_issue: followUp,
+              discipline: document.getElementById('sliDiscipline').value || null,
+              part: document.getElementById('sliPart').value || null,
+              person_in_charge: document.getElementById('sliPic').value.trim() || null,
+              priority: document.getElementById('sliPriority').value,
+              status: statusVal,
+              due_date: document.getElementById('sliDueDate').value || null,
+              // ปิดงานแล้วแต่ไม่ได้กรอกวันปิดเอง ให้เติมวันนี้ (จริง) ให้อัตโนมัติ, ถ้าเปลี่ยนสถานะออกจาก Closed ให้ล้างวันปิดทิ้ง
+              date_closed: statusVal === 'Closed' ? (dateClosedVal || realToday) : null,
+              note: document.getElementById('sliNote').value.trim() || null,
+            };
+            const saveBtn = document.getElementById('sliSaveBtn');
+            saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
+            try{
+              if(isEdit){
+                const res = await fetch(SUPABASE_URL + '/rest/v1/site_log_issues?id=eq.' + item.id, { method:'PATCH', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
+                if(!res.ok) throw new Error('update failed: ' + res.status + ' ' + await res.text());
+              } else {
+                const res = await fetch(SUPABASE_URL + '/rest/v1/site_log_issues', { method:'POST', headers: { ...HEADERS, 'Prefer':'return=minimal' }, body: JSON.stringify(payload) });
+                if(!res.ok) throw new Error('save failed: ' + res.status + ' ' + await res.text());
+              }
+              closeModal();
+              showToast(isEdit ? 'แก้ไข Issue สำเร็จ' : 'เพิ่ม Issue สำเร็จ');
+              briefSavedIdx = briefIdx;
+              switchModule('dash_brief');
+            }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
+            finally{ saveBtn.disabled = false; saveBtn.textContent = 'บันทึก'; }
+          });
+          document.getElementById('modalBg').classList.add('show');
+        }
+        function wireSiteLogWidget(){
+          const addBtn = document.getElementById('sliAddBtn');
+          if(addBtn) addBtn.addEventListener('click', ()=> openSliModal(null));
+          document.querySelectorAll('#sliGrid .sli-edit-btn').forEach(btn=>{
+            btn.addEventListener('click', (e)=>{
+              e.stopPropagation();
+              const item = siteLogIssues.find(x => String(x.id) === btn.dataset.sliId);
+              if(item) openSliModal(item);
+            });
+          });
+          document.querySelectorAll('#sliGrid .sli-del-btn').forEach(btn=>{
+            btn.addEventListener('click', async (e)=>{
+              e.stopPropagation();
+              const item = siteLogIssues.find(x => String(x.id) === btn.dataset.sliId);
+              if(!item) return;
+              if(!confirm('ลบ Issue "' + (item.issue_no||'') + '" นี้? การลบนี้ย้อนกลับไม่ได้')) return;
+              try{
+                const res = await fetch(SUPABASE_URL + '/rest/v1/site_log_issues?id=eq.' + item.id, { method:'DELETE', headers: HEADERS });
+                if(!res.ok) throw new Error('delete failed: ' + res.status);
+                showToast('ลบ Issue แล้ว');
+                briefSavedIdx = briefIdx;
+                switchModule('dash_brief');
+              }catch(err){ console.error(err); showToast('ลบไม่สำเร็จ: ' + err.message, true); }
+            });
+          });
+          document.querySelectorAll('#sliFilterBar .sli-filter-btn').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              document.querySelectorAll('#sliFilterBar .sli-filter-btn').forEach(b=>b.classList.remove('active'));
+              btn.classList.add('active');
+              applySliFilter(btn.dataset.filter);
+            });
+          });
+          applySliFilter('active');
+        }
+
         const slideCover = {
           title:'Cover',
           html:`
@@ -2949,7 +3159,11 @@
             <div class="brief-kpi"><div class="lbl">ความคืบหน้างานเสาเข็ม</div><div class="cmp"><div><span class="v">${pilePct}%</span><span class="t">${pileCompleted}/${pileTotalExclRepl} ต้น</span></div></div></div>
           </div>
           ${coverPyramidHtml}
-          <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`
+          ${siteLogWidgetHtml}
+          <div class="dash-note" style="margin-top:20px;">สไลด์ถัดไป: Safety · Environment · Daily Report · งานเสาเข็ม · งานคอนกรีต — ใช้ปุ่ม ‹ › หรือลูกศรซ้าย/ขวาเลื่อนสไลด์</div>`,
+          afterRender(){
+            wireSiteLogWidget();
+          }
         };
 
         // ---- Slide 2: Safety (with full finding details + photos) ----

@@ -6408,29 +6408,20 @@
               }
               const item = activeLegendItem();
               if(!item){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
-              // Clicking directly on an existing mark updates its status/color in
-              // place (e.g. moving a footing from "งานขุด" to "งานเทลีน") instead of
-              // stacking a brand-new overlapping mark on top of the old one.
-              const existingIdx = hitTestVisible(relX, relY);
-              if(existingIdx >= 0){
-                const existing = vpShapes[existingIdx];
-                if(existing.color !== item.color || existing.label !== item.label || shapeGroupId(existing) !== vpActiveGroupId){
-                  vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
-                  existing.color = item.color;
-                  existing.label = item.label;
-                  existing.group = vpActiveGroupId;
-                  redrawCanvas();
-                }
-                return;
-              }
+              // Don't decide "editing an existing mark" vs. "drawing a new one" here
+              // anymore — deciding it at pointerdown meant starting a drag near an
+              // old line/area (to draw a NEW one right next to it) got swallowed as
+              // an edit of the old mark before the drag even began. The decision is
+              // now made in commitPoint() at pointerup, based on whether the pointer
+              // actually moved — a real drag always creates a new mark, however
+              // close it starts to an existing one; only a plain click (no drag)
+              // still edits a mark it lands on, same as before.
               dragging = true;
-              if(vpShapeType === 'line' || vpShapeType === 'area'){
-                dragStart = { x: relX, y: relY };
-                if(vpShapeType === 'line'){
-                  redrawCanvas({ type:'line', x1: relX, y1: relY, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
-                } else {
-                  redrawCanvas({ type:'area', x: relX, y: relY, w: 0, h: 0, color: item.color, size: vpLineSizeFrac() });
-                }
+              dragStart = { x: relX, y: relY };
+              if(vpShapeType === 'line'){
+                redrawCanvas({ type:'line', x1: relX, y1: relY, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
+              } else if(vpShapeType === 'area'){
+                redrawCanvas({ type:'area', x: relX, y: relY, w: 0, h: 0, color: item.color, size: vpLineSizeFrac() });
               } else {
                 redrawCanvas({ type:'square', x: relX, y: relY, color: item.color, size: vpSquareSizeFrac() });
               }
@@ -6459,10 +6450,32 @@
               const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
               const item = activeLegendItem();
               if(!item){ dragStart = null; return; }
+              const dragDist = Math.hypot(relX - dragStart.x, relY - dragStart.y);
+              const wasClick = dragDist < 0.01;
+              if(wasClick){
+                // A plain click (no real drag) landing on an existing mark edits its
+                // status/color in place (e.g. moving a footing from "งานขุด" to
+                // "งานเทลีน") instead of stacking a brand-new mark on top of it. A
+                // genuine drag skips this entirely, so drawing a new line/area that
+                // merely STARTS close to an old one is never mistaken for editing it.
+                const existingIdx = hitTestVisible(dragStart.x, dragStart.y);
+                if(existingIdx >= 0){
+                  const existing = vpShapes[existingIdx];
+                  if(existing.color !== item.color || existing.label !== item.label || shapeGroupId(existing) !== vpActiveGroupId){
+                    vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                    existing.color = item.color;
+                    existing.label = item.label;
+                    existing.group = vpActiveGroupId;
+                    redrawCanvas();
+                  }
+                  dragStart = null;
+                  return;
+                }
+              }
               vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
               if(vpShapeType === 'line'){
                 let x2 = relX, y2 = relY;
-                if(Math.hypot(x2-dragStart.x, y2-dragStart.y) < 0.01){ x2 = Math.min(1, dragStart.x + 0.05); y2 = dragStart.y; }
+                if(wasClick){ x2 = Math.min(1, dragStart.x + 0.05); y2 = dragStart.y; }
                 vpShapes.push({ type:'line', x1: dragStart.x, y1: dragStart.y, x2, y2, color: item.color, label: item.label, size: vpLineSizeFrac(), group: vpActiveGroupId });
               } else if(vpShapeType === 'area'){
                 let r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);

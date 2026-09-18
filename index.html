@@ -161,6 +161,8 @@
   .vp-tab-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle;}
   .vp-tab-dot.has{background:#2E9E5B;}
   .vp-tab-dot.none{background:#C9CDD3;}
+  .vp-tab-search{margin-left:auto;min-width:180px;max-width:260px;padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);font-size:12px;background:#fff;}
+  .vp-tab-search:focus{outline:none;border-color:var(--charcoal);}
   .vp-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
   .vp-legend-btn{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:7px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--charcoal);}
   .vp-legend-btn.active{border-color:var(--ink);box-shadow:0 0 0 2px rgba(0,0,0,0.10) inset;}
@@ -6091,6 +6093,7 @@
         let vpActiveGroupId = null;
         let vpHiddenGroups = new Set();
         let vpTabFilter = 'all'; // 'all' | 'has' | 'none' — กรองแปลนที่มี/ไม่มีการอัพโหลด Visual Progress แล้ว (เพิ่ม 2026-09-16)
+        let vpTabSearch = ''; // คำค้นชื่อแปลนในแถบแท็บ (เพิ่ม 2026-09-18)
         let vpLoadedSnapshot = '[]'; // JSON snapshot ของ vpShapes ณ ตอนโหลด/บันทึกล่าสุด — ใช้เทียบว่ามีแก้ไขที่ยังไม่บันทึกหรือไม่ (เพิ่ม 2026-09-18)
         function vpIsDirty(){ return vpActivePlanId != null && JSON.stringify(vpShapes) !== vpLoadedSnapshot; }
         function vpSquareSizeFrac(){ return VP_DEFAULT_SQUARE_SIZE * vpSizeMult; }
@@ -6120,44 +6123,69 @@
         function shapeGroupId(s){ return s.group || '_default'; }
 
         function vpHasData(planId){ return (marksByPlan.get(planId) || []).length > 0; }
+        function vpTabClickHandler(btn){
+          return async ()=>{
+            if(vpIsDirty()){
+              const choice = await vpAskSaveDiscardCancel();
+              if(choice === 'cancel') return;
+              if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok) return; }
+            }
+            vpActivePlanId = Number(btn.dataset.planId);
+            vpSelectedDate = todayISO();
+            vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
+            vpLoadedSnapshot = JSON.stringify(vpShapes);
+            vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1; vpHiddenGroups = new Set();
+            renderShell();
+          };
+        }
+        // แยกการ render รายการแท็บออกจาก renderShell() เพื่อให้พิมพ์ค้นหา (vpTabSearch)
+        // แล้วอัปเดตแค่รายการแท็บทีละตัวอักษรได้ทันที โดยไม่ต้องรื้อ/สร้างใหม่ทั้งแผง
+        // (รวมถึง vpPlanEditor/canvas ที่กำลังเปิดอยู่) ซึ่งจะทำให้ช่องค้นหาเสีย focus ทุกครั้งที่พิมพ์
+        function renderTabsList(){
+          const listEl = document.getElementById('vpPlanTabsList');
+          if(!listEl) return;
+          const q = vpTabSearch.trim().toLowerCase();
+          const visiblePlans = plans.filter(p => {
+            const matchesFilter = vpTabFilter==='all' ? true : (vpTabFilter==='has' ? vpHasData(p.id) : !vpHasData(p.id));
+            const matchesSearch = !q || (p.building_name||'').toLowerCase().includes(q);
+            return matchesFilter && matchesSearch;
+          });
+          listEl.innerHTML = visiblePlans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}" title="${vpHasData(p.id)?'มีการอัพโหลด Visual Progress แล้ว':'ยังไม่มีการอัพโหลด Visual Progress'}"><span class="vp-tab-dot ${vpHasData(p.id)?'has':'none'}"></span>${escapeHtml(p.building_name)}</button>`).join('')
+            || (plans.length ? '<span class="dash-empty" style="padding:6px 0;">ไม่พบแปลนที่ตรงกับตัวกรอง/คำค้นนี้</span>' : '');
+          listEl.querySelectorAll('.vp-tab').forEach(btn=>{
+            btn.addEventListener('click', vpTabClickHandler(btn));
+          });
+        }
         function renderShell(){
           const hasCount = plans.filter(p=>vpHasData(p.id)).length;
           const noneCount = plans.length - hasCount;
-          const visiblePlans = plans.filter(p => vpTabFilter==='all' ? true : (vpTabFilter==='has' ? vpHasData(p.id) : !vpHasData(p.id)));
-          const tabsHtml = visiblePlans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}" title="${vpHasData(p.id)?'มีการอัพโหลด Visual Progress แล้ว':'ยังไม่มีการอัพโหลด Visual Progress'}"><span class="vp-tab-dot ${vpHasData(p.id)?'has':'none'}"></span>${escapeHtml(p.building_name)}</button>`).join('');
           container.innerHTML = `
             ${plans.length ? `<div class="vp-filter-bar">
               <button type="button" class="vp-filter-btn ${vpTabFilter==='all'?'active':''}" data-filter="all">ทั้งหมด (${plans.length})</button>
               <button type="button" class="vp-filter-btn ${vpTabFilter==='has'?'active':''}" data-filter="has">🟢 มีข้อมูลแล้ว (${hasCount})</button>
               <button type="button" class="vp-filter-btn ${vpTabFilter==='none'?'active':''}" data-filter="none">⚪ ยังไม่มีข้อมูล (${noneCount})</button>
+              <input type="text" id="vpTabSearchInput" class="vp-tab-search" placeholder="🔎 ค้นหาชื่อแปลน..." value="${escapeHtml(vpTabSearch)}">
             </div>` : ''}
             <div class="vp-plan-tabs">
-              ${tabsHtml || (plans.length ? '<span class="dash-empty" style="padding:6px 0;">ไม่มีแปลนตรงตัวกรองนี้</span>' : '')}
+              <div id="vpPlanTabsList" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;"></div>
               <button type="button" class="chip" id="vpAddPlanBtn">＋ เพิ่มแปลนใหม่</button>
             </div>
             ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
           `;
-          container.querySelectorAll('.vp-tab').forEach(btn=>{
-            btn.addEventListener('click', async ()=>{
-              if(vpIsDirty()){
-                const choice = await vpAskSaveDiscardCancel();
-                if(choice === 'cancel') return;
-                if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok) return; }
-              }
-              vpActivePlanId = Number(btn.dataset.planId);
-              vpSelectedDate = todayISO();
-              vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
-              vpLoadedSnapshot = JSON.stringify(vpShapes);
-              vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1; vpHiddenGroups = new Set();
-              renderShell();
-            });
-          });
+          renderTabsList();
           container.querySelectorAll('.vp-filter-btn').forEach(btn=>{
             btn.addEventListener('click', ()=>{
               vpTabFilter = btn.dataset.filter;
               renderShell();
             });
           });
+          const searchInput = document.getElementById('vpTabSearchInput');
+          if(searchInput){
+            searchInput.addEventListener('input', (e)=>{
+              vpTabSearch = e.target.value;
+              renderTabsList();
+            });
+          }
           document.getElementById('vpAddPlanBtn').addEventListener('click', openAddPlanModal);
           if(vpActivePlanId != null && container.querySelector('#vpPlanEditor')) renderPlanArea();
         }

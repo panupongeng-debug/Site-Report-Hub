@@ -1136,6 +1136,8 @@
   // ================= DASHBOARDS =================
   const chartInstances = {};
   let briefRefDate = null; // null = today จริง; ตั้งค่าเมื่อผู้ใช้เลือก "ดูข้อมูล ณ วันที่" ใน Daily Meeting
+  let vpDirtyCheckFn = null; // ตั้งค่าโดย dash_visual_progress render() — คืนค่า true ถ้ามีการแก้ไข progress ที่ยังไม่ได้บันทึก
+  let vpSaveCurrentFn = null; // ตั้งค่าโดย dash_visual_progress render() — บันทึกข้อมูลของแปลน/วันที่ที่กำลังแก้ไขอยู่ แล้วคืนค่า true/false
   let briefSavedIdx = 0; // จำสไลด์ปัจจุบันไว้ตอนเปลี่ยนวันที่/รีเฟรช Daily Meeting
   function destroyChart(key){ if(chartInstances[key]){ chartInstances[key].destroy(); delete chartInstances[key]; } }
   function sumPersonnel(arr){ return (Array.isArray(arr)?arr:[]).reduce((s,p)=> s + (parseInt(p.count,10)||0), 0); }
@@ -6089,6 +6091,8 @@
         let vpActiveGroupId = null;
         let vpHiddenGroups = new Set();
         let vpTabFilter = 'all'; // 'all' | 'has' | 'none' — กรองแปลนที่มี/ไม่มีการอัพโหลด Visual Progress แล้ว (เพิ่ม 2026-09-16)
+        let vpLoadedSnapshot = '[]'; // JSON snapshot ของ vpShapes ณ ตอนโหลด/บันทึกล่าสุด — ใช้เทียบว่ามีแก้ไขที่ยังไม่บันทึกหรือไม่ (เพิ่ม 2026-09-18)
+        function vpIsDirty(){ return vpActivePlanId != null && JSON.stringify(vpShapes) !== vpLoadedSnapshot; }
         function vpSquareSizeFrac(){ return VP_DEFAULT_SQUARE_SIZE * vpSizeMult; }
         function vpLineSizeFrac(){ return VP_DEFAULT_LINE_WIDTH * vpSizeMult; }
 
@@ -6104,6 +6108,15 @@
           return found ? found.mark_date : null;
         }
         if(vpActivePlanId != null) vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
+        vpLoadedSnapshot = JSON.stringify(vpShapes);
+        vpDirtyCheckFn = vpIsDirty;
+        vpSaveCurrentFn = async function(){
+          const p = plans.find(pl=>pl.id===vpActivePlanId);
+          if(!p) return true;
+          const ok = await saveShapes(p);
+          if(ok) vpLoadedSnapshot = JSON.stringify(vpShapes);
+          return ok;
+        };
         function shapeGroupId(s){ return s.group || '_default'; }
 
         function vpHasData(planId){ return (marksByPlan.get(planId) || []).length > 0; }
@@ -6125,10 +6138,16 @@
             ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
           `;
           container.querySelectorAll('.vp-tab').forEach(btn=>{
-            btn.addEventListener('click', ()=>{
+            btn.addEventListener('click', async ()=>{
+              if(vpIsDirty()){
+                const choice = await vpAskSaveDiscardCancel();
+                if(choice === 'cancel') return;
+                if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok) return; }
+              }
               vpActivePlanId = Number(btn.dataset.planId);
               vpSelectedDate = todayISO();
               vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
+              vpLoadedSnapshot = JSON.stringify(vpShapes);
               vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1; vpHiddenGroups = new Set();
               renderShell();
             });
@@ -6209,9 +6228,16 @@
               <button class="btn btn-ghost" id="vpDownloadBtn">⬇️ ดาวน์โหลด (${plan.file_type === 'pdf' ? 'PDF' : 'รูปภาพ'})</button>
             </div>
           `;
-          document.getElementById('vpDateInput').addEventListener('change', (e)=>{
-            vpSelectedDate = e.target.value || todayISO();
+          document.getElementById('vpDateInput').addEventListener('change', async (e)=>{
+            const newDate = e.target.value || todayISO();
+            if(vpIsDirty()){
+              const choice = await vpAskSaveDiscardCancel();
+              if(choice === 'cancel'){ e.target.value = vpSelectedDate; return; }
+              if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok){ e.target.value = vpSelectedDate; return; } }
+            }
+            vpSelectedDate = newDate;
             vpShapes = loadShapesFor(plan.id, vpSelectedDate);
+            vpLoadedSnapshot = JSON.stringify(vpShapes);
             vpUndoStack = [];
             renderPlanArea();
           });
@@ -6224,10 +6250,17 @@
             showToast('โหลดข้อมูลจากวันที่ ' + prevDate + ' มาต่อแล้ว (ยังไม่บันทึก)');
           });
           const jumpSel = document.getElementById('vpDateJump');
-          if(jumpSel) jumpSel.addEventListener('change', (e)=>{
+          if(jumpSel) jumpSel.addEventListener('change', async (e)=>{
             if(!e.target.value) return;
-            vpSelectedDate = e.target.value;
+            const newDate = e.target.value;
+            if(vpIsDirty()){
+              const choice = await vpAskSaveDiscardCancel();
+              if(choice === 'cancel'){ e.target.value = ''; return; }
+              if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok){ e.target.value = ''; return; } }
+            }
+            vpSelectedDate = newDate;
             vpShapes = loadShapesFor(plan.id, vpSelectedDate);
+            vpLoadedSnapshot = JSON.stringify(vpShapes);
             vpUndoStack = [];
             renderPlanArea();
           });
@@ -6447,7 +6480,7 @@
         }
         async function saveShapes(plan){
           const btn = document.getElementById('vpSaveBtn');
-          btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+          if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
           try{
             const payload = { plan_id: plan.id, mark_date: vpSelectedDate, shapes: vpShapes, updated_at: new Date().toISOString() };
             const res = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_marks?on_conflict=plan_id,mark_date', {
@@ -6462,6 +6495,7 @@
             if(existingIdx >= 0) arr[existingIdx] = savedRow; else arr.push(savedRow);
             arr.sort((a,b)=> a.mark_date < b.mark_date ? 1 : -1);
             showToast('บันทึกข้อมูลวันที่ ' + vpSelectedDate + ' สำเร็จ');
+            vpLoadedSnapshot = JSON.stringify(vpShapes);
             renderPlanArea();
             const groupsForSync = legendGroupsOf(plan);
             const countFn = (gid, colors) => vpShapes.filter(s => shapeGroupId(s) === gid && colors.includes(s.color)).length;
@@ -6471,8 +6505,9 @@
               if(r.unmatched && r.unmatched.length) showToast('⚠️ พบลิงก์ที่ข้อมูลอ้างอิงไม่ตรงกับปัจจุบัน (อาจถูกลบ/แก้ไข BOQ): ' + r.unmatched.join(', '), true);
               if(r.noTotal && r.noTotal.length) showToast('ℹ️ Group ที่ยังไม่ได้ตั้ง "จำนวนทั้งหมด" จึงยังไม่ซิงก์: ' + r.noTotal.join(', '), true);
             });
-          }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); }
-          finally{ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; }
+            return true;
+          }catch(e){ console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true); return false; }
+          finally{ if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึกของวันที่ ' + vpSelectedDate; } }
         }
 
         async function deletePlan(plan){
@@ -8469,6 +8504,12 @@
     }));
   }
   async function switchModule(id){
+    if(typeof vpDirtyCheckFn === 'function' && vpDirtyCheckFn()){
+      const choice = await vpAskSaveDiscardCancel();
+      if(choice === 'cancel') return;
+      if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok) return; }
+    }
+    if(id !== 'dash_visual_progress'){ vpDirtyCheckFn = null; vpSaveCurrentFn = null; }
     const isDash = id.startsWith('dash_');
     const custom = CUSTOM_REPORTS.find(c => c.id === id);
     if(isDash){
@@ -9118,6 +9159,26 @@
     modal.querySelectorAll('img[data-full]').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
   }
   function closeModal(){ $('#modalBg').classList.remove('show'); }
+  function vpAskSaveDiscardCancel(){
+    return new Promise(resolve=>{
+      const modal = document.getElementById('modalContent');
+      modal.innerHTML = `
+        <div class="modal-head"><h2>มีการแก้ไข Visual Progress ที่ยังไม่ได้บันทึก</h2></div>
+        <p style="margin:0 0 16px;color:var(--charcoal);">คุณเปลี่ยนแปลง progress ของวันนี้ไว้แต่ยังไม่ได้กดบันทึก ต้องการบันทึกก่อนออกจากหน้านี้หรือไม่?</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="vpAskSaveBtn">💾 บันทึกแล้วไปต่อ</button>
+          <button class="btn btn-ghost" id="vpAskDiscardBtn" style="color:var(--danger);">ไม่บันทึก (ทิ้งการแก้ไข)</button>
+          <button class="btn btn-ghost" id="vpAskCancelBtn">ยกเลิก (อยู่หน้านี้ต่อ)</button>
+        </div>
+      `;
+      const bg = document.getElementById('modalBg');
+      bg.classList.add('show');
+      function finish(choice){ bg.classList.remove('show'); resolve(choice); }
+      document.getElementById('vpAskSaveBtn').addEventListener('click', ()=> finish('save'));
+      document.getElementById('vpAskDiscardBtn').addEventListener('click', ()=> finish('discard'));
+      document.getElementById('vpAskCancelBtn').addEventListener('click', ()=> finish('cancel'));
+    });
+  }
   $('#modalBg').addEventListener('click', (e)=>{ if(e.target.id === 'modalBg') closeModal(); });
 
   async function deleteFinding(id){

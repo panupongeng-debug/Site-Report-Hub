@@ -3658,10 +3658,20 @@
         };
 
         // ---- Slide 6: Concrete — เต็มรูปแบบ พอร์ตข้อมูลทั้งหมดมาจาก Dashboard Concrete + เพิ่มยอดรายวันแยกพื้นที่ พร้อมเลือกช่วงวันที่ ----
-        const concByDate = (d) => concreteSummaryData.filter(r=>r.report_date===d).reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
+        // ใช้ pour entries เป็นแหล่งข้อมูลหลักของยอดเทจริง เพราะแต่ละรายการผูกกับ report_id
+        // โดยตรง ส่วน concrete_area_summary เป็น view สำหรับยอดสะสม/แผนและอาจไม่มียอดรายวันครบทุกกรณี
+        const concReportDateById = {};
+        concreteReportsData.forEach(r=>{ concReportDateById[r.id] = r.report_date; });
+        const concPourTotalByDate = {};
+        concretePourEntriesData.forEach(pe=>{
+          const reportDate = concReportDateById[pe.report_id];
+          if(!reportDate) return;
+          concPourTotalByDate[reportDate] = (concPourTotalByDate[reportDate] || 0) + (Number(pe.poured_today_m3) || 0);
+        });
+        const concByDate = (d) => concPourTotalByDate[d] || 0;
         const concReportByDate = (d) => concreteReportsData.find(r=>r.report_date===d) || null;
         const concManpowerOf = (r) => r ? ((r.foreman_count||0)+(r.safety_count||0)+(r.worker_count||0)+(r.other_count||0)) : 0;
-        const concTotalPoured = concreteSummaryData.reduce((s,r)=> s + (Number(r.today_m3)||0), 0);
+        const concTotalPoured = Object.values(concPourTotalByDate).reduce((s,v)=> s + v, 0);
         const concAvgManpower = concreteReportsData.length ? (concreteReportsData.reduce((s,r)=> s + concManpowerOf(r), 0) / concreteReportsData.length).toFixed(1) : '0.0';
         // แถวล่าสุดต่อ structure_item_id (ใช้หา total_m3/plan_m3 สะสมล่าสุดของแต่ละรายการ เหมือน Dashboard Concrete)
         const concLatestByItem = {};
@@ -3752,8 +3762,6 @@
           concSeenPlanItem[dedupeKey] = true;
           concByAreaPlan[meta.location] = (concByAreaPlan[meta.location] || 0) + (Number(meta.plan_m3) || 0);
         });
-        const concReportDateById = {};
-        concreteReportsData.forEach(r=>{ concReportDateById[r.id] = r.report_date; });
         const concAreaKeysAll = Array.from(new Set(Object.values(concItemMeta).map(m=>m.location))).sort();
         let concDateStart = '', concDateEnd = '';
         function concPourEntriesInRange(){

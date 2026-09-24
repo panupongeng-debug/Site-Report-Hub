@@ -1145,6 +1145,19 @@
   function sumPersonnel(arr){ return (Array.isArray(arr)?arr:[]).reduce((s,p)=> s + (parseInt(p.count,10)||0), 0); }
   const CHART_COLORS = ['#0EA394','#2563EB','#F0A93B','#DC2626','#8B5CF6','#EC4899','#059669','#F97316'];
 
+  function monthStartIso(monthValue){ return monthValue + '-01'; }
+  function monthEndIso(monthValue){
+    const [year, month] = monthValue.split('-').map(Number);
+    return toISODate(new Date(year, month, 0));
+  }
+  function monthLabel(monthValue){
+    const [year, month] = monthValue.split('-').map(Number);
+    return new Intl.DateTimeFormat('th-TH', { month:'long', year:'numeric' }).format(new Date(year, month - 1, 1));
+  }
+  function numberText(value, digits){
+    return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits:digits == null ? 0 : digits });
+  }
+
   // ---------- Safety KPI (Reportable KPI + Safe Man-Hours/Safe Working Days) shared helpers ----------
   async function fetchSafetyKpiCategories(){
     const res = await fetch(SUPABASE_URL + '/rest/v1/safety_kpi_categories?select=*&order=sort_order.asc', { headers: HEADERS });
@@ -1418,6 +1431,234 @@
   }
 
   const DASHBOARDS = [
+    {
+      id:'dash_monthly_report', label:'Monthly Report', icon:'🗓️', table:'monthly_project_progress',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลด Monthly Report...</div>';
+        const selectedMonth = todayISO().slice(0,7);
+        const requestRows = (table, select, order) => fetchAllRows(SUPABASE_URL + '/rest/v1/' + table + '?select=' + select + (order ? '&order=' + order : ''));
+        const results = await Promise.allSettled([
+          requestRows('daily_reports', '*', 'report_date.asc'),
+          requestRows('findings', '*', 'finding_date.asc'),
+          requestRows('environment_reports', '*', 'report_date.asc'),
+          requestRows('concrete_area_summary', '*', 'report_date.asc'),
+          requestRows('pile_reports', '*', 'piled_date.asc'),
+          requestRows('monthly_project_progress', '*', 'report_month.asc')
+        ]);
+        const sourceNames = ['Daily Report', 'Safety Findings', 'Environment Record', 'Concrete', 'Piling', 'Monthly Progress'];
+        const failedSources = results.map((result, index) => result.status === 'rejected' ? sourceNames[index] : null).filter(Boolean);
+        const [dailyRows, findingRows, envRows, concreteRows, pileRows, progressRows] = results.map(result => result.status === 'fulfilled' ? result.value : []);
+
+        function renderMonthlyData(monthValue){
+          const startDate = monthStartIso(monthValue);
+          const endDate = monthEndIso(monthValue);
+          const inMonth = (rows, key) => rows.filter(row => row[key] && row[key] >= startDate && row[key] <= endDate);
+          const daily = inMonth(dailyRows, 'report_date');
+          const findings = inMonth(findingRows, 'finding_date').filter(row => row.category !== 'ชื่นชม');
+          const environment = inMonth(envRows, 'report_date');
+          const concrete = inMonth(concreteRows, 'report_date');
+          const pilesCompleted = pileRows.filter(row => row.status === 'Completed' && row.piled_date >= startDate && row.piled_date <= endDate);
+          const pilesPlanned = pileRows.filter(row => row.plan_date >= startDate && row.plan_date <= endDate && !(row.pile_number || '').includes('/'));
+          const progress = progressRows.find(row => row.report_month === startDate) || null;
+          const today = todayISO();
+          const manpowerDaily = daily.map(row => sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop));
+          const totalManpower = manpowerDaily.reduce((sum, value) => sum + value, 0);
+          const totalOtHeadcount = daily.reduce((sum, row) => sum + (Array.isArray(row.ot_records) ? row.ot_records.reduce((otSum, item) => otSum + (Number(item.headcount) || 0), 0) : 0), 0);
+          const findingByStatus = { Open:0, 'In Progress':0, Closed:0, Overdue:0 };
+          findings.forEach(row => {
+            const isOverdue = row.status !== 'Closed' && row.due_date && row.due_date < today;
+            findingByStatus[isOverdue ? 'Overdue' : (row.status || 'Open')] = (findingByStatus[isOverdue ? 'Overdue' : (row.status || 'Open')] || 0) + 1;
+          });
+          const closedFindings = findings.filter(row => row.status === 'Closed').length;
+          const wasteTotals = {};
+          ENV_CATEGORIES.forEach(category => { wasteTotals[category.key] = environment.reduce((sum, row) => sum + (Number(row[category.key]) || 0), 0); });
+          const totalWaste = ENV_CATEGORIES.reduce((sum, category) => sum + wasteTotals[category.key], 0);
+          const pouredByArea = {};
+          concrete.forEach(row => { pouredByArea[row.location || 'ไม่ระบุ'] = (pouredByArea[row.location || 'ไม่ระบุ'] || 0) + (Number(row.today_m3) || 0); });
+          const totalConcrete = Object.values(pouredByArea).reduce((sum, value) => sum + value, 0);
+          const daysInMonth = Number(endDate.slice(-2));
+          const reportedDays = new Set(daily.map(row => row.report_date));
+          const missingDates = [];
+          for(let day = 1; day <= daysInMonth; day++){
+            const date = monthValue + '-' + String(day).padStart(2, '0');
+            if(!reportedDays.has(date) && date <= today) missingDates.push(date);
+          }
+          const progressVariance = progress ? Number(progress.actual_pct) - Number(progress.target_pct) : null;
+          const concreteAreas = Object.entries(pouredByArea).sort((a,b) => b[1] - a[1]);
+
+          container.innerHTML = `
+            <div class="dash-section">
+              <div class="dash-weekpicker-row">
+                <label for="monthlyReportMonth">เดือนรายงาน</label>
+                <input id="monthlyReportMonth" class="kpi-input" type="month" value="${escapeHtml(monthValue)}" style="max-width:180px;">
+                <button type="button" class="chip" id="monthlyReportRefresh">รีเฟรช</button>
+                <button type="button" class="chip" id="monthlyProgressEdit">📝 Progress</button>
+                <button type="button" class="chip" id="monthlyReportExcel">⬇️ Excel</button>
+                <button type="button" class="chip" id="monthlyReportPdfSummary">⬇️ PDF Summary</button>
+                <button type="button" class="chip" id="monthlyReportPdfDetail">⬇️ PDF Detail</button>
+              </div>
+              <div class="dash-note" style="margin:12px 0 0;">สรุปข้อมูลสำหรับ ${escapeHtml(monthLabel(monthValue))} (${startDate} ถึง ${endDate})${failedSources.length ? ' · แหล่งข้อมูลที่ยังโหลดไม่ได้: ' + escapeHtml(failedSources.join(', ')) : ''}</div>
+            </div>
+            <div class="dash-kpi-row">
+              <div class="dash-kpi"><div class="v">${daily.length}</div><div class="l">Daily Reports</div><div class="f">${numberText(totalManpower)} man-days · OT ${numberText(totalOtHeadcount)} people</div></div>
+              <div class="dash-kpi"><div class="v">${findings.length}</div><div class="l">Safety Findings</div><div class="f">Closed ${closedFindings} · Overdue ${findingByStatus.Overdue || 0}</div></div>
+              <div class="dash-kpi"><div class="v">${numberText(totalWaste,1)}</div><div class="l">Environmental Waste (Kg)</div><div class="f">${environment.length} environment records</div></div>
+              <div class="dash-kpi"><div class="v">${numberText(totalConcrete,1)}</div><div class="l">Concrete Poured (m³)</div><div class="f">${concrete.length} recorded entries</div></div>
+              <div class="dash-kpi"><div class="v">${pilesCompleted.length}/${pilesPlanned.length}</div><div class="l">Piling Completed / Planned</div><div class="f">completed during selected month</div></div>
+              <div class="dash-kpi"><div class="v">${progress ? numberText(progress.actual_pct,2) + '%' : '—'}</div><div class="l">Monthly Actual Progress</div><div class="f">${progress ? 'Target ' + numberText(progress.target_pct,2) + '% · Variance ' + (progressVariance >= 0 ? '+' : '') + numberText(progressVariance,2) + '%' : 'ยังไม่ได้บันทึก Target / Actual'}</div></div>
+            </div>
+            <div class="dash-section"><h3>Daily Activity and Manpower</h3><div class="chart-wrap"><canvas id="chartMonthlyManpower"></canvas></div></div>
+            <div class="dash-section"><h3>Safety Findings by Status</h3><div class="chart-wrap"><canvas id="chartMonthlySafety"></canvas></div></div>
+            <div class="dash-section"><h3>Environmental Waste by Category (Kg)</h3><div class="chart-wrap"><canvas id="chartMonthlyEnvironment"></canvas></div></div>
+            <div class="dash-section"><h3>Construction Output by Area</h3><div class="chart-wrap"><canvas id="chartMonthlyConstruction"></canvas></div></div>
+            <div class="dash-section">
+              <h3>Exceptions and Actions</h3>
+              <div class="dash-note">${findingByStatus.Overdue ? 'Safety findings overdue: ' + findingByStatus.Overdue + '.' : 'ไม่มี Safety Finding ที่เกินกำหนดในชุดข้อมูลเดือนนี้.'}</div>
+              <div class="dash-note">${missingDates.length ? 'ยังไม่มี Daily Report ' + missingDates.length + ' วัน: ' + escapeHtml(missingDates.slice(0,10).join(', ')) + (missingDates.length > 10 ? ' ...' : '') : 'มี Daily Report ครบทุกวันที่ผ่านมาในเดือนที่เลือก.'}</div>
+              ${progress && progress.remarks ? `<div class="dash-note">Progress note: ${escapeHtml(progress.remarks)}</div>` : ''}
+            </div>`;
+
+          ['mm','ms','me','mc'].forEach(destroyChart);
+          const dailyLabels = daily.map(row => row.report_date);
+          chartInstances.mm = new Chart($('#chartMonthlyManpower'), { type:'bar', data:{ labels:dailyLabels, datasets:[{ label:'Manpower', data:manpowerDaily, backgroundColor:'#0EA394' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+          const safetyLabels = ['Open', 'In Progress', 'Overdue', 'Closed'];
+          chartInstances.ms = new Chart($('#chartMonthlySafety'), { type:'doughnut', data:{ labels:safetyLabels, datasets:[{ data:safetyLabels.map(label => findingByStatus[label] || 0), backgroundColor:['#0EA394','#2563EB','#DC2626','#16A34A'] }] }, options:{ responsive:true, maintainAspectRatio:false } });
+          chartInstances.me = new Chart($('#chartMonthlyEnvironment'), { type:'bar', data:{ labels:ENV_CATEGORIES.map(category => category.label), datasets:[{ label:'Kg', data:ENV_CATEGORIES.map(category => wasteTotals[category.key]), backgroundColor:ENV_CATEGORIES.map(category => category.color) }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
+          chartInstances.mc = new Chart($('#chartMonthlyConstruction'), { type:'bar', data:{ labels:concreteAreas.map(entry => entry[0]), datasets:[{ label:'Concrete (m³)', data:concreteAreas.map(entry => entry[1]), backgroundColor:'#2563EB' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
+          $('#monthlyReportMonth').addEventListener('change', event => renderMonthlyData(event.target.value));
+          $('#monthlyReportRefresh').addEventListener('click', () => renderMonthlyData($('#monthlyReportMonth').value));
+          $('#monthlyProgressEdit').addEventListener('click', ()=>{
+            const modal = $('#modalContent');
+            modal.innerHTML = `
+              <div class="modal-head"><h2>Monthly Progress · ${escapeHtml(monthLabel(monthValue))}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+              <div class="form-grid">
+                <div class="field"><label>Target Progress (%)</label><input id="monthlyProgressTarget" type="number" min="0" max="100" step="0.01" value="${progress ? escapeHtml(String(progress.target_pct)) : ''}"></div>
+                <div class="field"><label>Actual Progress (%)</label><input id="monthlyProgressActual" type="number" min="0" max="100" step="0.01" value="${progress ? escapeHtml(String(progress.actual_pct)) : ''}"></div>
+                <div class="field"><label>Remarks</label><textarea id="monthlyProgressRemarks" placeholder="หมายเหตุความก้าวหน้าประจำเดือน">${progress ? escapeHtml(progress.remarks || '') : ''}</textarea></div>
+              </div>
+              <div class="btn-row"><button class="btn btn-primary" id="monthlyProgressSave">💾 บันทึก</button><button class="btn btn-ghost" id="monthlyProgressCancel">ยกเลิก</button></div>`;
+            $('#modalBg').classList.add('show');
+            $('#modalCloseBtn').addEventListener('click', closeModal);
+            $('#monthlyProgressCancel').addEventListener('click', closeModal);
+            $('#monthlyProgressSave').addEventListener('click', async ()=>{
+              const targetPct = Number($('#monthlyProgressTarget').value);
+              const actualPct = Number($('#monthlyProgressActual').value);
+              if(!Number.isFinite(targetPct) || !Number.isFinite(actualPct) || targetPct < 0 || targetPct > 100 || actualPct < 0 || actualPct > 100){
+                showToast('Target และ Actual ต้องเป็นตัวเลขระหว่าง 0 ถึง 100', true); return;
+              }
+              const saveButton = $('#monthlyProgressSave');
+              saveButton.disabled = true; saveButton.textContent = 'กำลังบันทึก...';
+              const payload = { report_month:startDate, target_pct:targetPct, actual_pct:actualPct, remarks:$('#monthlyProgressRemarks').value.trim() || null };
+              try{
+                const response = await fetch(SUPABASE_URL + '/rest/v1/monthly_project_progress?on_conflict=report_month', {
+                  method:'POST', headers:{ ...HEADERS, 'Prefer':'resolution=merge-duplicates,return=representation' }, body:JSON.stringify(payload)
+                });
+                if(!response.ok) throw new Error('save failed: ' + response.status);
+                const savedRows = await response.json();
+                const saved = savedRows[0] || payload;
+                const existingIndex = progressRows.findIndex(row => row.report_month === startDate);
+                if(existingIndex >= 0) progressRows.splice(existingIndex, 1, saved); else progressRows.push(saved);
+                closeModal(); renderMonthlyData(monthValue); showToast('บันทึก Monthly Progress แล้ว');
+              }catch(error){
+                saveButton.disabled = false; saveButton.textContent = '💾 บันทึก'; showToast('บันทึก Progress ไม่สำเร็จ: ' + error.message, true);
+              }
+            });
+          });
+          $('#monthlyReportExcel').addEventListener('click', ()=>{
+            if(typeof XLSX === 'undefined'){ showToast('โหลดไลบรารี Excel ไม่สำเร็จ', true); return; }
+            const workbook = XLSX.utils.book_new();
+            const summaryRows = [
+              { Metric:'Reporting month', Value:monthValue },
+              { Metric:'Daily reports', Value:daily.length },
+              { Metric:'Man-days', Value:totalManpower },
+              { Metric:'OT headcount', Value:totalOtHeadcount },
+              { Metric:'Safety findings', Value:findings.length },
+              { Metric:'Safety overdue', Value:findingByStatus.Overdue || 0 },
+              { Metric:'Environmental waste (Kg)', Value:totalWaste },
+              { Metric:'Concrete poured (m3)', Value:totalConcrete },
+              { Metric:'Piles completed', Value:pilesCompleted.length },
+              { Metric:'Piles planned', Value:pilesPlanned.length },
+              { Metric:'Progress target (%)', Value:progress ? Number(progress.target_pct) : '' },
+              { Metric:'Progress actual (%)', Value:progress ? Number(progress.actual_pct) : '' },
+              { Metric:'Progress variance (%)', Value:progress ? progressVariance : '' },
+              { Metric:'Progress remarks', Value:progress ? (progress.remarks || '') : '' }
+            ];
+            const appendSheet = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Status:'No data for selected month' }]), name);
+            appendSheet('Summary', summaryRows);
+            appendSheet('Daily Activity', daily.map(row => ({ Date:row.report_date, Location:row.location || '', Manpower:sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop), Activities:row.activities || '', Progress:row.progress_summary || '' })));
+            appendSheet('Safety Findings', findings.map(row => ({ Date:row.finding_date, Number:row.finding_number || '', Location:row.location || '', Category:row.category || '', Severity:row.severity || '', Status:row.status || '', DueDate:row.due_date || '', Description:row.description || '' })));
+            appendSheet('Environment', environment.map(row => Object.assign({ Date:row.report_date }, Object.fromEntries(ENV_CATEGORIES.map(category => [category.label, Number(row[category.key]) || 0])))));
+            appendSheet('Concrete', concrete.map(row => ({ Date:row.report_date, Location:row.location || '', VolumeM3:Number(row.today_m3) || 0, PlanM3:Number(row.plan_m3) || 0, FinishedPct:Number(row.finished_pct) || 0 })));
+            appendSheet('Piling', pilesCompleted.map(row => ({ PileNumber:row.pile_number || '', Area:row.area || '', Status:row.status || '', PiledDate:row.piled_date || '', PlanDate:row.plan_date || '' })));
+            XLSX.writeFile(workbook, 'monthly_report_' + monthValue + '.xlsx');
+          });
+          function exportMonthlyPdf(detailed){
+            if(!window.jspdf){ showToast('โหลดไลบรารี PDF ไม่สำเร็จ', true); return; }
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation:'l', unit:'mm', format:'a4' });
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 12;
+            const addHeader = (title) => {
+              pdf.setFont('helvetica', 'bold'); pdf.setFontSize(18); pdf.text(title, margin, 16);
+              pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.text('Month: ' + monthValue + ' | Generated: ' + new Date().toLocaleString(), margin, 23);
+              pdf.setDrawColor(225,229,236); pdf.line(margin, 27, pageWidth - margin, 27);
+            };
+            const addChart = (canvasId, title, y) => {
+              const canvas = document.getElementById(canvasId);
+              if(!canvas) return y;
+              pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.text(title, margin, y);
+              const imageHeight = 52;
+              pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y + 3, pageWidth - margin * 2, imageHeight);
+              return y + imageHeight + 10;
+            };
+            addHeader(detailed ? 'Monthly Report - Detailed' : 'Monthly Report - Summary');
+            pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11);
+            const kpis = [
+              ['Daily reports', String(daily.length)], ['Man-days', numberText(totalManpower)], ['OT people', numberText(totalOtHeadcount)],
+              ['Safety findings', String(findings.length)], ['Safety overdue', String(findingByStatus.Overdue || 0)], ['Waste (kg)', numberText(totalWaste, 1)],
+              ['Concrete (m3)', numberText(totalConcrete, 1)], ['Piles complete / planned', pilesCompleted.length + ' / ' + pilesPlanned.length],
+              ['Progress target / actual', progress ? numberText(progress.target_pct, 2) + '% / ' + numberText(progress.actual_pct, 2) + '%' : 'Not entered']
+            ];
+            kpis.forEach((item, index) => {
+              const column = index % 3, row = Math.floor(index / 3);
+              const x = margin + column * 88, y = 37 + row * 13;
+              pdf.setFont('helvetica', 'bold'); pdf.text(item[0], x, y);
+              pdf.setFont('helvetica', 'normal'); pdf.text(item[1], x, y + 5);
+            });
+            if(!detailed){
+              let y = 96;
+              y = addChart('chartMonthlyManpower', 'Daily Activity and Manpower', y);
+              addChart('chartMonthlySafety', 'Safety Findings by Status', y);
+            }else{
+              const sections = [
+                ['chartMonthlyManpower', 'Daily Activity and Manpower'],
+                ['chartMonthlySafety', 'Safety Findings by Status'],
+                ['chartMonthlyEnvironment', 'Environmental Waste by Category'],
+                ['chartMonthlyConstruction', 'Construction Output by Area']
+              ];
+              sections.forEach((section, index) => {
+                if(index){ pdf.addPage(); addHeader(section[1]); addChart(section[0], section[1], 38); }
+                else { pdf.addPage(); addHeader(section[1]); addChart(section[0], section[1], 38); }
+              });
+              pdf.addPage(); addHeader('Progress and Exceptions');
+              pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11);
+              const lines = [
+                'Progress: ' + (progress ? 'Target ' + numberText(progress.target_pct, 2) + '%, Actual ' + numberText(progress.actual_pct, 2) + '%' : 'Not entered'),
+                'Overdue safety findings: ' + (findingByStatus.Overdue || 0),
+                'Missing daily reports up to today: ' + missingDates.length,
+                'Progress remarks: ' + (progress && progress.remarks ? progress.remarks : '-')
+              ];
+              pdf.text(pdf.splitTextToSize(lines.join('\n\n'), pageWidth - margin * 2), margin, 42);
+            }
+            pdf.save('monthly_report_' + monthValue + (detailed ? '_detail' : '_summary') + '.pdf');
+          }
+          $('#monthlyReportPdfSummary').addEventListener('click', () => exportMonthlyPdf(false));
+          $('#monthlyReportPdfDetail').addEventListener('click', () => exportMonthlyPdf(true));
+        }
+        renderMonthlyData(selectedMonth);
+      }
+    },
     {
       id:'dash_safety', label:'Dashboard Safety', icon:'📊', table:'findings',
       async render(container){

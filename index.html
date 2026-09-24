@@ -3902,28 +3902,50 @@
         // ใช้ pour entries เป็นแหล่งข้อมูลหลักของยอดเทจริง เพราะแต่ละรายการผูกกับ report_id
         // โดยตรง ส่วน concrete_area_summary เป็น view สำหรับยอดสะสม/แผนและอาจไม่มียอดรายวันครบทุกกรณี
         const concReportDateById = {};
-        concreteReportsData.forEach(r=>{ concReportDateById[r.id] = r.report_date; });
+        const concreteReportsAsOfToday = concreteReportsData.filter(r => !r.report_date || r.report_date <= today);
+        concreteReportsAsOfToday.forEach(r=>{ concReportDateById[r.id] = r.report_date; });
+        const concretePourEntriesAsOfToday = concretePourEntriesData.filter(pe=>{
+          const reportDate = concReportDateById[pe.report_id];
+          return !!reportDate && reportDate <= today;
+        });
         const concPourTotalByDate = {};
-        concretePourEntriesData.forEach(pe=>{
+        concretePourEntriesAsOfToday.forEach(pe=>{
           const reportDate = concReportDateById[pe.report_id];
           if(!reportDate) return;
           concPourTotalByDate[reportDate] = (concPourTotalByDate[reportDate] || 0) + (Number(pe.poured_today_m3) || 0);
         });
         const concByDate = (d) => concPourTotalByDate[d] || 0;
-        const concReportByDate = (d) => concreteReportsData.find(r=>r.report_date===d) || null;
+        const concReportByDate = (d) => concreteReportsAsOfToday.find(r=>r.report_date===d) || null;
         const concManpowerOf = (r) => r ? ((r.foreman_count||0)+(r.safety_count||0)+(r.worker_count||0)+(r.other_count||0)) : 0;
         const concTotalPoured = Object.values(concPourTotalByDate).reduce((s,v)=> s + v, 0);
-        const concAvgManpower = concreteReportsData.length ? (concreteReportsData.reduce((s,r)=> s + concManpowerOf(r), 0) / concreteReportsData.length).toFixed(1) : '0.0';
-        // แถวล่าสุดต่อ structure_item_id (ใช้หา total_m3/plan_m3 สะสมล่าสุดของแต่ละรายการ เหมือน Dashboard Concrete)
-        const concLatestByItem = {};
-        concreteSummaryData.forEach(r=>{
-          const cur = concLatestByItem[r.structure_item_id];
-          if(!cur || r.report_date > cur.report_date) concLatestByItem[r.structure_item_id] = r;
+        const concAvgManpower = concreteReportsAsOfToday.length ? (concreteReportsAsOfToday.reduce((s,r)=> s + concManpowerOf(r), 0) / concreteReportsAsOfToday.length).toFixed(1) : '0.0';
+        function normalizeConcLocation(loc){
+          const raw = String(loc || '').trim();
+          const compact = raw.replace(/\u00A0/g, ' ').replace(/[\s\u200B\u200C\u200D]+/g, ' ').replace(/[.\-_/]+/g, ' ').replace(/\s+/g, ' ').trim();
+          const lower = compact.toLowerCase();
+          const canon = {
+            'อาคารซ่อมบำรุง': 'อาคารซ่อมบำรุง',
+            'โรงฉ่ำ': 'โรงฉ่ำ',
+            'ป้อม รปภ': 'ป้อม รปภ.',
+            'ป้อมรปภ': 'ป้อม รปภ.',
+            'ป้อม รปภ.': 'ป้อม รปภ.',
+            'ป้อม รปภ .': 'ป้อม รปภ.',
+            'ป้อม รปภ  .': 'ป้อม รปภ.',
+          };
+          const key = canon[compact] || canon[lower] || compact || 'ไม่ระบุ';
+          return key === 'ป้อม รปภ' ? 'ป้อม รปภ.' : key;
+        }
+        // แถวล่าสุดต่อ structure_item_id (คำนวณจาก raw pour entries โดยตรง ไม่พึ่งพา view concrete_area_summary
+        // เพื่อหลีกเลี่ยงกรณีที่กรอกข้อมูลเข้ามาแล้วแต่ view ยังไม่อัปเดต/ไม่มีแถวให้
+        const concItemActualById = {};
+        concretePourEntriesAsOfToday.forEach(pe=>{
+          if(!pe.structure_item_id) return;
+          concItemActualById[pe.structure_item_id] = (concItemActualById[pe.structure_item_id] || 0) + (Number(pe.poured_today_m3) || 0);
         });
-        const concLatestRows = Object.values(concLatestByItem);
+        const concLatestRows = concStructureItemsAll.map(it => ({ location: it.location, structure_item_id: it.id, total_m3: concItemActualById[it.id] || 0, plan_m3: it.plan_m3 }));
         // ---- แผนงานย่อยแยกตามอาคาร/พื้นที่ (จาก concrete_structure_items) เพื่อแสดงใน toggle ----
         const concItemsByLocation = {};
-        concStructureItemsAll.forEach(it=>{ (concItemsByLocation[it.location] = concItemsByLocation[it.location] || []).push(it); });
+        concStructureItemsAll.forEach(it=>{ const loc = normalizeConcLocation(it.location); (concItemsByLocation[loc] = concItemsByLocation[loc] || []).push({ ...it, location: loc }); });
         function concLocItemsBreakdownHtml(loc){
           const items = concItemsByLocation[loc] || [];
           if(!items.length) return '<div class="dash-note" style="margin:6px 0 0;">ยังไม่มีรายการงานย่อยของพื้นที่นี้ใน concrete_structure_items</div>';
@@ -3940,8 +3962,7 @@
               </thead>
               <tbody>
                 ${items.map(it=>{
-                  const latest = concLatestByItem[it.id];
-                  const totalM3 = latest ? (Number(latest.total_m3)||0) : 0;
+                  const totalM3 = Number(concItemActualById[it.id]) || 0;
                   const planM3 = Number(it.plan_m3) || 0;
                   const pct = planM3 > 0 ? Math.round(totalM3/planM3*100) : null;
                   return `<tr>
@@ -3956,7 +3977,23 @@
           </div>`;
         }
         const concByLocationTotal = {};
-        concLatestRows.forEach(r=>{ concByLocationTotal[r.location] = (concByLocationTotal[r.location]||0) + (Number(r.total_m3)||0); });
+        const concByLocationPlan = {};
+        const allConcLocations = Array.from(new Set(concStructureItemsAll.map(it => normalizeConcLocation(it.location))))
+          .filter(Boolean)
+          .sort();
+        allConcLocations.forEach(loc => {
+          concByLocationTotal[loc] = 0;
+          concByLocationPlan[loc] = 0;
+        });
+        concLatestRows.forEach(r=>{
+          const loc = normalizeConcLocation(r.location);
+          concByLocationTotal[loc] = (concByLocationTotal[loc]||0) + (Number(r.total_m3)||0);
+          concByLocationPlan[loc] = (concByLocationPlan[loc]||0) + (Number(r.plan_m3)||0);
+        });
+        concStructureItemsAll.forEach(it=>{
+          const loc = normalizeConcLocation(it.location);
+          concByLocationPlan[loc] = (concByLocationPlan[loc] || 0) + (Number(it.plan_m3) || 0);
+        });
         const concLocEntries = Object.entries(concByLocationTotal).sort((a,b)=>b[1]-a[1]);
         const concMaxLoc = concLocEntries.length ? concLocEntries[0][1] : 0;
         const concByLocationHtml = concLocEntries.length ? concLocEntries.map(([loc, val])=>{
@@ -3975,13 +4012,15 @@
             <div class="conc-loc-detail" hidden style="padding-left:24px;">${concLocItemsBreakdownHtml(loc)}</div>
           </div>`;
         }).join('') : '<div class="dash-note">ยังไม่มีข้อมูลปริมาณคอนกรีต</div>';
-        const concWithPlan = concLatestRows.filter(r=> r.plan_m3 != null && r.plan_m3 > 0);
-        const concCompletionSum = {}, concCompletionCnt = {};
-        concWithPlan.forEach(r=>{
-          concCompletionSum[r.location] = (concCompletionSum[r.location]||0) + (Number(r.finished_pct)||0);
-          concCompletionCnt[r.location] = (concCompletionCnt[r.location]||0) + 1;
-        });
-        const concCompletionEntries = Object.keys(concCompletionSum).map(loc => [loc, Math.round(concCompletionSum[loc]/concCompletionCnt[loc])]);
+        const concCompletionEntries = Object.keys(concByLocationPlan)
+          .map(loc => {
+            const plan = Number(concByLocationPlan[loc]) || 0;
+            const total = Number(concByLocationTotal[loc]) || 0;
+            const pct = plan > 0 ? Math.min(100, Math.round((total / plan) * 100)) : 0;
+            return [loc, pct];
+          })
+          .filter(([loc, pct]) => (Number(concByLocationPlan[loc]) || 0) > 0)
+          .sort((a, b) => b[1] - a[1]);
         const concCompletionHtml = concCompletionEntries.length ? concCompletionEntries.map(([loc, pct])=>`
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
             <div style="flex:0 0 140px;font-weight:700;color:var(--charcoal);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(loc)}">${escapeHtml(loc)}</div>
@@ -3991,9 +4030,9 @@
             <div style="flex:0 0 56px;text-align:right;font-weight:700;color:${pct>=100?'#16A34A':'#2563EB'};font-size:13px;">${pct}%</div>
           </div>`).join('') : '<div class="dash-note">ยังไม่ได้กำหนดปริมาณตามแผน (plan_m3) — อัปเดตแผนได้ที่ Supabase</div>';
 
-        // ---- ปริมาณคอนกรีตรายวัน แยกตามพื้นที่/ชั้น พร้อมเลือกช่วงวันที่ ----
+        // ---- ปริมาณคอนกรีตรายวัน แยกตามพื้นที่/ชั้น พร้อมเลือกช่วงวันที่ (คำนวณจาก concrete_structure_items โดยตรง ไม่พึ่งพา view) ----
         const concItemMeta = {};
-        concreteSummaryData.forEach(r=>{ concItemMeta[r.structure_item_id] = { location: r.location, plan_m3: r.plan_m3 }; });
+        concStructureItemsAll.forEach(it=>{ concItemMeta[it.id] = { location: normalizeConcLocation(it.location), plan_m3: it.plan_m3 }; });
         const concByAreaPlan = {};
         const concSeenPlanItem = {};
         Object.keys(concItemMeta).forEach(itemId=>{
@@ -4019,7 +4058,7 @@
           entries.forEach(pe=>{
             const meta = concItemMeta[pe.structure_item_id];
             if(!meta) return;
-            const loc = meta.location, fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
+            const loc = normalizeConcLocation(meta.location), fl = pe.floor || 'ไม่ระบุชั้น', vol = Number(pe.poured_today_m3) || 0;
             byAreaFloor[loc] = byAreaFloor[loc] || {};
             byAreaFloor[loc][fl] = (byAreaFloor[loc][fl] || 0) + vol;
             byAreaPoured[loc] = (byAreaPoured[loc] || 0) + vol;
@@ -4095,7 +4134,7 @@
           </div>`;
         }
         // ---- ส่วนแสดงรูปถ่ายรายวัน (เลือกวันที่จาก Concrete Report, default = เมื่อวาน) ----
-        const concReportDatesDesc = concreteReportsData.map(r=>r.report_date).filter(Boolean).sort().reverse();
+        const concReportDatesDesc = concreteReportsAsOfToday.map(r=>r.report_date).filter(Boolean).sort().reverse();
         let briefConcSelectedPhotoDate = concReportByDate(yesterday) ? yesterday : (concReportDatesDesc[0] || '');
         function concPhotoUrlsFor(dateIso){
           const r = concReportByDate(dateIso);

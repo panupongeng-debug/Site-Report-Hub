@@ -513,6 +513,14 @@
   .gantt-io-sep{width:1px;height:20px;background:var(--border);}
   .gantt-io-btn-add{border-color:#16A34A;color:#16A34A;}
   .gantt-io-btn-add:hover{background:#16A34A;color:#fff;}
+  .scpa-wrap{max-width:100%;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+  .scpa-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:11.5px;}
+  .scpa-table th,.scpa-table td{padding:5px 7px;border-bottom:1px solid #EEF1F4;text-align:left;white-space:nowrap;}
+  .scpa-table th{position:sticky;top:0;background:#F8F9FA;color:var(--muted);z-index:1;}
+  .scpa-table input{font:inherit;padding:4px 5px;border:1px solid var(--border);border-radius:5px;}
+  .scpa-table .scpa-date{width:138px;}
+  .scpa-table .scpa-pct{width:80px;text-align:right;}
+  .scpa-phase-head{min-width:110px;}
   .gantt-task-del-btn{flex:0 0 auto;border:none;background:transparent;cursor:pointer;font-size:10px;padding:0 2px;line-height:1;margin-left:2px;opacity:.55;}
   .gantt-task-del-btn:hover{opacity:1;}
   .tv-del-btn{font-size:12px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;}
@@ -840,7 +848,7 @@
       .view-only-mode .gantt-io-btn-add, .view-only-mode .upload-btn, .view-only-mode .copy-prev-btn,
       .view-only-mode #schImportBtn,
       .view-only-mode #schAddTaskBtn,
-      .view-only-mode #schWbsWeightBtn, .view-only-mode #schPhaseWeightBtn, .view-only-mode #scurveManualBtn,
+      .view-only-mode #schWbsWeightBtn, .view-only-mode #schPhaseWeightBtn, .view-only-mode #scurveManualBtn, .view-only-mode #scurvePhaseManualBtn,
       .view-only-mode #btnAddKpiCategory, .view-only-mode #btnEditPlan, .view-only-mode #btnEditThis,
       .view-only-mode .rm-row, .view-only-mode .wbsw-del, .view-only-mode .phw-del, .view-only-mode .scmp-del {
         display: none !important;
@@ -5890,6 +5898,125 @@
           document.getElementById('scmpSaveBtn').addEventListener('click', ()=> submitScurveManualPoints(pkgKey, phaseKey));
         }
 
+        function scurvePhasesForPackage(pkgKey){
+          return Array.from(new Set(phaseOrderFor(pkgKey)
+            .concat(data.filter(row=>row.package===pkgKey && row.discipline).map(row=>row.discipline))
+            .concat(scurveManualPoints.filter(point=>point.package===pkgKey && point.phase).map(point=>point.phase))));
+        }
+
+        function openScurvePhaseManualModal(pkgKey){
+          const modal = document.getElementById('modalContent');
+          const phases = scurvePhasesForPackage(pkgKey);
+          const existing = scurveManualPoints.filter(point=>point.package===pkgKey && point.phase);
+          const byDate = new Map();
+          existing.forEach(point=>{
+            if(!byDate.has(point.snapshot_date)) byDate.set(point.snapshot_date,[]);
+            byDate.get(point.snapshot_date).push(point);
+          });
+          function rowHtml(date, points=[]){
+            const valueByPhase = new Map(points.map(point=>[point.phase,point]));
+            return `<tr class="scpa-row" data-date="${escapeHtml(date)}">
+              <td><input type="date" class="scpa-date" value="${escapeHtml(date)}"></td>
+              ${phases.map(phase=>{
+                const point = valueByPhase.get(phase);
+                return `<td><input type="number" class="scpa-pct" data-phase="${escapeHtml(phase)}" step="0.01" min="0" max="100" value="${point?escapeHtml(point.pct):''}" aria-label="${escapeHtml(phase)} %Progress"></td>`;
+              }).join('')}
+              <td><button type="button" class="tv-del-btn scpa-remove-date" title="ลบข้อมูลทุก Phase ในวันนี้">🗑</button></td>
+            </tr>`;
+          }
+          modal.innerHTML = `
+            <div class="modal-head"><h2>🗓️ กรอก Actual S-Curve แยกทุก Phase</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+            <div class="form-grid">
+              <div style="font-size:11.5px;color:var(--muted);">Package <b>${escapeHtml(pkgKey)}</b> · กรอก % Actual ของแต่ละ Phase ตามวันที่ snapshot; เว้นช่องว่างหากไม่มีค่าของ Phase นั้น · จุดที่บันทึกจะแทนค่า Actual ของ Phase นั้นในวันเดียวกัน</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <label for="scpaCadence" style="font-size:12px;color:var(--muted);">ช่วงข้อมูล</label>
+                <select id="scpaCadence"><option value="week">รายสัปดาห์ (ทุก 7 วัน)</option><option value="month">รายเดือน</option></select>
+                <input type="date" id="scpaNextDate" value="${todayISO()}">
+                <button type="button" class="list-add-btn" id="scpaAddDateBtn">+ เพิ่มวันที่</button>
+              </div>
+              <div class="scpa-wrap"><table class="scpa-table"><thead><tr><th>วันที่ Snapshot</th>${phases.map(phase=>`<th class="scpa-phase-head">${escapeHtml(phase)} (%)</th>`).join('')}<th></th></tr></thead><tbody id="scpaRows">${Array.from(byDate.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([date,points])=>rowHtml(date,points)).join('')}</tbody></table></div>
+            </div>
+            <div class="btn-row"><button class="btn btn-primary" id="scpaSaveBtn">บันทึกทุก Phase</button><button class="btn btn-ghost" id="scpaCancelBtn">ยกเลิก</button></div>`;
+          document.getElementById('modalBg').classList.add('show');
+          document.getElementById('modalCloseBtn').addEventListener('click',closeModal);
+          document.getElementById('scpaCancelBtn').addEventListener('click',closeModal);
+          document.getElementById('scpaRows').addEventListener('click',event=>{
+            const removeBtn = event.target.closest('.scpa-remove-date');
+            if(removeBtn) removeBtn.closest('.scpa-row').remove();
+          });
+          document.getElementById('scpaAddDateBtn').addEventListener('click',()=>{
+            const dateInput = document.getElementById('scpaNextDate');
+            const date = dateInput.value;
+            if(!date){ alert('กรุณาเลือกวันที่ Snapshot'); return; }
+            const rows = document.querySelectorAll('#scpaRows .scpa-row');
+            if(Array.from(rows).some(row=>row.querySelector('.scpa-date').value===date)){ alert('มีวันที่นี้แล้ว: ' + date); return; }
+            document.getElementById('scpaRows').insertAdjacentHTML('beforeend',rowHtml(date));
+            const next = new Date(date + 'T00:00:00');
+            if(document.getElementById('scpaCadence').value==='week') next.setDate(next.getDate()+7);
+            else {
+              const day = next.getDate();
+              next.setDate(1);
+              next.setMonth(next.getMonth()+1);
+              next.setDate(Math.min(day,new Date(next.getFullYear(),next.getMonth()+1,0).getDate()));
+            }
+            dateInput.value = next.getFullYear() + '-' + String(next.getMonth()+1).padStart(2,'0') + '-' + String(next.getDate()).padStart(2,'0');
+          });
+          document.getElementById('scpaSaveBtn').addEventListener('click',()=>submitScurvePhaseManualPoints(pkgKey,phases));
+        }
+
+        async function submitScurvePhaseManualPoints(pkgKey,phases){
+          const rows = Array.from(document.querySelectorAll('#scpaRows .scpa-row'));
+          const seenDates = new Set();
+          const parsed = [];
+          for(const row of rows){
+            const date = row.querySelector('.scpa-date').value;
+            if(!date) continue;
+            if(seenDates.has(date)){ alert('มีวันที่ซ้ำกัน: ' + date); return; }
+            seenDates.add(date);
+            row.querySelectorAll('.scpa-pct').forEach(input=>{
+              if(input.value==='') return;
+              const rawPct = Number(input.value);
+              if(!Number.isFinite(rawPct) || rawPct<0 || rawPct>100){ alert('กรุณากรอก % ระหว่าง 0 ถึง 100'); return; }
+              const phase = input.dataset.phase;
+              const oldPoint = scurveManualPoints.find(point=>point.package===pkgKey && point.phase===phase && point.snapshot_date===date);
+              parsed.push({ oldPoint, date, phase, pct:Math.round(rawPct*100)/100 });
+            });
+          }
+          if(parsed.length!==rows.reduce((count,row)=>count+Array.from(row.querySelectorAll('.scpa-pct')).filter(input=>input.value!=='').length,0)) return;
+          const saveBtn = document.getElementById('scpaSaveBtn');
+          const originalText = saveBtn.textContent;
+          saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
+          try{
+            const desiredKeys = new Set(parsed.map(point=>point.phase+'|'+point.date));
+            const existing = scurveManualPoints.filter(point=>point.package===pkgKey && phases.includes(point.phase));
+            for(const point of existing){
+              if(desiredKeys.has(point.phase+'|'+point.snapshot_date)) continue;
+              const res = await fetch(SUPABASE_URL + '/rest/v1/project_schedule_scurve_manual_points?id=eq.' + encodeURIComponent(point.id), {
+                method:'DELETE', headers:{...HEADERS,'Prefer':'return=minimal'}
+              });
+              if(!res.ok) throw new Error('ลบข้อมูล ' + point.phase + ' (' + point.snapshot_date + ') ไม่สำเร็จ (' + res.status + ')');
+            }
+            for(const point of parsed){
+              const payload = { pct:point.pct, note:point.oldPoint?.note || null, updated_at:new Date().toISOString() };
+              const url = point.oldPoint
+                ? SUPABASE_URL + '/rest/v1/project_schedule_scurve_manual_points?id=eq.' + encodeURIComponent(point.oldPoint.id)
+                : SUPABASE_URL + '/rest/v1/project_schedule_scurve_manual_points?on_conflict=package,phase,snapshot_date';
+              const res = await fetch(url,{
+                method:point.oldPoint?'PATCH':'POST',
+                headers:{...HEADERS,'Prefer':point.oldPoint?'return=minimal':'resolution=merge-duplicates,return=minimal'},
+                body:JSON.stringify(point.oldPoint?payload:{...payload,package:pkgKey,phase:point.phase,snapshot_date:point.date})
+              });
+              if(!res.ok) throw new Error('บันทึกข้อมูล ' + point.phase + ' (' + point.date + ') ไม่สำเร็จ (' + res.status + ')');
+            }
+            scurveManualPoints = await fetchAllRows(SUPABASE_URL + '/rest/v1/project_schedule_scurve_manual_points?select=*&order=snapshot_date.asc');
+            closeModal();
+            renderGantt();
+          }catch(error){
+            alert('บันทึกข้อมูลย้อนหลังไม่สำเร็จ: ' + error.message);
+            saveBtn.disabled = false; saveBtn.textContent = originalText;
+          }
+        }
+
         async function submitScurveManualPoints(pkgKey, phaseKey){
           const rowEls = Array.from(document.querySelectorAll('#scmpList .scmp-row'));
           const seen = new Set();
@@ -6159,6 +6286,7 @@
             <div style="padding:16px;">
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
                 <button type="button" class="gantt-io-btn" id="scurveManualBtn">📝 แก้ไขข้อมูลจริงย้อนหลัง</button>
+                <button type="button" class="gantt-io-btn" id="scurvePhaseManualBtn" title="บันทึก Actual ย้อนหลังแยกครบทุก Phase รายสัปดาห์หรือรายเดือน">🗓️ กรอก Actual แยกทุก Phase</button>
                 <span id="scurveManualNote" style="font-size:11.5px;color:var(--muted);"></span>
               </div>
               <div id="scurveInfo" style="margin-bottom:12px;font-size:13.5px;"></div>
@@ -6166,6 +6294,11 @@
               <div style="margin-top:10px;font-size:11px;color:var(--muted);">เส้นประสีเทา = แผนฐาน (Planned) · เส้นสีส้ม = Forecast Plan จาก Forecast Start/Finish (ถ้าไม่มี Forecast จะใช้ Start/Finish ของแผนฐาน) · เส้นสีม่วง = จริง (Actual) จากค่า %Progress ที่บันทึกไว้ รวมจุดที่กรอกย้อนหลังด้วยมือ (วงกลมใหญ่)</div>
             </div>`;
           document.getElementById('scurveManualBtn').addEventListener('click', ()=> openScurveManualModal());
+          document.getElementById('scurvePhaseManualBtn').addEventListener('click',()=>{
+            const pkgKey = currentScurvePkgKey();
+            if(!pkgKey){ alert('กรุณาเลือก Package เฉพาะก่อนกรอก Actual แยก Phase'); return; }
+            openScurvePhaseManualModal(pkgKey);
+          });
           if(!rows.length){ document.getElementById('scurveInfo').textContent = 'ไม่มี Activity ในตัวกรองปัจจุบัน'; return; }
           const plannedSeries = computePlannedSeries(rows);
           const forecastSeries = computeForecastSeries(rows);
@@ -6187,8 +6320,29 @@
           const phaseKey = currentScurvePhaseKey();
           const scopeLabel = (pkgKey||'ทุก Package') + ' · ' + (phaseKey||'ทุก Phase');
           const manualPts = manualPointsFor(pkgKey, phaseKey);
-          const manualApplied = isScurveAggregateFilter() && manualPts.length > 0;
-          if(manualApplied){
+          const phaseManualSource = pkgKey && !phaseKey
+            ? scurveManualPoints.filter(point=>point.package===pkgKey && point.phase)
+            : [];
+          const phaseManualPts = isScurveAggregateFilter() && phaseManualSource.length
+            ? (()=>{
+                const pointsByDate = new Map();
+                phaseManualSource.forEach(point=>{
+                  if(!pointsByDate.has(point.snapshot_date)) pointsByDate.set(point.snapshot_date,[]);
+                  pointsByDate.get(point.snapshot_date).push(point);
+                });
+                return Array.from(pointsByDate.entries()).map(([date,points])=>{
+                  const manualByPhase = new Map(points.map(point=>[point.phase,Number(point.pct)||0]));
+                  const historyByTask = new Map((progressHistoryByDate.get(date)||[]).map(point=>[point.task_code,Number(point.progress_pct)]));
+                  const getPct = row=> manualByPhase.has(row.discipline)
+                    ? manualByPhase.get(row.discipline)
+                    : (historyByTask.has(row.task_code) ? historyByTask.get(row.task_code) : null);
+                  const result = computeOverallProgressGeneric(pkgKey,data,getPct);
+                  return result ? { x:dayOffset(date), y:Math.round(result.pct*100)/100, manual:true } : null;
+                }).filter(Boolean);
+              })()
+            : [];
+          const manualApplied = isScurveAggregateFilter() && (manualPts.length > 0 || phaseManualPts.length > 0);
+          if(isScurveAggregateFilter() && manualPts.length){
             manualPts.forEach(p=>{
               const off = dayOffset(p.snapshot_date);
               const idx = actualSeries.findIndex(pt=>pt.x===off);
@@ -6196,12 +6350,17 @@
               if(idx>=0) actualSeries[idx] = pt; else actualSeries.push(pt);
             });
           }
+          phaseManualPts.forEach(point=>{
+            const idx = actualSeries.findIndex(item=>item.x===point.x);
+            if(idx>=0) actualSeries[idx] = point; else actualSeries.push(point);
+          });
           actualSeries.sort((a,b)=>a.x-b.x);
           const noteEl = document.getElementById('scurveManualNote');
-          if(manualPts.length && !isScurveAggregateFilter()){
-            noteEl.textContent = `มีจุดข้อมูลย้อนหลังที่กรอกด้วยมือ ${manualPts.length} จุด สำหรับ ${scopeLabel} แต่ไม่ถูกใช้ในกราฟนี้ เพราะตัวกรองตอนนี้แคบกว่าระดับ Package/Phase (เลือก Discipline/Area/สถานะ/ค้นหาอยู่)`;
-          } else if(manualPts.length){
-            noteEl.textContent = `ใช้จุดข้อมูลย้อนหลังที่กรอกด้วยมือ ${manualPts.length} จุด สำหรับ ${scopeLabel}`;
+          const availableManualCount = manualPts.length + phaseManualSource.length;
+          if(availableManualCount && !isScurveAggregateFilter()){
+            noteEl.textContent = `มีจุดข้อมูลย้อนหลังที่กรอกด้วยมือ ${availableManualCount} จุด สำหรับ ${scopeLabel} แต่ไม่ถูกใช้ในกราฟนี้ เพราะตัวกรองตอนนี้แคบกว่าระดับ Package/Phase (เลือก Discipline/Area/สถานะ/ค้นหาอยู่)`;
+          } else if(manualApplied){
+            noteEl.textContent = `ใช้จุดข้อมูลย้อนหลังที่กรอกด้วยมือ ${manualPts.length + phaseManualPts.length} จุด สำหรับ ${scopeLabel}`;
           } else {
             noteEl.textContent = '';
           }

@@ -941,6 +941,7 @@
         {key:'repco_personnel', label:'👨‍💼 REPCO Personnel', type:'personnel-list', default:[{position:'Construction Manager',count:1}]},
         {key:'state_personnel_site', label:'👥 State Personnel — Area Construction Site', type:'personnel-list', default:[{position:'Worker (M)',count:1},{position:'Worker (W)',count:1}]},
         {key:'state_personnel_workshop', label:'👥 State Personnel — Area Workshop', type:'personnel-list', default:[]},
+        {key:'state_personnel_workshop_modular', label:'👥 State Personnel — Area Workshop Modular', type:'personnel-list', default:[]},
         {key:'equipment', label:'🚜 Machinery / Equipment', type:'personnel-list', itemPlaceholder:'Equipment', default:[{position:'',count:1}]},
         {key:'ot_records', label:'⏱️ บันทึก OT (Over Time)', type:'ot-list', default:[]},
         {key:'activities', label:'🎯 Daily Activity & Goals', type:'textarea', required:true, placeholder:'Describe completed tasks and goals...'},
@@ -1461,7 +1462,7 @@
           const pilesPlanned = pileRows.filter(row => row.plan_date >= startDate && row.plan_date <= endDate && !(row.pile_number || '').includes('/'));
           const progress = progressRows.find(row => row.report_month === startDate) || null;
           const today = todayISO();
-          const manpowerDaily = daily.map(row => sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop));
+          const manpowerDaily = daily.map(row => sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop) + sumPersonnel(row.state_personnel_workshop_modular));
           const totalManpower = manpowerDaily.reduce((sum, value) => sum + value, 0);
           const totalOtHeadcount = daily.reduce((sum, row) => sum + (Array.isArray(row.ot_records) ? row.ot_records.reduce((otSum, item) => otSum + (Number(item.headcount) || 0), 0) : 0), 0);
           const findingByStatus = { Open:0, 'In Progress':0, Closed:0, Overdue:0 };
@@ -1585,7 +1586,7 @@
             ];
             const appendSheet = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Status:'No data for selected month' }]), name);
             appendSheet('Summary', summaryRows);
-            appendSheet('Daily Activity', daily.map(row => ({ Date:row.report_date, Location:row.location || '', Manpower:sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop), Activities:row.activities || '', Progress:row.progress_summary || '' })));
+            appendSheet('Daily Activity', daily.map(row => ({ Date:row.report_date, Location:row.location || '', Manpower:sumPersonnel(row.repco_personnel) + sumPersonnel(row.state_personnel_site) + sumPersonnel(row.state_personnel_workshop) + sumPersonnel(row.state_personnel_workshop_modular), Activities:row.activities || '', Progress:row.progress_summary || '' })));
             appendSheet('Safety Findings', findings.map(row => ({ Date:row.finding_date, Number:row.finding_number || '', Location:row.location || '', Category:row.category || '', Severity:row.severity || '', Status:row.status || '', DueDate:row.due_date || '', Description:row.description || '' })));
             appendSheet('Environment', environment.map(row => Object.assign({ Date:row.report_date }, Object.fromEntries(ENV_CATEGORIES.map(category => [category.label, Number(row[category.key]) || 0])))));
             appendSheet('Concrete', concrete.map(row => ({ Date:row.report_date, Location:row.location || '', VolumeM3:Number(row.today_m3) || 0, PlanM3:Number(row.plan_m3) || 0, FinishedPct:Number(row.finished_pct) || 0 })));
@@ -2206,7 +2207,7 @@
         if(!data.length){ container.innerHTML = '<div class="dash-empty">ยังไม่มีข้อมูล Daily Report</div>'; return; }
 
         const total = data.length;
-        const manpowerPerRow = data.map(r => sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop));
+        const manpowerPerRow = data.map(r => sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop) + sumPersonnel(r.state_personnel_workshop_modular));
         const equipmentPerRow = data.map(r => sumPersonnel(r.equipment));
 
         // เครื่องจักรแยกตามประเภทรถ (ตาม position ที่กรอกในแต่ละวัน) — สีไม่ซ้ำแม้มีหลายประเภท
@@ -2257,12 +2258,13 @@
         const repcoSeries = data.map(r=>sumPersonnel(r.repco_personnel));
         const siteSeries = data.map(r=>sumPersonnel(r.state_personnel_site));
         const workshopSeries = data.map(r=>sumPersonnel(r.state_personnel_workshop));
+        const workshopModularSeries = data.map(r=>sumPersonnel(r.state_personnel_workshop_modular));
 
         container.innerHTML = `
           <div class="dash-note">คำนวณจากรายงานประจำวันทั้งหมด ${total} รายการ ช่วง ${escapeHtml(dateRangeText)}</div>
           <div class="dash-kpi-row">
             <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Reports</div></div>
-            <div class="dash-kpi"><div class="v">${avgManpower}</div><div class="l">Avg. Manpower / Day</div><div class="f">avg(REPCO+Site+Workshop)</div></div>
+            <div class="dash-kpi"><div class="v">${avgManpower}</div><div class="l">Avg. Manpower / Day</div><div class="f">avg(REPCO+Site+Workshop+Modular)</div></div>
             <div class="dash-kpi"><div class="v">${avgEquipment}</div><div class="l">Avg. Equipment / Day</div><div class="f">avg(sum of equipment qty)</div></div>
             <div class="dash-kpi"><div class="v" style="font-size:14px;">${escapeHtml(dateRangeText)}</div><div class="l">Date Range</div></div>
           </div>
@@ -2290,6 +2292,7 @@
             { label:'REPCO', data:repcoSeries, backgroundColor:'#0EA394', stack:'manpower' },
             { label:'State - Site', data:siteSeries, backgroundColor:'#2563EB', stack:'manpower' },
             { label:'State - Workshop', data:workshopSeries, backgroundColor:'#F0A93B', stack:'manpower' },
+            { label:'State - Workshop Modular', data:workshopModularSeries, backgroundColor:'#8B5CF6', stack:'manpower' },
             { label:'รวมทั้งหมด (Total)', type:'line', data:manpowerPerRow, borderColor:'#DC2626', backgroundColor:'#DC2626', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#DC2626', tension:.25, fill:false, order:-1, stack:'total-line' },
           ]},
           options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } } }
@@ -3170,7 +3173,7 @@
           dailyData.forEach(r=>{
             if(!r.report_date || r.report_date < mhStart || r.report_date > today) return;
             repcoManDays += sumPersonnel(r.repco_personnel);
-            stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
+            stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop) + sumPersonnel(r.state_personnel_workshop_modular);
           });
           cumulativeManpowerDays = repcoManDays + stateManDays;
           cumulativeManHours = cumulativeManpowerDays * 10;
@@ -3616,7 +3619,7 @@
           modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
           document.getElementById('modalBg').classList.add('show');
         }
-        const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop)) : 0;
+        const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop) + sumPersonnel(r.state_personnel_workshop_modular)) : 0;
         const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
         const weatherLine = (r) => r ? [r.weather_0609,r.weather_0912,r.weather_1215,r.weather_1518].filter(Boolean).join(' / ') : '-';
         // ตัดขึ้นบรรทัดใหม่ทุกครั้งที่เจอ "-" ที่ใช้เป็นตัวคั่นรายการย่อย (มีช่องว่าง/ต้นบรรทัดนำหน้า) เพื่อให้อ่านเป็นรายการง่ายขึ้น
@@ -7840,12 +7843,12 @@
           daysEl.value = daysBetweenInclusive(startDate, asOf).toLocaleString() + ' วัน (' + startDate + ' → ' + asOf + ')';
           mhEl.value = 'กำลังคำนวณ...';
           try{
-            const dailyRes = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop&report_date=gte.' + startDate + '&report_date=lte.' + asOf, { headers: HEADERS });
+            const dailyRes = await fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=report_date,repco_personnel,state_personnel_site,state_personnel_workshop,state_personnel_workshop_modular&report_date=gte.' + startDate + '&report_date=lte.' + asOf, { headers: HEADERS });
             const dailyRows = dailyRes.ok ? await dailyRes.json() : [];
             let repcoManDays = 0, stateManDays = 0;
             dailyRows.forEach(r=>{
               repcoManDays += sumPersonnel(r.repco_personnel);
-              stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop);
+              stateManDays += sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop) + sumPersonnel(r.state_personnel_workshop_modular);
             });
             const totalManpower = repcoManDays + stateManDays;
             const manHours = totalManpower * 10;
@@ -9414,6 +9417,7 @@
       '👨‍💼 REPCO Personnel: ' + formatPersonnelListPlain(f.repco_personnel),
       '👥 State Personnel (พื้นที่ก่อสร้าง): ' + formatPersonnelListPlain(f.state_personnel_site),
       '👥 State Personnel (Workshop): ' + formatPersonnelListPlain(f.state_personnel_workshop),
+      '👥 State Personnel (Workshop Modular): ' + formatPersonnelListPlain(f.state_personnel_workshop_modular),
       '🚜 เครื่องจักร/อุปกรณ์: ' + formatPersonnelListPlain(f.equipment),
       '',
       '🎯 กิจกรรม/เป้าหมายวันนี้:',

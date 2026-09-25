@@ -571,7 +571,7 @@
   .gantt-today{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;z-index:1;}
   .gantt-today .tag{position:absolute;top:-2px;left:4px;font-size:10px;font-weight:700;color:#DC2626;background:#fff;padding:0 4px;border-radius:4px;white-space:nowrap;}
   .gantt-label .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .gantt-weight-input{flex:0 0 44px;width:44px;font-size:11px;padding:2px 4px;border:1px solid #C4B5FD;background:#F5F3FF;border-radius:5px;text-align:right;color:#5B21B6;font-weight:600;}
+  .gantt-weight-input{flex:0 0 68px;width:68px;font-size:11px;padding:2px 4px;border:1px solid #C4B5FD;background:#F5F3FF;border-radius:5px;text-align:right;color:#5B21B6;font-weight:600;}
   .gantt-progress-input{flex:0 0 44px;width:44px;font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:5px;text-align:right;}
   .gantt-save-btn{flex:0 0 auto;border:none;background:transparent;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;}
   .gantt-save-btn:disabled{opacity:.6;cursor:default;}
@@ -5419,14 +5419,17 @@
 
         // ===== Table View / Export / Import (สำหรับทีม Doc Control) =====
         // บันทึกทุกคอลัมน์ของแถวในมุมมองตาราง รวมถึง Forecast Plan Start/Finish
+        function normalizeActivityWeight(value, fallback=0){
+          const weight = Number(value);
+          return Number.isFinite(weight) && weight >= 0 ? Math.round(weight * 10000) / 10000 : fallback;
+        }
         async function saveActivityRowFull(oldCode, f){
           const subRows = subActByTask.get(oldCode) || [];
           const rollup = subRows.length ? rollupPoc(subRows) : null;
           let pct = Math.round(Number(rollup===null ? f.pct : rollup) * 100) / 100;
           if(isNaN(pct)) pct = 0;
           pct = Math.max(0, Math.min(100, pct));
-          let wf = Math.round(Number(f.wf) * 100) / 100;
-          if(isNaN(wf) || wf < 0) wf = 0;
+          const wf = normalizeActivityWeight(f.wf);
           const newCode = f.newCode;
           if(!newCode) throw new Error('Activity ID ห้ามว่าง');
           if(!f.name) throw new Error('ชื่องาน ห้ามว่าง');
@@ -5961,7 +5964,7 @@
               <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Plan Finish</label><input type="date" id="natEnd" value="${editRow?.end_date||''}" style="flex:1 1 auto;min-width:0;"></div>
               <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Forecast Plan Start</label><input type="date" id="natForecastStart" value="${editRow?.forecast_start_date||''}" style="flex:1 1 auto;min-width:0;"></div>
               <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Forecast Plan Finish</label><input type="date" id="natForecastEnd" value="${editRow?.forecast_end_date||''}" style="flex:1 1 auto;min-width:0;"></div>
-              <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Weight Factor</label><input type="number" id="natWeight" step="0.01" min="0" value="${editRow?.weight_factor ?? 1}" style="flex:1 1 auto;min-width:0;"></div>
+              <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Weight Factor</label><input type="number" id="natWeight" step="0.0001" min="0" value="${editRow?.weight_factor ?? 1}" style="flex:1 1 auto;min-width:0;"></div>
               <div class="list-row"><label style="flex:0 0 140px;font-size:12.5px;color:var(--muted);">Milestone?</label><input type="checkbox" id="natMilestone" style="flex:0 0 auto;" ${editRow?.is_milestone?'checked':''}></div>
             </div>
             <div class="btn-row">
@@ -5985,8 +5988,7 @@
           const end = document.getElementById('natEnd').value || null;
           const forecastStart = document.getElementById('natForecastStart').value || null;
           const forecastEnd = document.getElementById('natForecastEnd').value || null;
-          let weight = Number(document.getElementById('natWeight').value);
-          if(isNaN(weight) || weight < 0) weight = 1;
+          const weight = normalizeActivityWeight(document.getElementById('natWeight').value,1);
           const isMs = document.getElementById('natMilestone').checked;
           if(!code || !name){ alert('กรุณากรอก Activity ID และชื่องาน ให้ครบ'); return; }
           if(data.some(x=>x.task_code===code)){ alert('Activity ID นี้มีอยู่แล้วในระบบ กรุณาใช้ Activity ID อื่น'); return; }
@@ -6060,8 +6062,7 @@
           let val = Math.round(Number(pct) * 100) / 100;
           if(isNaN(val)) val = 0;
           val = Math.max(0, Math.min(100, val));
-          let w = Math.round(Number(wf) * 100) / 100;
-          if(isNaN(w) || w < 0) w = 0;
+          const w = normalizeActivityWeight(wf);
           const payload = { progress_pct: val, status_code: (val <= 0 ? 'Not Started' : (val >= 100 ? 'Completed' : 'In Progress')), weight_factor: w };
           if(forecastStart !== null && forecastStart !== undefined) payload.forecast_start_date = forecastStart || null;
           if(forecastEnd !== null && forecastEnd !== undefined) payload.forecast_end_date = forecastEnd || null;
@@ -6291,7 +6292,7 @@
               <td><select class="tv-input tv-wbsdisc-input">${wbsOptsHtml(r.wbs_discipline||'', r.package||'')}</select></td>
               <td><input type="text" class="tv-input tv-area-input" list="tvAreaList" value="${escapeHtml(r.area||'')}"></td>
               <td>${delayed?'<span class="tv-status-dot" style="background:#DC2626" title="Delay — เลยกำหนดแล้วแต่ยังไม่เสร็จ"></span>':''}<select class="tv-input tv-status-input">${statusOptsHtml(r.status_code||'Not Started')}</select></td>
-              <td><input type="number" class="tv-input tv-weight" step="0.01" min="0" value="${Number(r.weight_factor)||0}"></td>
+              <td><input type="number" class="tv-input tv-weight" step="0.0001" min="0" value="${Number(r.weight_factor)||0}"></td>
               <td><input type="number" class="tv-input tv-progress" step="0.01" min="0" max="100" value="${pct}" title="${subRows.length?'คำนวณจาก Sub Activities':'% ความคืบหน้า'}" ${subRows.length?'disabled':''}></td>
               <td><input type="date" class="tv-input tv-start-input" value="${r.start_date||''}"></td>
               <td><input type="date" class="tv-input tv-end-input" value="${r.end_date||''}"></td>
@@ -6930,7 +6931,7 @@
               <div class="code-line" title="${titleAttr}">${canManageSub?`<button class="gantt-sub-toggle" data-code="${escapeHtml(r.task_code)}" title="ดู/แก้ไข/เพิ่ม Sub Activities${hasSub?' ('+subRows.length+')':''}">${subExpanded?'▾':'▸'}</button>`:''}${escapeHtml(r.task_code)}${hasSub?` <span class="sub-badge">(${subRows.length})</span>`:''}<button class="gantt-task-del-btn" data-code="${escapeHtml(r.task_code)}" data-name="${escapeHtml(r.task_name)}" title="ลบ Activity นี้ออกจากตารางงาน">🗑</button></div>
               <div class="name-line">
                 <span class="name">${escapeHtml(r.task_name)}</span>
-                <input type="number" class="gantt-weight-input" min="0" step="0.01" value="${Number(r.weight_factor)!=null ? Number(r.weight_factor) : 1}" data-code="${escapeHtml(r.task_code)}" title="Weight Factor — ใช้ถ่วงน้ำหนัก % Progress ของกลุ่ม/โปรเจกต์">
+                <input type="number" class="gantt-weight-input" min="0" step="0.0001" value="${Number(r.weight_factor)!=null ? Number(r.weight_factor) : 1}" data-code="${escapeHtml(r.task_code)}" title="Weight Factor — ใช้ถ่วงน้ำหนัก % Progress ของกลุ่ม/โปรเจกต์">
                 <input type="number" class="gantt-progress-input" min="0" max="100" step="0.01" value="${pct}" data-code="${escapeHtml(r.task_code)}" title="${hasSub?'คำนวณจาก Sub Activities':'% ความคืบหน้า (ใส่ทศนิยมได้)'}" ${hasSub?'disabled':''}>
                 <button class="gantt-save-btn" data-code="${escapeHtml(r.task_code)}" title="บันทึก Weight Factor และ % ความคืบหน้า">💾</button>
               </div>
@@ -7053,8 +7054,7 @@
               if(isNaN(val)) val = 0;
               val = Math.max(0, Math.min(100, val));
               input.value = val;
-              let wf = Math.round(Number(weightInput.value) * 100) / 100;
-              if(isNaN(wf) || wf < 0) wf = 0;
+              const wf = normalizeActivityWeight(weightInput.value);
               weightInput.value = wf;
               const newStatus = val <= 0 ? 'Not Started' : (val >= 100 ? 'Completed' : 'In Progress');
               const origText = btn.textContent;

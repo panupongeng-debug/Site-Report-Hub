@@ -1810,23 +1810,48 @@
           const scheduleActual = weightedProgress(sources.schedule, row => row.progress_pct);
           const pendingIssues = sources.issues.filter(row => row.status !== 'Closed').map(row => ({ issue_no:row.issue_no || 'Issue', follow_up_issue:row.follow_up_issue || row.note || '-', due_date:row.due_date, status:row.status }))
             .concat(sources.findings.filter(row => row.status !== 'Closed' && row.due_date && row.due_date <= range.end).map(row => ({ issue_no:row.finding_number || 'Finding', follow_up_issue:row.description || '-', due_date:row.due_date, status:row.status })), sources.ncr.filter(row => row.status !== 'Closed').map(row => ({ issue_no:row.ncr_no || 'NCR', follow_up_issue:row.title || '-', due_date:row.due_date, status:row.status })));
-          return { weekEnd, range, hse, recognition, previousHse, daily, qc, qcCumulative, permits, procurement, procurementStages, rfiFir, ncr, ncrAll:sources.ncr, schedulesThis, schedulesNext, milestones, scurveBounds, scurveSets, scheduleActual, pendingIssues };
+          const kpiCategories = sources.safetyKpi || [];
+          const hseSettingsRow = (sources.hseSettings || []).find(row => row.id === 'default') || (sources.hseSettings || [])[0] || null;
+          const kpiCutoff = hseSettingsRow && hseSettingsRow.start_date ? hseSettingsRow.start_date : range.start;
+          const kpiCumulativeFindings = dateIn(sources.findings, 'finding_date', kpiCutoff, range.end).filter(row => row.category !== 'ชื่นชม');
+          const safetyKpiSummary = {
+            lti: kpiTotal(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)')),
+            mti: kpiTotal(findKpiByName(kpiCategories, 'Medical Treatment Injury (MTI)')),
+            propertyDamage: kpiTotal(findKpiByName(kpiCategories, 'Property damage')),
+            nearMiss: kpiCumulativeFindings.filter(row => row.finding_type === 'Near Miss').length,
+            unsafeFinding: kpiCumulativeFindings.length,
+            safeDays: hseSettingsRow && hseSettingsRow.start_date ? daysBetweenInclusive(hseSettingsRow.start_date, range.end) : 0,
+            safeDayStart: (hseSettingsRow && hseSettingsRow.start_date) || null,
+          };
+          return { weekEnd, range, hse, recognition, previousHse, daily, qc, qcCumulative, permits, procurement, procurementStages, rfiFir, ncr, ncrAll:sources.ncr, schedulesThis, schedulesNext, milestones, scurveBounds, scurveSets, scheduleActual, pendingIssues, safetyKpiSummary };
         }
         function getSnapshot(weekEnd){ const row = sources.snapshots.find(item => item.week_end === weekEnd); return row ? (row.payload || {}) : {}; }
         function aiBriefText(model){
-          const shortList = (rows, formatter) => rows.slice(0, 12).map(formatter).join('\n') || '- ไม่มีรายการ';
+          const shortList = (rows, formatter, limit) => rows.slice(0, limit || 15).map(formatter).join('\n') || '- ไม่มีรายการ';
+          const scurvePhaseLine = (key, label) => {
+            const set = model.scurveSets[key];
+            if(!set) return '- ' + label + ': ไม่มีข้อมูล';
+            return '- ' + label + ': Plan ' + numberText(set.todayPlan || 0, 2) + '% | Forecast ' + numberText(set.todayForecast || 0, 2) + '% | Actual ' + numberText(set.todayActual || 0, 2) + '% | Variance vs Plan ' + numberText((set.todayActual || 0) - (set.todayPlan || 0), 2) + '%';
+          };
           return [
             'โปรดสรุปรายงานโครงการรายสัปดาห์เป็นภาษาไทยสำหรับผู้บริหาร โดยแบ่งเป็น ความสำเร็จ, ความเสี่ยง/ประเด็นต้องตัดสินใจ, และแผนสัปดาห์ถัดไป. ใช้เฉพาะข้อมูลด้านล่าง ห้ามแต่งข้อมูลเพิ่ม.',
             '', 'ช่วงรายงาน: ' + model.range.start + ' ถึง ' + model.range.end,
-            'Progress: Actual ' + numberText(model.scheduleActual, 2) + '%',
-            'HSE: Findings ' + model.hse.length + ' รายการ, ชื่นชม ' + model.recognition.length + ' รายการ, QC ' + model.qc.length + ' รายการ',
-            'Milestones: ' + model.milestones.length + ' รายการ | Pending Issues: ' + model.pendingIssues.length + ' รายการ',
-            '', 'Key activities this week:', shortList(model.schedulesThis, row => '- ' + (row.task_name || row.task_code || '-') + ' | ' + (row.status_code || '-')),
-            '', 'Key activities next week:', shortList(model.schedulesNext, row => '- ' + (row.task_name || row.task_code || '-') + ' | ' + (row.status_code || '-')),
-            '', 'Pending issues:', shortList(model.pendingIssues, row => '- ' + (row.issue_no || '-') + ': ' + (row.follow_up_issue || '-') + ' | Due ' + (row.due_date || '-') + ' | ' + (row.status || '-')),
-            '', 'Procurement look-ahead:', shortList(model.procurement, row => '- ' + (row.reference_no || '-') + ': ' + (row.item_name || '-') + ' | Required ' + (row.required_on_site_date || '-') + ' | ' + (row.status || '-')),
-            '', 'RFI/FIR:', shortList(model.rfiFir, row => '- ' + (row.reference_no || '-') + ': ' + (row.subject || '-') + ' | ' + (row.status || '-')),
-            '', 'NCR:', shortList(model.ncr, row => '- ' + (row.ncr_no || '-') + ': ' + (row.title || '-') + ' | Due ' + (row.due_date || '-') + ' | ' + (row.status || '-')),
+            'Overall Progress: Actual ' + numberText(model.scheduleActual, 2) + '%',
+            '', 'S-Curve by phase:',
+            scurvePhaseLine('overall', 'Overall'), scurvePhaseLine('CON', 'Construction (CON)'), scurvePhaseLine('PRO', 'Procurement (PRO)'), scurvePhaseLine('ASB', 'Asbuilt & Final Document (ASB)'),
+            '', 'Safety KPI (ยอดสะสม, Zero Target): LTI ' + model.safetyKpiSummary.lti + ' | MTI ' + model.safetyKpiSummary.mti + ' | Property Damage ' + model.safetyKpiSummary.propertyDamage + ' | Near Miss ' + model.safetyKpiSummary.nearMiss + ' | Unsafe Finding ' + model.safetyKpiSummary.unsafeFinding,
+            'Safe Working Day Without LTI: ' + model.safetyKpiSummary.safeDays + ' วัน' + (model.safetyKpiSummary.safeDayStart ? ' (เริ่มนับ ' + model.safetyKpiSummary.safeDayStart + ')' : ''),
+            '', 'HSE Findings ในสัปดาห์นี้ (' + model.hse.length + ' รายการ):', shortList(model.hse, row => '- ' + (row.finding_number || '-') + ' | ' + (row.finding_date || '-') + ' | ' + (row.location || '-') + ' | ' + (row.severity || '-') + ' | ' + (row.status || '-') + (row.due_date ? ' | Due ' + row.due_date : '') + (row.description ? ' | ' + row.description : '')),
+            '', 'ชื่นชม (Recognition) ในสัปดาห์นี้ (' + model.recognition.length + ' รายการ):', shortList(model.recognition, row => '- ' + (row.finding_number || '-') + ' | ' + (row.finding_date || '-') + ' | ' + (row.location || '-') + (row.description ? ' | ' + row.description : '')),
+            '', 'Key activities this week:', shortList(model.schedulesThis, row => '- ' + (row.task_name || row.task_code || '-') + ' | ' + (row.start_date || '-') + ' ถึง ' + (row.end_date || '-') + ' | ' + (row.status_code || '-') + ' | Progress ' + numberText(row.progress_pct || 0, 1) + '%'),
+            '', 'Key activities next week:', shortList(model.schedulesNext, row => '- ' + (row.task_name || row.task_code || '-') + ' | ' + (row.start_date || '-') + ' ถึง ' + (row.end_date || '-') + ' | ' + (row.status_code || '-')),
+            '', 'Milestones (' + model.milestones.length + ' รายการ):', shortList(model.milestones, row => '- ' + (row.task_name || row.task_code || '-') + ' | Plan Finish ' + (row.end_date || '-') + ' | ' + (row.status_code || '-') + ' | Progress ' + numberText(row.progress_pct || 0, 1) + '%'),
+            '', 'Pending issues (' + model.pendingIssues.length + ' รายการ):', shortList(model.pendingIssues, row => '- ' + (row.issue_no || '-') + ': ' + (row.follow_up_issue || '-') + ' | Due ' + (row.due_date || '-') + ' | ' + (row.status || '-')),
+            '', 'Construction Permit Status (' + model.permits.length + ' รายการ):', shortList(model.permits, row => '- ' + (row.permit_no || '-') + ': ' + (row.title || '-') + ' | Area ' + (row.area || '-') + ' | Required ' + (row.required_date || '-') + ' | Expiry ' + (row.expiry_date || '-') + ' | ' + (row.status || '-')),
+            '', 'Procurement look-ahead (' + model.procurement.length + ' รายการ):', shortList(model.procurement, row => '- ' + (row.reference_no || '-') + ': ' + (row.item_name || '-') + ' | Required ' + (row.required_on_site_date || '-') + ' | ' + (row.status || '-')),
+            '', 'QC / RFI / FIR ในสัปดาห์นี้ (' + model.qc.length + ' รายการ):', shortList(model.qc, row => '- ' + (row.rfi_no || row.fir_no || '-') + ': ' + (row.inspection_activity || '-') + ' | ' + (row.location_area || '-') + ' | RFI ' + (row.rfi_status || '-') + ' | FIR ' + (row.fir_status || '-') + ' | ' + (row.inspection_date || '-')),
+            '', 'RFI/FIR (Inspection Requests):', shortList(model.rfiFir, row => '- ' + (row.reference_no || '-') + ': ' + (row.subject || '-') + ' | ' + (row.status || '-')),
+            '', 'NCR ที่กำลังติดตาม (' + model.ncrAll.length + ' รายการทั้งหมด, ' + model.ncr.length + ' รายการในสัปดาห์นี้):', shortList(model.ncr, row => '- ' + (row.ncr_no || '-') + ': ' + (row.title || '-') + ' | ' + (row.severity || '-') + ' | Due ' + (row.due_date || '-') + ' | ' + (row.status || '-')),
           ].join('\n');
         }
         function formatManagementSummary(text){

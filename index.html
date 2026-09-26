@@ -217,6 +217,20 @@
   .procurement-gantt-swatch{width:12px;height:10px;border:1px solid currentColor;border-radius:3px;background:currentColor;}
   .procurement-gantt-swatch.actual{background:#fff;}
   .procurement-gantt-swatch.selected-week{width:2px;height:13px;border:none;border-radius:0;background:#DC2626;}
+  .weekly-vp-board{display:flex;flex-direction:column;gap:14px;}
+  .weekly-vp-card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;cursor:grab;}
+  .weekly-vp-card.dragging{opacity:.4;}
+  .weekly-vp-card-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#F7F9FB;border-bottom:1px solid var(--line);}
+  .weekly-vp-drag-handle{cursor:grab;color:var(--muted);font-size:14px;line-height:1;}
+  .weekly-vp-card-title{flex:1;min-width:0;font-weight:700;font-size:13px;color:var(--charcoal);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .weekly-vp-card-date{flex:0 0 auto;font:700 11px var(--mono);color:var(--amber-deep);background:#F0FBF9;padding:2px 8px;border-radius:12px;}
+  .weekly-vp-toggle{flex:0 0 auto;padding:4px 9px;font-size:11px;}
+  .weekly-vp-progress-row{display:flex;flex-wrap:wrap;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);background:#FAFBFC;}
+  .weekly-vp-progress-pill{display:inline-flex;align-items:center;gap:4px;border:1px solid;border-radius:20px;padding:2px 9px;font-size:10.5px;font-weight:700;white-space:nowrap;}
+  .weekly-vp-progress-pill i{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+  .weekly-vp-card.collapsed .weekly-vp-canvas-wrap{display:none;}
+  .weekly-vp-canvas-wrap{background:#F4F6F9;display:flex;justify-content:center;padding:10px;overflow:auto;}
+  .weekly-vp-canvas-wrap canvas{max-width:100%;height:auto;display:block;}
   .weekly-record-delete:hover{background:#FEF2F2;}
   .zigzag-gantt-wrap{overflow-x:auto;margin-top:12px;}
   .zigzag-gantt{--label-width:320px;min-width:760px;border:1px solid var(--line);border-radius:10px;background:#fff;}
@@ -1705,6 +1719,7 @@
         ];
         let activeTab = 'hse';
         let weeklyGanttPlanMode = 'forecast';
+        const weeklyVpCollapsed = new Set();
         const dateIn = (rows, key, start, end) => rows.filter(row => row[key] && row[key] >= start && row[key] <= end);
         const statusPill = value => `<span class="pill ${value==='Closed'||value==='Approved'||value==='Delivered'||value==='Pass'||value==='Completed'?'status-closed':value==='Delayed'||value==='Rejected'||value==='Fail'||value==='Overdue'||value==='Cancelled'?'status-overdue':'status-in-progress'}">${escapeHtml(value || '-')}</span>`;
         const dateText = value => escapeHtml(value || '-');
@@ -1820,6 +1835,111 @@
             if(/^[-*•]\s*/.test(line)) return '- ' + line.replace(/^[-*•]\s*/, '');
             return line.replace(/^#+\s*/, '');
           }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        }
+        function weeklyVpProgressPills(plan, shapes){
+          const groups = legendGroupsOf(plan);
+          const pills = [];
+          groups.forEach(g => {
+            if(!g.total_units) return;
+            const computed = (g.items || []).filter(item => item.is_completion).map(item => {
+              const colors = vpCumulativeColors(g, item);
+              const cnt = shapes.filter(s => (s.group || '_default') === g.id && colors.includes(s.color)).length;
+              const pct = Math.round((cnt / g.total_units) * 1000) / 10;
+              return { item, cnt, pct };
+            });
+            // stages are cumulative (earlier item = superset of later ones), so consecutive equal
+            // percentages mean "no shapes yet at the next, more specific stage" — collapse that run
+            // down to just the deepest stage reached, instead of repeating the same % several times.
+            computed.forEach((entry,index) => {
+              const next = computed[index + 1];
+              if(next && next.pct === entry.pct) return;
+              pills.push({ color:entry.item.color, label:(g.name ? g.name + ' · ' : '') + entry.item.label, cnt:entry.cnt, total:g.total_units, pct:entry.pct });
+            });
+          });
+          return pills;
+        }
+        function renderWeeklyVisualBoard(plans, marks, range){
+          const marksByPlan = new Map();
+          marks.forEach(mark => { const key = String(mark.plan_id); if(!marksByPlan.has(key)) marksByPlan.set(key, []); marksByPlan.get(key).push(mark); });
+          const cards = plans.map(plan => {
+            const planMarks = (marksByPlan.get(String(plan.id)) || []).filter(mark => mark.mark_date && mark.mark_date >= range.start && mark.mark_date <= range.end);
+            if(!planMarks.length) return null;
+            const latest = planMarks.reduce((best,mark) => (!best || mark.mark_date > best.mark_date) ? mark : best, null);
+            return { plan, latest };
+          }).filter(Boolean);
+          if(!cards.length) return '<div class="dash-empty">ไม่มีแปลนที่อัพเดต Visual Progress ในสัปดาห์นี้</div>';
+          return `<div class="weekly-vp-board" id="weeklyVpGrid">${cards.map(({plan,latest}) => {
+            const collapsed = weeklyVpCollapsed.has(String(plan.id));
+            const pills = weeklyVpProgressPills(plan, Array.isArray(latest.shapes) ? latest.shapes : []);
+            const pillsHtml = pills.length ? `<div class="weekly-vp-progress-row">${pills.map(pill => `<span class="weekly-vp-progress-pill" style="border-color:${escapeHtml(pill.color)};color:${escapeHtml(pill.color)}" title="${escapeHtml(pill.label)}: ${pill.cnt}/${pill.total} จุด"><i style="background:${escapeHtml(pill.color)}"></i>${escapeHtml(pill.label)} ${pill.pct}%</span>`).join('')}</div>` : '';
+            return `<div class="weekly-vp-card${collapsed?' collapsed':''}" draggable="true" data-plan-id="${escapeHtml(String(plan.id))}"><div class="weekly-vp-card-head"><span class="weekly-vp-drag-handle" title="ลากเพื่อจัดลำดับ">⠿</span><span class="weekly-vp-card-title">${escapeHtml(plan.building_name || 'Visual Plan')}</span><span class="weekly-vp-card-date">${escapeHtml(latest.mark_date)}</span><button type="button" class="btn btn-ghost weekly-vp-toggle" data-plan-id="${escapeHtml(String(plan.id))}" title="${collapsed?'ขยาย':'พับ'}">${collapsed?'▸ ขยาย':'▾ พับ'}</button></div>${pillsHtml}<div class="weekly-vp-canvas-wrap"><canvas class="weekly-vp-canvas" data-plan-id="${escapeHtml(String(plan.id))}" data-mark-date="${escapeHtml(latest.mark_date)}"></canvas></div></div>`;
+          }).join('')}</div>`;
+        }
+        function weeklyVpDragAfterElement(container, y){
+          const items = Array.from(container.querySelectorAll('.weekly-vp-card:not(.dragging)'));
+          return items.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if(offset < 0 && offset > closest.offset) return { offset, element: child };
+            return closest;
+          }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+        }
+        async function persistVisualPlanOrder(newVisibleOrderIds){
+          const byId = new Map(sources.visualPlans.map(plan => [String(plan.id), plan]));
+          const fullOrder = sources.visualPlans.slice().sort((a,b) => (Number(a.sort_order)||0) - (Number(b.sort_order)||0));
+          const visibleSet = new Set(newVisibleOrderIds);
+          const queue = newVisibleOrderIds.slice();
+          const merged = fullOrder.map(plan => visibleSet.has(String(plan.id)) ? (byId.get(queue.shift()) || plan) : plan);
+          const updates = [];
+          merged.forEach((plan,index) => { const nextSortOrder = index * 10; if(Number(plan.sort_order) !== nextSortOrder) updates.push({ plan, nextSortOrder }); });
+          if(!updates.length) return;
+          try{
+            await Promise.all(updates.map(({plan,nextSortOrder}) => fetch(SUPABASE_URL + '/rest/v1/visual_progress_plans?id=eq.' + encodeURIComponent(plan.id), { method:'PATCH', headers:{ ...HEADERS, 'Prefer':'return=minimal' }, body:JSON.stringify({ sort_order:nextSortOrder }) })));
+            updates.forEach(({plan,nextSortOrder}) => { plan.sort_order = nextSortOrder; });
+            sources.visualPlans.sort((a,b) => (Number(a.sort_order)||0) - (Number(b.sort_order)||0));
+            showToast('บันทึกลำดับ Visual Progress แล้ว');
+          }catch(error){ showToast('บันทึกลำดับไม่สำเร็จ: ' + error.message, true); }
+        }
+        async function setupWeeklyVisualBoard(weekEnd){
+          const grid = $('#weeklyVpGrid');
+          if(!grid) return;
+          const marksByKey = new Map(sources.visualMarks.map(mark => [String(mark.plan_id) + '::' + mark.mark_date, mark]));
+          await Promise.all(Array.from(grid.querySelectorAll('.weekly-vp-canvas')).map(async canvas => {
+            const planId = canvas.dataset.planId, markDate = canvas.dataset.markDate;
+            const plan = sources.visualPlans.find(row => String(row.id) === planId);
+            const mark = marksByKey.get(planId + '::' + markDate);
+            if(!plan || !mark) return;
+            try{
+              const base = await vpLoadPlanImage(plan);
+              vpDrawCanvas(canvas, base, Array.isArray(mark.shapes) ? mark.shapes : [], null);
+            }catch(error){
+              const wrap = canvas.closest('.weekly-vp-canvas-wrap');
+              if(wrap) wrap.innerHTML = '<div class="dash-empty">โหลดแปลนไม่สำเร็จ: ' + escapeHtml(error.message) + '</div>';
+            }
+          }));
+          grid.querySelectorAll('.weekly-vp-toggle').forEach(button => button.addEventListener('click', () => {
+            const planId = button.dataset.planId, card = button.closest('.weekly-vp-card');
+            const collapsed = card.classList.toggle('collapsed');
+            if(collapsed) weeklyVpCollapsed.add(planId); else weeklyVpCollapsed.delete(planId);
+            button.textContent = collapsed ? '▸ ขยาย' : '▾ พับ';
+            button.title = collapsed ? 'ขยาย' : 'พับ';
+          }));
+          let draggingCard = null;
+          grid.querySelectorAll('.weekly-vp-card').forEach(card => {
+            card.addEventListener('dragstart', () => { draggingCard = card; card.classList.add('dragging'); });
+            card.addEventListener('dragend', async () => {
+              card.classList.remove('dragging'); draggingCard = null;
+              const newOrder = Array.from(grid.querySelectorAll('.weekly-vp-card')).map(el => el.dataset.planId);
+              await persistVisualPlanOrder(newOrder);
+              renderReport(weekEnd);
+            });
+          });
+          grid.addEventListener('dragover', event => {
+            event.preventDefault();
+            if(!draggingCard) return;
+            const afterElement = weeklyVpDragAfterElement(grid, event.clientY);
+            if(afterElement == null) grid.appendChild(draggingCard); else grid.insertBefore(draggingCard, afterElement);
+          });
         }
         function managementSummaryPreviewHtml(text){
           const formatted = formatManagementSummary(text);
@@ -2126,8 +2246,7 @@
           if(activeTab === 'permits') return `${sourceNotice(['permits'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>Construction Permit Status</h3><button class="btn btn-ghost weekly-add-record" data-register="permits">+ Add Permit</button></div>${recordTable(model.permits, [['permit_no','Permit No.'],['title','Title'],['area','Area'],['required_date','Required'],['expiry_date','Expiry'],['status','Status']], 'ไม่มี Permit ที่ต้องติดตาม', 'permits')}</div>`;
           if(activeTab === 'procurement') return `${sourceNotice(['procurementStageActuals'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3>Procurement Plan vs Actual</h3><button type="button" class="btn btn-ghost" id="weeklyAddProcurementStages">+ Add Activities</button></div><div class="dash-note">Plan ใช้ Forecast Finish ของแต่ละ Activity (ถ้าไม่มีใช้ Forecast Start) · Actual กรอกภายหลังด้วย Edit Actual</div>${renderProcurementPlanTable(model.procurementStages, sources.procurementStageActuals, !unavailable.procurementStageActuals, model.weekEnd)}</div>`;
           if(activeTab === 'visual') {
-            const plans = sources.visualPlans, marks = sources.visualMarks.filter(row => row.mark_date && row.mark_date >= model.range.start && row.mark_date <= model.range.end);
-            return `${sourceNotice(['visualPlans','visualMarks'])}<div class="dash-section"><h3>Construction Work by Area - Visual Progress</h3>${recordTable(marks.map(mark => Object.assign({}, mark, { plan_name:(plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).name || (plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).title || 'Visual Plan' })), [['plan_name','Area / Plan'],['mark_date','Date'],['progress_pct','Progress %']], 'ไม่มี Visual Progress mark ในสัปดาห์นี้')}</div>`;
+            return `${sourceNotice(['visualPlans','visualMarks'])}<div class="dash-section"><h3>Construction Work by Area - Visual Progress</h3><div class="dash-note">แสดงเฉพาะแปลนที่มีอัพเดตในสัปดาห์นี้ (${model.range.start} - ${model.range.end}) · แต่ละแปลนแสดงมาร์คล่าสุดของสัปดาห์เพียงจุดเดียว · ลากที่ ⠿ เพื่อจัดลำดับ Layout (จำไว้ใช้ในสัปดาห์อื่นด้วย)</div>${renderWeeklyVisualBoard(sources.visualPlans, sources.visualMarks, model.range)}</div>`;
           }
           if(activeTab === 'photos') {
             const photoRecords = [];
@@ -2288,6 +2407,7 @@
             });
           }
           if(activeTab === 'qc') chartInstances.wrq = new Chart($('#weeklyQcChart'), { type:'doughnut', data:{ labels:['Open','Completed','Cancelled','Rejected'], datasets:[{ data:['Open','Completed','Cancelled','Rejected'].map(status => model.qcCumulative.filter(row=>row.rfi_status===status).length), backgroundColor:['#2563EB','#16A34A','#6B7684','#DC2626'] }] }, options:{ responsive:true, maintainAspectRatio:false } });
+          if(activeTab === 'visual') setupWeeklyVisualBoard(weekEnd);
           $('#weeklyReportPicker').addEventListener('change', event => renderReport(event.target.value));
           $('#weeklyAiToggle').addEventListener('click', ()=>{ const controls=$('#weeklyAiControls'), expanded=controls.hidden; controls.hidden=!expanded; $('#weeklyAiToggle').setAttribute('aria-expanded', String(expanded)); $('#weeklyAiToggle').textContent=expanded ? '✨ ซ่อน AI Summary' : '✨ AI Summary'; });
           const aiEndpointInput = $('#weeklyAiEndpoint'), aiModelInput = $('#weeklyAiModel'), aiKeyInput = $('#weeklyAiKey');

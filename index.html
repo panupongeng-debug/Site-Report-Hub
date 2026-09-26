@@ -158,6 +158,60 @@
   .dash-kpi .l{font-size:11px;color:var(--muted);margin-top:4px;}
   .dash-kpi .f{font-size:9.5px;color:#9AA3B0;margin-top:3px;font-family:var(--mono);}
   .dash-section{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .weekly-activity-phase{padding:0;overflow:hidden;border-top:4px solid var(--amber-deep);}
+  .weekly-activity-phase h3{display:flex;align-items:center;gap:9px;padding:13px 14px 11px;margin:0;border-bottom:1px solid var(--line);}
+  .weekly-activity-phase h3::before{flex:0 0 auto;padding:4px 7px;border-radius:4px;font-size:9px;line-height:1.2;letter-spacing:.04em;}
+  .weekly-phase-this{border-top-color:var(--amber-deep);}
+  .weekly-phase-this h3{background:#F0FBF9;}
+  .weekly-phase-this h3::before{content:"PHASE 01 · THIS WEEK";background:#D8F1EC;color:#0C6B62;}
+  .weekly-phase-this .kpi-table thead{background:#F0FBF9;}
+  .weekly-phase-next{border-top-color:var(--progress);}
+  .weekly-phase-next h3{background:#F0F5FF;}
+  .weekly-phase-next h3::before{content:"PHASE 02 · NEXT WEEK";background:#DBEAFE;color:#1D4ED8;}
+  .weekly-phase-next .kpi-table thead{background:#F0F5FF;}
+  .weekly-activity-phase > div{padding:0 14px 14px;}
+  .weekly-activity-group + .weekly-activity-group{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);}
+  .weekly-activity-group h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:12px;font-weight:800;color:var(--charcoal);}
+  .weekly-activity-group h4 span{padding:2px 7px;border-radius:4px;background:#EEF1F5;color:var(--muted);font:700 10px var(--mono);}
+  .weekly-activity-pro h4{color:#1D4ED8;}
+  .weekly-activity-con h4{color:var(--amber-deep);}
+  .weekly-record-actions{white-space:nowrap;}
+  .weekly-record-edit,.weekly-record-delete{flex:0 0 auto;padding:5px 9px;font-size:11px;}
+  .procurement-gantt-scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:6px;background:#fff;}
+  .procurement-gantt-board{--label-width:300px;--stage-label-width:220px;--time-width:900px;--week-px:56px;min-width:calc(var(--label-width) + var(--stage-label-width) + var(--time-width));}
+  .procurement-gantt-header,.procurement-gantt-group{display:grid;grid-template-columns:var(--label-width) calc(var(--stage-label-width) + var(--time-width));}
+  .procurement-gantt-head-label{position:sticky;left:0;z-index:6;display:flex;align-items:center;padding:0 12px;background:#EEF2F7;border-right:1px solid var(--line);font-size:11px;font-weight:800;color:var(--charcoal);}
+  .procurement-gantt-axis{display:grid;grid-template-columns:var(--stage-label-width) var(--time-width);}
+  .procurement-gantt-axis-spacer{background:#EEF2F7;border-bottom:1px solid var(--line);}
+  .procurement-gantt-time{width:var(--time-width);}
+  .procurement-gantt-months,.procurement-gantt-weeks{position:relative;overflow:hidden;}
+  .procurement-gantt-months{height:30px;background:#EEF2F7;border-bottom:1px solid var(--line);}
+  .procurement-gantt-month{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:7px;border-left:1px solid #CBD5E1;font-size:10px;font-weight:800;color:var(--charcoal);white-space:nowrap;}
+  .procurement-gantt-weeks{height:24px;background:#F7F9FB;border-bottom:1px solid var(--line);}
+  .procurement-gantt-week{position:absolute;top:0;bottom:0;padding:4px 0 0 3px;border-left:1px solid #E1E5EC;font-size:9px;color:var(--muted);}
+  .procurement-gantt-material{position:sticky;left:0;z-index:4;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px 12px;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .procurement-gantt-material-name{font-size:11.5px;line-height:1.4;font-weight:700;color:var(--charcoal);overflow-wrap:anywhere;}
+  .procurement-gantt-material-meta{font-size:10px;color:var(--muted);}
+  .procurement-gantt-material .btn{align-self:flex-start;padding:4px 8px;font-size:10px;}
+  .procurement-gantt-lanes{display:grid;grid-template-rows:repeat(4,52px);}
+  .procurement-gantt-lane{display:grid;grid-template-columns:var(--stage-label-width) var(--time-width);}
+  .procurement-gantt-stage-label{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#F8FAFC;border-bottom:1px solid #EEF1F4;font-size:9.5px;line-height:1.25;color:var(--muted);}
+  .procurement-gantt-stage-label strong{flex:0 0 auto;font:700 10px var(--mono);color:var(--charcoal);}
+  .procurement-gantt-stage-label span{min-width:0;}
+  .procurement-gantt-track{position:relative;width:var(--time-width);height:52px;border-bottom:1px solid #EEF1F4;background-color:#fff;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--week-px) - 1px),#EEF1F4 calc(var(--week-px) - 1px),#EEF1F4 var(--week-px));}
+  .procurement-gantt-event{position:absolute;z-index:2;min-width:52px;padding:2px 4px;border:1px solid currentColor;border-radius:4px;text-align:center;transform:translateX(-50%);font-size:9px;font-weight:800;line-height:1.35;white-space:nowrap;}
+  .procurement-gantt-event.plan{top:5px;color:#fff;}
+  .procurement-gantt-event.actual{top:29px;background:#fff;}
+  .procurement-gantt-rfq{background:#0F766E;color:#0F766E;}
+  .procurement-gantt-rq{background:#2563EB;color:#2563EB;}
+  .procurement-gantt-po{background:#B45309;color:#B45309;}
+  .procurement-gantt-mos{background:#15803D;color:#15803D;}
+  .procurement-gantt-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;}
+  .procurement-gantt-legend{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 10px;font-size:10.5px;color:var(--muted);}
+  .procurement-gantt-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .procurement-gantt-swatch{width:12px;height:10px;border:1px solid currentColor;border-radius:3px;background:currentColor;}
+  .procurement-gantt-swatch.actual{background:#fff;}
+  .weekly-record-delete:hover{background:#FEF2F2;}
   .zigzag-gantt-wrap{overflow-x:auto;margin-top:12px;}
   .zigzag-gantt{--label-width:320px;min-width:760px;border:1px solid var(--line);border-radius:10px;background:#fff;}
   .zigzag-gantt-header,
@@ -205,6 +259,37 @@
   .weekly-gantt-phase .zigzag-gantt-wrap{max-height:60vh;overflow:auto;}
   .weekly-gantt-phase .zigzag-gantt-header{position:sticky;top:0;z-index:3;}
   .weekly-gantt-phase .zigzag-gantt-header .label-cell{position:sticky;left:0;z-index:4;}
+  .weekly-gantt-board{padding:0;overflow:hidden;border-top:3px solid var(--charcoal);}
+  .weekly-gantt-board-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 14px;background:#F7F9FB;border-bottom:1px solid var(--line);}
+  .weekly-gantt-board-head h3{margin:0;font-size:14px;}
+  .weekly-gantt-board-head label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--charcoal);}
+  .weekly-gantt-range{padding:8px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted);background:#fff;}
+  .weekly-gantt-scroll{max-height:68vh;overflow:auto;background:#fff;}
+  .weekly-gantt-grid{display:grid;width:max-content;min-width:100%;grid-template-columns:320px auto;position:relative;}
+  .weekly-gantt-corner,.weekly-gantt-time-head{position:sticky;top:0;z-index:5;height:44px;background:#F5F7FA;border-bottom:1px solid var(--line);}
+  .weekly-gantt-corner{left:0;z-index:7;display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--line);font-size:11px;font-weight:800;color:var(--charcoal);text-transform:uppercase;letter-spacing:.04em;}
+  .weekly-gantt-time-head{overflow:hidden;}
+  .weekly-gantt-week{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:7px;border-left:1px solid #DDE2E8;font-size:10px;font-weight:700;color:var(--muted);white-space:nowrap;}
+  .weekly-gantt-label{position:sticky;left:0;z-index:6;min-height:50px;padding:6px 10px;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid #EEF1F4;overflow:hidden;}
+  .weekly-gantt-label .task-top,.weekly-gantt-label .task-bottom{display:flex;align-items:center;gap:7px;min-width:0;}
+  .weekly-gantt-label .task-code{flex:0 0 auto;font:700 10px/1.3 var(--mono);color:var(--muted);}
+  .weekly-gantt-label .task-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;font-weight:700;color:var(--charcoal);}
+  .weekly-gantt-label .task-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px;color:var(--muted);}
+  .weekly-gantt-label .task-status{flex:0 0 auto;border-radius:4px;padding:2px 5px;font-size:9px;font-weight:800;}
+  .weekly-gantt-label .task-status.complete{background:#DCFCE7;color:#166534;}.weekly-gantt-label .task-status.progress{background:#DBEAFE;color:#1D4ED8;}.weekly-gantt-label .task-status.not-started{background:#E2E8F0;color:#475569;}.weekly-gantt-label .task-status.delayed,.weekly-gantt-label .task-status.overdue{background:#FEE2E2;color:#991B1B;}
+  .weekly-gantt-timeline{position:relative;min-height:50px;border-bottom:1px solid #EEF1F4;background-color:#fff;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--week-width) - 1px),#EEF1F4 calc(var(--week-width) - 1px),#EEF1F4 var(--week-width));}
+  .weekly-gantt-phase-label{position:sticky;left:0;z-index:6;height:32px;display:flex;align-items:center;padding:0 11px;background:#EEF2F7;border-right:1px solid var(--line);border-bottom:1px solid #DDE2E8;font-size:11px;font-weight:800;color:var(--charcoal);}
+  .weekly-gantt-phase-row{position:relative;height:32px;background:#EEF2F7;border-bottom:1px solid #DDE2E8;}
+  .weekly-gantt-bar{position:absolute;top:17px;height:17px;min-width:4px;border-radius:4px;box-shadow:0 1px 2px rgba(15,23,42,.18);overflow:hidden;z-index:3;}
+  .weekly-gantt-bar.complete{background:#16A34A;}.weekly-gantt-bar.progress{background:#3B82F6;}.weekly-gantt-bar.not-started{background:#94A3B8;}.weekly-gantt-bar.delayed,.weekly-gantt-bar.overdue{background:#DC2626;}
+  .weekly-gantt-bar-progress{position:absolute;left:0;top:0;height:100%;background:#15803D;z-index:2;}
+  .weekly-gantt-bar-delay{position:absolute;top:0;height:100%;background:#FCA5A5;z-index:1;}
+  .weekly-gantt-selected-line{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;z-index:2;pointer-events:none;}
+  .weekly-gantt-selected-line::before{content:"";position:absolute;top:0;left:-3px;width:8px;height:8px;background:#DC2626;transform:rotate(45deg);}
+  .weekly-gantt-zigzag{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:visible;}
+  .weekly-gantt-zigzag polyline,.weekly-gantt-zigzag circle{vector-effect:non-scaling-stroke;}
+  .weekly-gantt-empty{grid-column:1/-1;padding:22px;text-align:center;color:var(--muted);font-size:12px;background:#fff;}
+  @media (max-width:760px){.weekly-gantt-grid{grid-template-columns:250px auto;}.weekly-gantt-board-head{align-items:flex-start;}.weekly-gantt-board-head label{width:100%;justify-content:space-between;}.weekly-gantt-board-head select{flex:1;}}
   #pileGeoChartWrap:fullscreen, #pileGeoChartWrap:-webkit-full-screen{background:#fff;padding:20px;display:flex;flex-direction:column;overflow:auto;}
   #pileGeoChartWrap:fullscreen #pileGeoCanvasWrap, #pileGeoChartWrap:-webkit-full-screen #pileGeoCanvasWrap{height:calc(100vh - 180px) !important;flex:1 1 auto;}
   #briefPileGeoWrap:fullscreen, #briefPileGeoWrap:-webkit-full-screen{background:#fff;padding:20px;display:flex;flex-direction:column;overflow:auto;}
@@ -216,6 +301,7 @@
   .dash-weekpicker-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .dash-weekpicker-row select{max-width:260px;}
   .vp-plan-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  #weeklyReportTabs{position:sticky;top:29px;z-index:19;padding:8px 0;background:var(--paper);}
   .vp-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
   .vp-filter-btn{padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);}
   .vp-filter-btn.active{background:var(--charcoal);border-color:var(--charcoal);color:#fff;}
@@ -415,6 +501,10 @@
   .modal-head h2{font-family:var(--disp);font-size:15px;margin:0;color:var(--charcoal);}
   .modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:4px;}
   .photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .photo-day-group + .photo-day-group{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);}
+  .photo-day-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--charcoal);}
+  .photo-day-count{padding:2px 7px;border-radius:4px;background:#EEF1F5;color:var(--muted);font:700 10px var(--mono);}
+  .photo-day-group .photo-grid{margin-top:8px;}
   .photo-thumb{position:relative;width:74px;height:74px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:#EEF1F5;}
   .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
   .photo-thumb .rm{position:absolute;top:2px;right:2px;background:rgba(15,23,42,.65);color:#fff;border:none;border-radius:50%;width:19px;height:19px;font-size:12px;line-height:19px;text-align:center;cursor:pointer;padding:0;}
@@ -1588,6 +1678,7 @@
           ['schedule','project_schedule_activities','sort_order.asc'], ['scheduleHistory','project_schedule_progress_history','snapshot_date.asc'],
           ['visualPlans','visual_progress_plans','sort_order.asc'], ['visualMarks','visual_progress_marks','mark_date.asc'],
           ['permits','construction_permits','required_date.asc'], ['procurement','procurement_items','required_on_site_date.asc'],
+          ['procurementStageActuals','procurement_stage_actuals','task_code.asc'],
           ['inspectionRequests','qa_inspection_requests','requested_date.asc'], ['ncr','ncr_records','issue_date.asc'],
           ['issues','site_log_issues','due_date.asc'], ['snapshots','weekly_project_reports','week_end.desc'],
           ['safetyKpi','safety_kpi_categories','sort_order.asc'], ['hseSettings','safety_hse_settings','id.asc']
@@ -1609,9 +1700,22 @@
         let activeTab = 'hse';
         let weeklyGanttPlanMode = 'forecast';
         const dateIn = (rows, key, start, end) => rows.filter(row => row[key] && row[key] >= start && row[key] <= end);
-        const statusPill = value => `<span class="pill ${value==='Closed'||value==='Approved'||value==='Delivered'||value==='Pass'?'status-closed':value==='Delayed'||value==='Rejected'||value==='Fail'||value==='Overdue'?'status-overdue':'status-in-progress'}">${escapeHtml(value || '-')}</span>`;
+        const statusPill = value => `<span class="pill ${value==='Closed'||value==='Approved'||value==='Delivered'||value==='Pass'||value==='Completed'?'status-closed':value==='Delayed'||value==='Rejected'||value==='Fail'||value==='Overdue'||value==='Cancelled'?'status-overdue':'status-in-progress'}">${escapeHtml(value || '-')}</span>`;
         const dateText = value => escapeHtml(value || '-');
         const photosOf = row => Array.isArray(row.photo_urls) ? row.photo_urls : [];
+        const procurementStageDefs = [
+          { code:'RFQ', label:'Request for Quotation (RFQ)', pattern:/request\s+for\s+quotation|\brfq\b/i },
+          { code:'RQ', label:'Received Quotation (RQ)', pattern:/received\s+quotation|\brq\b/i },
+          { code:'PO', label:'Purchase Order (PO)', pattern:/purchase\s+order|\bpo\b/i },
+          { code:'MOS', label:'Material on Site (MOS)', pattern:/material\s+on\s+site|\bmos\b/i }
+        ];
+        function procurementStageFor(row){
+          if(String(row.discipline || '').toUpperCase() !== 'PRO') return null;
+          return procurementStageDefs.find(stage => stage.pattern.test(String(row.task_name || ''))) || null;
+        }
+        function procurementItemName(row, stage){
+          return String(row.task_name || row.task_code || 'Procurement Item').replace(stage.pattern, '').replace(/\(\s*(?:RFQ|RQ|PO|MOS)\s*\)/ig, '').replace(/^[\s\-–—:|]+|[\s\-–—:|]+$/g, '').replace(/\s+/g, ' ').trim() || 'Procurement Item';
+        }
         function rangeFor(weekEnd){ return { start:addDays(weekEnd, -6), end:weekEnd, nextStart:addDays(weekEnd, 1), nextEnd:addDays(weekEnd, 7), lookaheadEnd:addDays(weekEnd, 21) }; }
         function weightedProgress(rows, accessor){ const weight = rows.reduce((sum,row) => sum + (Number(row.weight_factor)||0), 0); return weight ? rows.reduce((sum,row) => sum + (Number(row.weight_factor)||0) * (Number(accessor(row))||0), 0) / weight : 0; }
         // ช่วงวันของทั้งโครงการ (วันแรกสุด - วันสุดท้ายสุด ของทุก Activity รวมวันที่ Forecast ด้วย) ใช้เป็นแกนเวลาร่วมของ S-Curve ทั้ง 4 กราฟ
@@ -1662,8 +1766,11 @@
           const recognition = dateIn(sources.findings, 'finding_date', range.start, range.end).filter(row => row.category === 'ชื่นชม');
           const daily = dateIn(sources.daily, 'report_date', range.start, range.end);
           const qc = dateIn(sources.qc, 'inspection_date', range.start, range.end);
-          const permits = sources.permits.filter(row => (row.required_date && row.required_date <= range.end) || (row.expiry_date && row.expiry_date <= range.end));
+          // ยอดสะสมของ QC/RFI/FIR ตั้งแต่เริ่มโครงการถึงสิ้นสัปดาห์ที่เลือก — ใช้วันที่ inspection_date หรือ planned_inspection_date เป็นตัวตัดรอบ รายการที่ยังไม่มีวันที่ (ยัง Open ค้างอยู่) นับรวมด้วยเสมอ
+          const qcCumulative = sources.qc.filter(row => { const date = row.inspection_date || row.planned_inspection_date; return !date || date <= range.end; });
+          const permits = sources.permits;
           const procurement = sources.procurement.filter(row => row.required_on_site_date && row.required_on_site_date >= range.start && row.required_on_site_date <= range.lookaheadEnd);
+          const procurementStages = sources.schedule.filter(row => procurementStageFor(row));
           const rfiFir = sources.inspectionRequests.filter(row => row.requested_date && row.requested_date <= range.end && (!row.closed_date || row.closed_date >= range.start));
           const ncr = sources.ncr.filter(row => row.issue_date && row.issue_date <= range.end && (!row.closed_date || row.closed_date >= range.start));
           const schedulesThis = sources.schedule.filter(row => row.start_date && row.end_date && row.start_date <= range.end && row.end_date >= range.start);
@@ -1682,7 +1789,7 @@
           const scheduleActual = weightedProgress(sources.schedule, row => row.progress_pct);
           const pendingIssues = sources.issues.filter(row => row.status !== 'Closed').map(row => ({ issue_no:row.issue_no || 'Issue', follow_up_issue:row.follow_up_issue || row.note || '-', due_date:row.due_date, status:row.status }))
             .concat(sources.findings.filter(row => row.status !== 'Closed' && row.due_date && row.due_date <= range.end).map(row => ({ issue_no:row.finding_number || 'Finding', follow_up_issue:row.description || '-', due_date:row.due_date, status:row.status })), sources.ncr.filter(row => row.status !== 'Closed').map(row => ({ issue_no:row.ncr_no || 'NCR', follow_up_issue:row.title || '-', due_date:row.due_date, status:row.status })));
-          return { weekEnd, range, hse, recognition, previousHse, daily, qc, permits, procurement, rfiFir, ncr, schedulesThis, schedulesNext, milestones, scurveBounds, scurveSets, scheduleActual, pendingIssues };
+          return { weekEnd, range, hse, recognition, previousHse, daily, qc, qcCumulative, permits, procurement, procurementStages, rfiFir, ncr, ncrAll:sources.ncr, schedulesThis, schedulesNext, milestones, scurveBounds, scurveSets, scheduleActual, pendingIssues };
         }
         function getSnapshot(weekEnd){ const row = sources.snapshots.find(item => item.week_end === weekEnd); return row ? (row.payload || {}) : {}; }
         function aiBriefText(model){
@@ -1721,8 +1828,152 @@
         async function copyAiBrief(text){
           try{ await navigator.clipboard.writeText(text); return true; }catch(e){ const textarea=document.createElement('textarea'); textarea.value=text; textarea.style.position='fixed'; textarea.style.opacity='0'; document.body.appendChild(textarea); textarea.select(); const copied=document.execCommand('copy'); document.body.removeChild(textarea); return copied; }
         }
-        function sourceNotice(keys){ const labels = keys.filter(key => unavailable[key]).map(key => ({ permits:'Permit register', procurement:'Procurement register', inspectionRequests:'RFI/FIR register', ncr:'NCR register', visualPlans:'Visual Progress', visualMarks:'Visual marks', issues:'Site Log Issue' })[key] || key); return labels.length ? `<div class="dash-note">ยังไม่มี source: ${escapeHtml(labels.join(', '))} · รัน SQL schema หรือเพิ่มข้อมูลก่อน</div>` : ''; }
-        function recordTable(rows, columns, empty){ return rows.length ? `<div style="overflow-x:auto;"><table class="kpi-table"><thead><tr>${columns.map(column => `<th>${escapeHtml(column[1])}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(([key]) => `<td>${key==='status'||key==='result' ? statusPill(row[key]) : dateText(row[key])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : `<div class="dash-empty">${escapeHtml(empty)}</div>`; }
+        function sourceNotice(keys){ const labels = keys.filter(key => unavailable[key]).map(key => ({ permits:'Permit register', procurement:'Procurement register', procurementStageActuals:'Procurement Stage Actuals', inspectionRequests:'RFI/FIR register', ncr:'NCR register', qc:'QC / RFI-FIR register', visualPlans:'Visual Progress', visualMarks:'Visual marks', issues:'Site Log Issue' })[key] || key); return labels.length ? `<div class="dash-note">ยังไม่มี source: ${escapeHtml(labels.join(', '))} · รัน SQL schema หรือเพิ่มข้อมูลก่อน</div>` : ''; }
+        function recordTable(rows, columns, empty, editRegister){
+          if(!rows.length) return `<div class="dash-empty">${escapeHtml(empty)}</div>`;
+          const actionHeader = editRegister ? '<th>Actions</th>' : '';
+          return `<div style="overflow-x:auto;"><table class="kpi-table"><thead><tr>${columns.map(column => `<th>${escapeHtml(column[1])}</th>`).join('')}${actionHeader}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(([key]) => `<td>${key==='status'||key==='result'||key==='rfi_status'||key==='fir_status' ? statusPill(row[key]) : dateText(row[key])}</td>`).join('')}${editRegister ? `<td class="weekly-record-actions"><div style="display:flex;gap:6px;justify-content:flex-end;"><button type="button" class="btn btn-ghost weekly-record-edit" data-register="${escapeHtml(editRegister)}" data-record-id="${escapeHtml(row.id)}">Edit</button><button type="button" class="btn btn-danger weekly-record-delete" data-register="${escapeHtml(editRegister)}" data-record-id="${escapeHtml(row.id)}">Delete</button></div></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+        }
+        function renderProcurementPlanTable(rows, actualRows, actualAvailable){
+          const groups = new Map();
+          rows.forEach(row => {
+            const stage = procurementStageFor(row);
+            if(!stage) return;
+            const itemName = procurementItemName(row, stage);
+            const area = String(row.area || '').trim(), packageName = String(row.package || '').trim();
+            const groupKey = [packageName,area,itemName.toLocaleLowerCase()].join('|');
+            if(!groups.has(groupKey)) groups.set(groupKey, { itemName, area, packageName, steps:new Map() });
+            groups.get(groupKey).steps.set(stage.code, row);
+          });
+          if(!groups.size) return '<div class="procurement-gantt-empty">ยังไม่มีกิจกรรมจัดซื้อที่ระบุ RFQ, RQ, PO หรือ MOS</div>';
+          const actualByTask = new Map(actualRows.map(row => [String(row.task_code), row.actual_date || '']));
+          const allDates = [];
+          groups.forEach(group => procurementStageDefs.forEach(stage => {
+            const activity = group.steps.get(stage.code);
+            if(!activity) return;
+            const planDate = activity.forecast_end_date || activity.forecast_start_date;
+            const actualDate = actualByTask.get(String(activity.task_code));
+            if(planDate) allDates.push(planDate);
+            if(actualDate) allDates.push(actualDate);
+          }));
+          if(!allDates.length) return '<div class="procurement-gantt-empty">ยังไม่มีวัน Forecast Plan หรือ Actual สำหรับแสดงบน Timeline</div>';
+          const dayMs = 86400000, parsedDates = allDates.map(value => Date.parse(value + 'T00:00:00Z')).filter(Number.isFinite);
+          const earliest = new Date(Math.min(...parsedDates)), latest = new Date(Math.max(...parsedDates));
+          const timelineStart = Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), 1);
+          const timelineEnd = Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth() + 1, 0);
+          const dayCount = Math.round((timelineEnd - timelineStart) / dayMs) + 1, pixelsPerDay = 8, plotOffset = 40;
+          const timelineWidth = Math.max(720, dayCount * pixelsPerDay + plotOffset * 2), weekPixels = pixelsPerDay * 7;
+          const xForDate = value => plotOffset + Math.max(0, (Date.parse(value + 'T00:00:00Z') - timelineStart) / dayMs) * pixelsPerDay;
+          const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          const monthTicks = [];
+          for(let monthStart=timelineStart; monthStart<=timelineEnd;){
+            const date = new Date(monthStart), year = date.getUTCFullYear(), month = date.getUTCMonth();
+            const days = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+            monthTicks.push(`<div class="procurement-gantt-month" style="left:${plotOffset + (monthStart-timelineStart)/dayMs*pixelsPerDay}px;width:${days*pixelsPerDay}px;">${monthLabels[month]} ${year}</div>`);
+            monthStart = Date.UTC(year, month + 1, 1);
+          }
+          let firstWeek = timelineStart;
+          while(new Date(firstWeek).getUTCDay() !== 1) firstWeek += dayMs;
+          const weekTicks = [];
+          for(let tick=firstWeek;tick<=timelineEnd;tick+=7*dayMs){
+            const date = new Date(tick);
+            weekTicks.push(`<div class="procurement-gantt-week" style="left:${plotOffset + (tick-timelineStart)/dayMs*pixelsPerDay}px;">${date.getUTCDate()}</div>`);
+          }
+          const compactDate = value => { const date = new Date(value + 'T00:00:00Z'); return `${date.getUTCDate()} ${monthLabels[date.getUTCMonth()]}`; };
+          const rowsHtml = Array.from(groups.values()).sort((left,right) => left.itemName.localeCompare(right.itemName, 'th') || left.area.localeCompare(right.area, 'th')).map(group => {
+            const meta = [group.area,group.packageName].filter(Boolean).join(' · ');
+            const taskCodes = Array.from(group.steps.values()).map(row => row.task_code).join('|');
+            const lanes = procurementStageDefs.map(stage => {
+              const activity = group.steps.get(stage.code);
+              if(!activity) return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track"></div></div>`;
+              const planDate = activity.forecast_end_date || activity.forecast_start_date || '';
+              const actualDate = actualByTask.get(String(activity.task_code)) || '';
+              const colorClass = `procurement-gantt-${stage.code.toLowerCase()}`;
+              const planMarker = planDate ? `<span class="procurement-gantt-event plan ${colorClass}" style="left:${xForDate(planDate)}px;" title="${escapeHtml(stage.label + ' · Forecast Plan · ' + planDate)}">P ${escapeHtml(compactDate(planDate))}</span>` : '';
+              const actualMarker = actualDate ? `<span class="procurement-gantt-event actual ${colorClass}" style="left:${xForDate(actualDate)}px;" title="${escapeHtml(stage.label + ' · Actual · ' + actualDate)}">A ${escapeHtml(compactDate(actualDate))}</span>` : '';
+              return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track">${planMarker}${actualMarker}</div></div>`;
+            }).join('');
+            return `<div class="procurement-gantt-group"><div class="procurement-gantt-material"><span class="procurement-gantt-material-name">${escapeHtml(group.itemName)}</span>${meta ? `<span class="procurement-gantt-material-meta">${escapeHtml(meta)}</span>` : ''}<button type="button" class="btn btn-ghost weekly-procurement-edit" data-procurement-edit data-task-codes="${escapeHtml(taskCodes)}" ${actualAvailable?'':'disabled'}>Edit Actual</button></div><div class="procurement-gantt-lanes">${lanes}</div></div>`;
+          }).join('');
+          return `<div class="procurement-gantt-legend"><span><i class="procurement-gantt-swatch procurement-gantt-rfq"></i>RFQ</span><span><i class="procurement-gantt-swatch procurement-gantt-rq"></i>RQ</span><span><i class="procurement-gantt-swatch procurement-gantt-po"></i>PO</span><span><i class="procurement-gantt-swatch procurement-gantt-mos"></i>MOS</span><span><i class="procurement-gantt-swatch"></i>Plan</span><span><i class="procurement-gantt-swatch actual"></i>Actual</span></div><div class="procurement-gantt-scroll"><div class="procurement-gantt-board" style="--time-width:${timelineWidth}px;--week-px:${weekPixels}px;"><div class="procurement-gantt-header"><div class="procurement-gantt-head-label">Material / Area</div><div class="procurement-gantt-axis"><div class="procurement-gantt-axis-spacer"></div><div class="procurement-gantt-time"><div class="procurement-gantt-months">${monthTicks.join('')}</div><div class="procurement-gantt-weeks">${weekTicks.join('')}</div></div></div></div>${rowsHtml}</div></div>`;
+        }
+        function openProcurementActivitiesModal(onSaved){
+          const modal = $('#modalContent');
+          modal.innerHTML = `<div class="modal-head"><h2>+ Add Procurement Activities</h2><button class="modal-close" id="procurementActivitiesClose">&times;</button></div><div class="form-grid"><div class="field"><label for="procurementItemName">Material / Service</label><input id="procurementItemName" type="text" required placeholder="e.g. Steel Structure"></div><div class="two-col"><div class="field"><label for="procurementPackage">Package</label><input id="procurementPackage" type="text" value="PKG1"></div><div class="field"><label for="procurementArea">Area</label><input id="procurementArea" type="text" value="COM"></div></div>${procurementStageDefs.map(stage => `<div class="field"><label for="procurementPlan_${stage.code}">${stage.label} · Forecast Plan</label><input id="procurementPlan_${stage.code}" type="date" required></div>`).join('')}</div><div class="btn-row"><button type="button" class="btn btn-primary" id="procurementActivitiesSave">Add 4 Activities</button><button type="button" class="btn btn-ghost" id="procurementActivitiesCancel">Cancel</button></div>`;
+          const close = () => closeModal();
+          $('#procurementActivitiesClose').addEventListener('click', close);
+          $('#procurementActivitiesCancel').addEventListener('click', close);
+          $('#procurementActivitiesSave').addEventListener('click', async event => {
+            const itemName = $('#procurementItemName').value.trim();
+            const packageName = $('#procurementPackage').value.trim() || 'PKG1';
+            const area = $('#procurementArea').value.trim() || 'COM';
+            const planDates = procurementStageDefs.map(stage => $('#procurementPlan_' + stage.code).value);
+            if(!itemName || planDates.some(date => !date)){ showToast('กรุณากรอก Material และ Forecast Plan ครบทั้ง 4 ขั้น', true); return; }
+            const duplicate = sources.schedule.some(row => {
+              const stage = procurementStageFor(row);
+              return stage && String(row.package || '').toLowerCase() === packageName.toLowerCase() && String(row.area || '').toLowerCase() === area.toLowerCase() && procurementItemName(row, stage).toLowerCase() === itemName.toLowerCase();
+            });
+            if(duplicate){ showToast('มี Procurement Activities ของ Material / Area / Package นี้แล้ว', true); return; }
+            const prefix = `PRO.${packageName}.${area}.`;
+            let sequence = sources.schedule.filter(row => String(row.task_code || '').startsWith(prefix)).reduce((max,row) => Math.max(max, Number(String(row.task_code).split('.').pop()) || 0), 0);
+            const existingCodes = new Set(sources.schedule.map(row => String(row.task_code || '')));
+            const sortOrder = sources.schedule.reduce((max,row) => Math.max(max, Number(row.sort_order) || 0), 0) + 1;
+            const activities = procurementStageDefs.map((stage,index) => {
+              let taskCode;
+              do{ sequence += 10; taskCode = `${prefix}C.${String(sequence).padStart(4,'0')}`; }while(existingCodes.has(taskCode));
+              existingCodes.add(taskCode);
+              const planDate = planDates[index];
+              return { task_code:taskCode, status_code:'Not Started', wbs_id:null, discipline:'PRO', discipline_label:'PRO', package:packageName, area, task_name:`${itemName} - ${stage.label}`, start_date:planDate, end_date:planDate, forecast_start_date:planDate, forecast_end_date:planDate, is_milestone:true, sort_order:sortOrder+index, progress_pct:0, wbs_discipline:null, weight_factor:0, updated_at:new Date().toISOString() };
+            });
+            const button = event.currentTarget, oldText = button.textContent;
+            button.disabled = true; button.textContent = 'Saving...';
+            try{
+              const response = await fetch(SUPABASE_URL + '/rest/v1/project_schedule_activities', { method:'POST', headers:{ ...HEADERS, 'Prefer':'return=representation' }, body:JSON.stringify(activities) });
+              if(!response.ok) throw new Error('save failed: ' + response.status);
+              const inserted = await response.json();
+              sources.schedule.push(...(Array.isArray(inserted) && inserted.length ? inserted : activities));
+              close(); showToast('เพิ่ม Procurement Activities 4 ขั้นแล้ว'); onSaved();
+            }catch(error){ showToast('เพิ่ม Activities ไม่สำเร็จ: ' + error.message, true); button.disabled = false; button.textContent = oldText; }
+          });
+          $('#modalBg').classList.add('show');
+        }
+        function openProcurementActualModal(rows, onSaved){
+          const modal = $('#modalContent'), actualByTask = new Map(sources.procurementStageActuals.map(row => [String(row.task_code), row.actual_date || '']));
+          const stageRows = rows.map(row => ({ row, stage:procurementStageFor(row) })).filter(item => item.stage);
+          modal.innerHTML = `<div class="modal-head"><h2>Edit Procurement Actuals</h2><button class="modal-close" id="procurementActualClose">&times;</button></div><div class="form-grid"><div style="font-size:13px;font-weight:700;color:var(--charcoal);">${escapeHtml(stageRows.length ? procurementItemName(stageRows[0].row, stageRows[0].stage) : 'Procurement Item')}</div>${stageRows.map(({row,stage}) => `<div class="field"><label for="procurementActual_${stage.code}">${stage.label} · Actual</label><input id="procurementActual_${stage.code}" type="date" data-procurement-actual-edit data-task-code="${escapeHtml(row.task_code)}" value="${escapeHtml(actualByTask.get(String(row.task_code)) || '')}"></div>`).join('')}</div><div class="btn-row"><button type="button" class="btn btn-primary" id="procurementActualSave">Save Actual</button><button type="button" class="btn btn-ghost" id="procurementActualCancel">Cancel</button></div>`;
+          const close = () => closeModal();
+          $('#procurementActualClose').addEventListener('click', close);
+          $('#procurementActualCancel').addEventListener('click', close);
+          $('#procurementActualSave').addEventListener('click', async event => {
+            const payload = Array.from(modal.querySelectorAll('[data-procurement-actual-edit]')).map(input => ({ task_code:input.dataset.taskCode, actual_date:input.value || null, updated_at:new Date().toISOString() }));
+            const button = event.currentTarget, oldText = button.textContent;
+            button.disabled = true; button.textContent = 'Saving...';
+            try{
+              const response = await fetch(SUPABASE_URL + '/rest/v1/procurement_stage_actuals?on_conflict=task_code', { method:'POST', headers:{ ...HEADERS, 'Prefer':'resolution=merge-duplicates,return=minimal' }, body:JSON.stringify(payload) });
+              if(!response.ok) throw new Error('save failed: ' + response.status);
+              payload.forEach(saved => {
+                const current = sources.procurementStageActuals.find(row => String(row.task_code) === saved.task_code);
+                if(current) current.actual_date = saved.actual_date;
+                else sources.procurementStageActuals.push(saved);
+              });
+              close(); showToast('บันทึก Actual แล้ว'); onSaved();
+            }catch(error){ showToast('บันทึก Actual ไม่สำเร็จ: ' + error.message, true); button.disabled = false; button.textContent = oldText; }
+          });
+          $('#modalBg').classList.add('show');
+        }
+        function renderWeeklyActivityGroups(rows, empty){
+          const columns = [['task_code','Code'],['task_name','Activity'],['area','Area'],['start_date','Start'],['end_date','End'],['status_code','Status']];
+          if(!rows.length) return recordTable(rows, columns, empty);
+          const groups = new Map();
+          rows.forEach(row => {
+            const prefix = String(row.task_code || '').split('.')[0].toUpperCase();
+            const group = prefix === 'PRO' || prefix === 'CON' ? prefix : 'OTHER';
+            if(!groups.has(group)) groups.set(group, []);
+            groups.get(group).push(row);
+          });
+          const labels = { PRO:'PRO · Procurement', CON:'CON · Construction', OTHER:'Other Activities' };
+          return `<div class="weekly-activity-groups">${['PRO','CON','OTHER'].filter(group => groups.has(group)).map(group => `<section class="weekly-activity-group weekly-activity-${group.toLowerCase()}"><h4>${labels[group]}<span>${groups.get(group).length}</span></h4>${recordTable(groups.get(group), columns, empty)}</section>`).join('')}</div>`;
+        }
         function renderActivityGanttTable(rows, selectedWeekEnd, planMode){
           if(!rows.length) return `<div class="dash-empty">ยังไม่มี Activities ใน Project Schedule</div>`;
           const validRows = rows.filter(row => row.task_name || row.task_code).map(row => ({
@@ -1751,7 +2002,6 @@
             return 'not-started';
           };
           const shortDate = iso => iso.slice(8) + '/' + iso.slice(5, 7);
-          const header = weekStarts.map(start => `<div class="week-cell${mondayOfWeek(start) === selectedWeekEnd ? ' selected-week-end' : ''}"${mondayOfWeek(start) === selectedWeekEnd ? ` title="สิ้นสุดสัปดาห์ที่เลือก: ${escapeHtml(selectedWeekEnd)}"` : ''}>${shortDate(start)}-${shortDate(mondayOfWeek(start))}</div>`).join('');
           const dateNumber = iso => new Date(iso + 'T00:00:00').getTime();
           const timelineX = date => {
             const timestamp = Math.max(dateNumber(projectStart), Math.min(dateNumber(cutoff), date));
@@ -1760,53 +2010,59 @@
             const days = Math.round((dateNumber(weekEnd) - dateNumber(weekStart)) / 86400000) + 1;
             return (index + ((timestamp - dateNumber(weekStart)) / 86400000 + .5) / days) / weekStarts.length * 1000;
           };
-          const referenceX = timelineX(dateNumber(selectedWeekEnd));
+          const timelineWidth = weekStarts.length * 96;
+          const timelineLeft = iso => timelineX(dateNumber(iso)) / 1000 * timelineWidth;
+          const selectedWeekX = timelineLeft(selectedWeekEnd);
           const rowHtml = row => {
             const percentLabel = row.progress_pct !== undefined && row.progress_pct !== null ? `${Number(row.progress_pct).toFixed(0)}%` : '';
-            const isDelayed = row.status !== 'Completed' && (row.status === 'Delay' || row.status === 'Delayed' || (row.end < selectedWeekEnd && row.status !== 'Overdue'));
-            const statusKey = isDelayed ? 'delayed' : statusClass(row.status);
             const progress = Math.max(0, Math.min(100, Number(row.progress_pct) || 0));
-            const progressX = timelineX(dateNumber(row.start) + (dateNumber(row.end) - dateNumber(row.start)) * progress / 100);
-            return `<div class="zigzag-gantt-row" style="--week-count:${weekStarts.length};">
-              <div class="label-cell">
-                <div class="task-line"><span class="task-code" title="${escapeHtml(row.task_code || '—')}">${escapeHtml(row.task_code || '—')}</span><span class="task-meta" title="AREA: ${escapeHtml(row.area || '-')} · Start: ${escapeHtml(row.start)}">${escapeHtml(row.area || '-')} · ${escapeHtml(row.start)}</span></div>
-                <div class="task-line"><span class="task-name" title="${escapeHtml(row.task_name || 'Untitled')}">${escapeHtml(row.task_name || 'Untitled')}</span><span class="task-status ${statusKey}">${escapeHtml(isDelayed ? 'Delay' : row.status || 'Not Started')}</span></div>
+            const startX = timelineLeft(row.start);
+            const endX = timelineLeft(row.end);
+            const barWidth = Math.max(4, endX - startX);
+            const progressX = startX + barWidth * progress / 100;
+            const reportX = Math.max(startX, Math.min(endX, selectedWeekX));
+            const plannedProgress = selectedWeekX <= startX ? 0 : selectedWeekX >= endX ? 100 : (selectedWeekX - startX) / barWidth * 100;
+            const isCompleted = row.status === 'Completed' || progress >= 100;
+            const isDelayed = !isCompleted && (row.status === 'Delay' || row.status === 'Delayed' || row.status === 'Overdue' || plannedProgress > progress);
+            const statusKey = isDelayed ? 'delayed' : statusClass(row.status);
+            const barStatusKey = isCompleted ? 'complete' : progress > 0 ? 'progress' : 'not-started';
+            const showZigzag = !isCompleted && (row.status === 'In Progress' || isDelayed);
+            const delayLeft = progress / 100 * barWidth;
+            const delayWidth = isDelayed ? Math.max(0, reportX - progressX) : 0;
+            const title = `${row.task_name || row.task_code || 'Activity'} · ${row.start} → ${row.end}${percentLabel ? ' · ' + percentLabel : ''}`;
+            return `<div class="weekly-gantt-label">
+                <div class="task-top"><span class="task-code">${escapeHtml(row.task_code || '—')}</span><span class="task-meta">${escapeHtml(row.area || '-')} · ${escapeHtml(row.start)} → ${escapeHtml(row.end)}</span></div>
+                <div class="task-bottom"><span class="task-name" title="${escapeHtml(row.task_name || 'Untitled')}">${escapeHtml(row.task_name || 'Untitled')}</span><span class="task-status ${statusKey}">${escapeHtml(isDelayed ? 'Delay' : row.status || 'Not Started')}</span></div>
               </div>
-              ${weekStarts.map(weekStart => {
-                const weekEnd = mondayOfWeek(weekStart);
-                const overlap = row.start <= weekEnd && row.end >= weekStart;
-                const firstDay = row.start > weekStart ? row.start : weekStart;
-                const lastDay = row.end < weekEnd ? row.end : weekEnd;
-                const weekDays = Math.round((new Date(weekEnd + 'T00:00:00') - new Date(weekStart + 'T00:00:00')) / 86400000) + 1;
-                const left = Math.round((new Date(firstDay + 'T00:00:00') - new Date(weekStart + 'T00:00:00')) / 86400000) / weekDays * 100;
-                const days = Math.round((new Date(lastDay + 'T00:00:00') - new Date(firstDay + 'T00:00:00')) / 86400000) + 1;
-                const barStyle = overlap ? `style="left:${left}%;width:${days / weekDays * 100}%;"` : '';
-                return `<div class="week-cell${weekEnd === selectedWeekEnd ? ' selected-week-end' : ''}">${overlap ? `<div class="zigzag-milestone ${statusKey}" ${barStyle} title="${escapeHtml(row.task_name)} · ${escapeHtml(row.start)} → ${escapeHtml(row.end)}${percentLabel ? ' · ' + percentLabel : ''}"></div>` : ''}</div>`;
-              }).join('')}
-              <svg class="zigzag-progress-line ${statusKey}" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points="${referenceX},8 ${progressX},50 ${referenceX},92" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 3"/>
-                <circle cx="${progressX}" cy="50" r="4" fill="currentColor"/>
-              </svg>
-            </div>`;
+              <div class="weekly-gantt-timeline" style="--week-width:96px;width:${timelineWidth}px;">
+                <div class="weekly-gantt-selected-line" style="left:${selectedWeekX}px;"></div>
+                <div class="weekly-gantt-bar ${barStatusKey}" style="left:${startX}px;width:${barWidth}px;" title="${escapeHtml(title)}"><span class="weekly-gantt-bar-progress" style="width:${progress}%;"></span>${delayWidth > 0 ? `<span class="weekly-gantt-bar-delay" style="left:${delayLeft}px;width:${delayWidth}px;"></span>` : ''}</div>
+                ${showZigzag ? `<svg class="weekly-gantt-zigzag" data-status="${escapeHtml(isDelayed ? 'Delay' : row.status)}" viewBox="0 0 ${timelineWidth} 50" preserveAspectRatio="none" aria-hidden="true">
+                  <polyline points="${selectedWeekX},0 ${progressX},25 ${selectedWeekX},50" fill="none" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="5 3" opacity=".9"/>
+                  <circle cx="${progressX}" cy="25" r="3.5" fill="#DC2626"/>
+                </svg>` : ''}
+              </div>`;
           };
           const areaOrder = (left, right) => !left.area ? (!right.area ? 0 : 1) : !right.area ? -1 : String(left.area).localeCompare(String(right.area), 'th', { numeric:true });
+          const phaseHtml = ['CON', 'PRO', 'ASB'].map(phase => {
+            const phaseRows = visibleRows.filter(row => String(row.discipline || '').toUpperCase() === phase)
+              .sort((left, right) => areaOrder(left, right) || left.start.localeCompare(right.start) || String(left.task_code || '').localeCompare(String(right.task_code || ''), 'th', { numeric:true }));
+            return `<div class="weekly-gantt-phase-label">${phase} · ${phaseRows.length} Activities</div>
+              <div class="weekly-gantt-phase-row" style="width:${timelineWidth}px;"><div class="weekly-gantt-selected-line" style="left:${selectedWeekX}px;"></div></div>
+              ${phaseRows.length ? phaseRows.map(rowHtml).join('') : `<div class="weekly-gantt-empty">ไม่มี Activities ในหมวด ${phase} ในช่วงนี้</div>`}`;
+          }).join('');
           return `
-            <div class="dash-section"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><h3 style="margin:0;">Project Gantt Activities</h3><label for="weeklyGanttPlanMode" style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;">แผนที่แสดง<select id="weeklyGanttPlanMode" class="kpi-input" style="width:auto;min-width:150px;padding:6px 10px;"><option value="plan"${planMode === 'plan' ? ' selected' : ''}>Plan</option><option value="forecast"${planMode === 'forecast' ? ' selected' : ''}>Forecast Plan</option></select></label></div><div class="dash-note" style="margin-top:10px;">${escapeHtml(projectStart)} - ${escapeHtml(cutoff)} (${planMode === 'forecast' ? 'Forecast Plan' : 'Plan'} · สัปดาห์ที่เลือก + 8 สัปดาห์)</div></div>
-            ${['CON', 'PRO', 'ASB'].map(phase => {
-              const phaseRows = visibleRows.filter(row => String(row.discipline || '').toUpperCase() === phase)
-                .sort((left, right) => areaOrder(left, right) || left.start.localeCompare(right.start) || String(left.task_code || '').localeCompare(String(right.task_code || ''), 'th', { numeric:true }));
-              return `<section class="dash-section weekly-gantt-phase"><h3>${phase} (${phaseRows.length})</h3>
-                <div class="zigzag-gantt-wrap">
-                  <div class="zigzag-gantt" style="--week-count:${weekStarts.length};min-width:${Math.max(760, 320 + weekStarts.length * 70)}px;">
-                    <div class="zigzag-gantt-header">
-                      <div class="label-cell">Activity</div>
-                      ${header}
-                    </div>
-                    ${phaseRows.length ? phaseRows.map(rowHtml).join('') : `<div class="dash-empty">ไม่มี Activities ในหมวด ${phase} ในช่วงนี้</div>`}
-                  </div>
+            <section class="dash-section weekly-gantt-board">
+              <div class="weekly-gantt-board-head"><h3>Project Gantt Activities</h3><label for="weeklyGanttPlanMode">แผนที่แสดง<select id="weeklyGanttPlanMode" class="kpi-input" style="width:auto;min-width:150px;padding:6px 10px;"><option value="plan"${planMode === 'plan' ? ' selected' : ''}>Plan</option><option value="forecast"${planMode === 'forecast' ? ' selected' : ''}>Forecast Plan</option></select></label></div>
+              <div class="weekly-gantt-range">${escapeHtml(projectStart)} → ${escapeHtml(cutoff)} · ${planMode === 'forecast' ? 'FORECAST PLAN' : 'BASELINE PLAN'} · REPORT WEEK ${escapeHtml(selectedWeekEnd)}</div>
+              <div class="weekly-gantt-scroll">
+                <div class="weekly-gantt-grid">
+                  <div class="weekly-gantt-corner">Activity ID / กิจกรรม</div>
+                  <div class="weekly-gantt-time-head" style="width:${timelineWidth}px;">${weekStarts.map((start,index) => `<div class="weekly-gantt-week" style="left:${index * 96}px;width:96px;">${shortDate(start)}–${shortDate(mondayOfWeek(start))}</div>`).join('')}<div class="weekly-gantt-selected-line" style="left:${selectedWeekX}px;"></div></div>
+                  ${phaseHtml}
                 </div>
-              </section>`;
-            }).join('')}
+              </div>
+            </section>
           `;
         }
         function weeklyFindingCards(rows, emptyText){
@@ -1826,17 +2082,18 @@
             const counts = ['Open','In Progress','Closed','Overdue'].map(status => [status, model.hse.filter(row => row.status===status).length]);
             const kpiCategories = sources.safetyKpi || [], hseSettings = (sources.hseSettings || []).find(row => row.id === 'default') || (sources.hseSettings || [])[0] || null;
             const cutoff = hseSettings && hseSettings.start_date ? hseSettings.start_date : model.range.start;
+            const cumulativeFindings = dateIn(sources.findings, 'finding_date', cutoff, model.range.end).filter(row => row.category !== 'ชื่นชม');
             const pyramidCounts = {
               lti:kpiTotal(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)')),
               mti:kpiTotal(findKpiByName(kpiCategories, 'Medical Treatment Injury (MTI)')),
               propertyDamage:kpiTotal(findKpiByName(kpiCategories, 'Property damage')),
-              nearMiss:model.hse.filter(row => row.finding_type === 'Near Miss').length,
-              unsafeFinding:model.hse.length,
+              nearMiss:cumulativeFindings.filter(row => row.finding_type === 'Near Miss').length,
+              unsafeFinding:cumulativeFindings.length,
             };
             const ltiWeekCount = Number(findKpiByName(kpiCategories, 'Loss Time Injury (LTI)').week_actual) || 0;
             const safeDays = hseSettings && hseSettings.start_date ? daysBetweenInclusive(hseSettings.start_date, model.range.end) : 0;
             const safeDayHtml = `<div class="safeday-card"><div><div style="font-weight:700;font-size:14px;color:var(--charcoal);">Safe Working Day Without LTI</div><div class="num">${safeDays}</div><div class="sub">Days (Total Acc.) ${hseSettings && hseSettings.start_date ? ('· เริ่มนับ ' + escapeHtml(hseSettings.start_date)) : '· ยังไม่ตั้งวันเริ่มนับ'}</div><span class="safeday-pill ${ltiWeekCount ? 'warn' : 'ok'}">${ltiWeekCount ? '⚠ เกิด LTI ' + ltiWeekCount + ' ครั้งสัปดาห์นี้' : '+0 this week'}</span></div><div class="safeday-check ${ltiWeekCount ? 'warn' : 'ok'}">${ltiWeekCount ? '⚠️' : '✅'}</div></div>`;
-            return `${sourceNotice(['findings','safetyKpi','hseSettings'])}<div class="dash-note">HSE Report ประจำสัปดาห์ ${model.range.start} - ${model.range.end} · Pyramid Near Miss / Unsafe Finding และรายการ Findings คำนวณจากข้อมูลในช่วงที่เลือก</div><div class="dash-section"><h3>Incident Performance Pyramid</h3>${renderIncidentPyramidHtml(pyramidCounts, cutoff)}</div>${kpiCategories.length ? `<div class="dash-section"><h3>Reportable KPI (Zero Target)</h3>${renderKpiTableHtml(kpiCategories)}</div><div class="dash-section"><h3>SHE KPI · Reportable (Zero Target)</h3><div class="dash-note" style="margin-bottom:10px;">ผลจริงสะสม (Previous + This Week)</div>${renderSheIconRowHtml(kpiCategories)}</div><div class="dash-section">${safeDayHtml}</div>` : '<div class="dash-note">ยังไม่มี Safety KPI / Safe Day settings</div>'}<div class="dash-kpi-row">${counts.map(([label,value]) => `<div class="dash-kpi"><div class="v">${value}</div><div class="l">${label}</div><div class="f">เทียบสัปดาห์ก่อน ${value - model.previousHse.filter(row => row.status===label).length >= 0 ? '+' : ''}${value - model.previousHse.filter(row => row.status===label).length}</div></div>`).join('')}</div><div class="dash-section"><h3>Findings ในสัปดาห์ที่พบเจอ (${model.hse.length} รายการ)</h3>${weeklyFindingCards(model.hse, 'ไม่มี Findings ในสัปดาห์นี้')}</div><div class="dash-section"><h3>ชื่นชม ในสัปดาห์ที่พบเจอ (${model.recognition.length} รายการ)</h3>${weeklyFindingCards(model.recognition, 'ไม่มีรายการชื่นชมในสัปดาห์นี้')}</div><div class="dash-section"><h3>HSE Findings by Status</h3><div class="chart-wrap"><canvas id="weeklyHseChart"></canvas></div></div>`;
+            return `${sourceNotice(['findings','safetyKpi','hseSettings'])}<div class="dash-note">HSE Report ประจำสัปดาห์ ${model.range.start} - ${model.range.end} · Pyramid Near Miss / Unsafe Finding แสดงยอดสะสมตั้งแต่ ${escapeHtml(cutoff)} ถึง ${escapeHtml(model.range.end)}</div><div class="dash-section"><h3>Incident Performance Pyramid · ยอดสะสม ${numberText(pyramidCounts.unsafeFinding)} รายการ</h3>${renderIncidentPyramidHtml(pyramidCounts, cutoff)}</div>${kpiCategories.length ? `<div class="dash-section"><h3>Reportable KPI (Zero Target)</h3>${renderKpiTableHtml(kpiCategories)}</div><div class="dash-section"><h3>SHE KPI · Reportable (Zero Target)</h3><div class="dash-note" style="margin-bottom:10px;">ผลจริงสะสม (Previous + This Week)</div>${renderSheIconRowHtml(kpiCategories)}</div><div class="dash-section">${safeDayHtml}</div>` : '<div class="dash-note">ยังไม่มี Safety KPI / Safe Day settings</div>'}<div class="dash-kpi-row">${counts.map(([label,value]) => `<div class="dash-kpi"><div class="v">${value}</div><div class="l">${label}</div><div class="f">เทียบสัปดาห์ก่อน ${value - model.previousHse.filter(row => row.status===label).length >= 0 ? '+' : ''}${value - model.previousHse.filter(row => row.status===label).length}</div></div>`).join('')}</div><div class="dash-section"><h3>Findings ในสัปดาห์ที่พบเจอ (${model.hse.length} รายการ)</h3>${weeklyFindingCards(model.hse, 'ไม่มี Findings ในสัปดาห์นี้')}</div><div class="dash-section"><h3>ชื่นชม ในสัปดาห์ที่พบเจอ (${model.recognition.length} รายการ)</h3>${weeklyFindingCards(model.recognition, 'ไม่มีรายการชื่นชมในสัปดาห์นี้')}</div><div class="dash-section"><h3>HSE Findings by Status</h3><div class="chart-wrap"><canvas id="weeklyHseChart"></canvas></div></div>`;
           }
           if(activeTab === 'milestones') return renderActivityGanttTable(sources.schedule, model.weekEnd, weeklyGanttPlanMode);
           if(activeTab === 'scurve') {
@@ -1851,43 +2108,102 @@
               return `<div class="dash-section"><h3>${escapeHtml(title)}</h3><div class="dash-kpi-row scurve-kpi-row"><div class="dash-kpi"><div class="v">${numberText(set.todayPlan||0, 2)}%</div><div class="l">Planned Progress</div></div><div class="dash-kpi"><div class="v">${numberText(set.todayForecast||0, 2)}%</div><div class="l">Forecast Progress</div></div><div class="dash-kpi"><div class="v">${numberText(set.todayActual||0, 2)}%</div><div class="l">Actual Progress</div></div><div class="dash-kpi"><div class="v" style="color:${diffColor};">${diff>=0?'+':''}${numberText(diff, 2)}%</div><div class="l">Variance vs Plan</div></div><div class="dash-kpi"><div class="v" style="color:${diffForecastColor};">${diffForecast>=0?'+':''}${numberText(diffForecast, 2)}%</div><div class="l">Variance vs Forecast</div></div></div><div class="chart-wrap"><canvas id="weeklyScurveChart_${key}"></canvas></div></div>`;
             }).join('')}`;
           }
-          if(activeTab === 'activities') return `<div class="dash-section"><h3>This Week (${model.range.start} - ${model.range.end})</h3>${recordTable(model.schedulesThis, [['task_code','Code'],['task_name','Activity'],['area','Area'],['start_date','Start'],['end_date','End'],['status_code','Status']], 'ไม่มี Key Activities ในช่วงนี้')}</div><div class="dash-section"><h3>Next Week (${model.range.nextStart} - ${model.range.nextEnd})</h3>${recordTable(model.schedulesNext, [['task_code','Code'],['task_name','Activity'],['area','Area'],['start_date','Start'],['end_date','End'],['status_code','Status']], 'ไม่มี Key Activities ในสัปดาห์หน้า')}</div>`;
-          if(activeTab === 'permits') return `${sourceNotice(['permits'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>Construction Permit Status</h3><button class="btn btn-ghost weekly-add-record" data-register="permits">+ Add Permit</button></div>${recordTable(model.permits, [['permit_no','Permit No.'],['title','Title'],['area','Area'],['required_date','Required'],['expiry_date','Expiry'],['status','Status']], 'ไม่มี Permit ที่ต้องติดตาม')}</div>`;
-          if(activeTab === 'procurement') return `${sourceNotice(['procurement'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>Procurement: This Week + 3 Week Look Ahead</h3><button class="btn btn-ghost weekly-add-record" data-register="procurement">+ Add Procurement</button></div>${recordTable(model.procurement, [['reference_no','PR / PO'],['item_name','Item'],['vendor_name','Vendor'],['required_on_site_date','Required On Site'],['eta_date','ETA'],['status','Status']], 'ไม่มี Procurement ในช่วง look-ahead')}</div>`;
+          if(activeTab === 'activities') return `<div class="dash-section weekly-activity-phase weekly-phase-this"><h3>This Week (${model.range.start} - ${model.range.end})</h3>${renderWeeklyActivityGroups(model.schedulesThis, 'ไม่มี Key Activities ในช่วงนี้')}</div><div class="dash-section weekly-activity-phase weekly-phase-next"><h3>Next Week (${model.range.nextStart} - ${model.range.nextEnd})</h3>${renderWeeklyActivityGroups(model.schedulesNext, 'ไม่มี Key Activities ในสัปดาห์หน้า')}</div>`;
+          if(activeTab === 'permits') return `${sourceNotice(['permits'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>Construction Permit Status</h3><button class="btn btn-ghost weekly-add-record" data-register="permits">+ Add Permit</button></div>${recordTable(model.permits, [['permit_no','Permit No.'],['title','Title'],['area','Area'],['required_date','Required'],['expiry_date','Expiry'],['status','Status']], 'ไม่มี Permit ที่ต้องติดตาม', 'permits')}</div>`;
+          if(activeTab === 'procurement') return `${sourceNotice(['procurementStageActuals'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3>Procurement Plan vs Actual</h3><button type="button" class="btn btn-ghost" id="weeklyAddProcurementStages">+ Add Activities</button></div><div class="dash-note">Plan ใช้ Forecast Finish ของแต่ละ Activity (ถ้าไม่มีใช้ Forecast Start) · Actual กรอกภายหลังด้วย Edit Actual</div>${renderProcurementPlanTable(model.procurementStages, sources.procurementStageActuals, !unavailable.procurementStageActuals)}</div>`;
           if(activeTab === 'visual') {
             const plans = sources.visualPlans, marks = sources.visualMarks.filter(row => row.mark_date && row.mark_date >= model.range.start && row.mark_date <= model.range.end);
             return `${sourceNotice(['visualPlans','visualMarks'])}<div class="dash-section"><h3>Construction Work by Area - Visual Progress</h3>${recordTable(marks.map(mark => Object.assign({}, mark, { plan_name:(plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).name || (plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).title || 'Visual Plan' })), [['plan_name','Area / Plan'],['mark_date','Date'],['progress_pct','Progress %']], 'ไม่มี Visual Progress mark ในสัปดาห์นี้')}</div>`;
           }
           if(activeTab === 'photos') {
-            const photoRecords = model.daily.concat(dateIn(sources.concrete, 'report_date', model.range.start, model.range.end), model.qc).flatMap(row => photosOf(row).map(url => ({ url, date:row.report_date || row.inspection_date || '-', label:row.location || row.task || 'Site photo' })));
-            return `<div class="dash-section"><h3>Construction Photography Report</h3><div class="photo-grid">${photoRecords.length ? photoRecords.map(photo => `<div class="photo-thumb"><img src="${escapeHtml(photo.url)}" data-full="${escapeHtml(photo.url)}" title="${escapeHtml(photo.date + ' · ' + photo.label)}"></div>`).join('') : '<div class="dash-empty">ยังไม่มีรูปภาพในสัปดาห์นี้</div>'}</div></div>`;
+            const photoRecords = [];
+            const addPhotos = (rows, dateField, report, areaForRow) => rows.forEach(row => photosOf(row).forEach(url => {
+              const area = areaForRow(row);
+              const areaLabel = (Array.isArray(area) ? area : [area]).map(value => typeof value === 'string' ? value : value && value.location).filter(Boolean).join(' / ') || 'Area not specified';
+              photoRecords.push({ url, date:row[dateField] || '-', label:`${report} · ${areaLabel}` });
+            }));
+            addPhotos(model.daily, 'report_date', 'Daily', row => row.location);
+            addPhotos(dateIn(sources.concrete, 'report_date', model.range.start, model.range.end), 'report_date', 'Concrete', row => Array.isArray(row.manpower_by_location) ? row.manpower_by_location : row.area || row.location);
+            addPhotos(dateIn(sources.piles, 'piled_date', model.range.start, model.range.end), 'piled_date', 'Piling', row => row.area);
+            const photosByDay = new Map();
+            photoRecords.forEach(photo => {
+              if(!photosByDay.has(photo.date)) photosByDay.set(photo.date, []);
+              photosByDay.get(photo.date).push(photo);
+            });
+            const photoDaysHtml = Array.from(photosByDay.entries()).sort(([left],[right]) => left.localeCompare(right)).map(([date,photos]) => `<section class="photo-day-group"><div class="photo-day-head">${escapeHtml(date)}<span class="photo-day-count">${photos.length}</span></div><div class="photo-grid">${photos.map(photo => `<div class="photo-thumb"><img src="${escapeHtml(photo.url)}" data-full="${escapeHtml(photo.url)}" title="${escapeHtml(photo.date + ' · ' + photo.label)}"></div>`).join('')}</div></section>`).join('');
+            return `<div class="dash-section"><h3>Construction Photography Report</h3>${photoDaysHtml || '<div class="dash-empty">ยังไม่มีรูปภาพในสัปดาห์นี้</div>'}</div>`;
           }
           if(activeTab === 'qc') {
-            const rfi = model.rfiFir.filter(row => row.request_type==='RFI'), fir = model.rfiFir.filter(row => row.request_type==='FIR');
-            const qaPhotos = model.qc.concat(model.rfiFir, model.ncr).flatMap(row => photosOf(row).map(url => ({ url, label:row.reference_no || row.ncr_no || row.task || 'QA/QC activity' })));
-            return `${sourceNotice(['inspectionRequests','ncr'])}<div class="dash-kpi-row"><div class="dash-kpi"><div class="v">${model.qc.filter(row=>row.result==='Pass').length}</div><div class="l">QC Pass</div></div><div class="dash-kpi"><div class="v">${model.qc.filter(row=>row.result!=='Pass').length}</div><div class="l">QC Fail / Rework</div></div><div class="dash-kpi"><div class="v">${rfi.length} / ${fir.length}</div><div class="l">RFI / FIR</div></div><div class="dash-kpi"><div class="v">${model.ncr.filter(row=>row.status!=='Closed').length}</div><div class="l">Open NCR</div></div></div><div class="dash-section"><h3>QC Inspection Results</h3><div class="chart-wrap"><canvas id="weeklyQcChart"></canvas></div></div><div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>RFI / FIR Status</h3><button class="btn btn-ghost weekly-add-record" data-register="inspectionRequests">+ Add RFI / FIR</button></div>${recordTable(model.rfiFir, [['request_type','Type'],['reference_no','Reference'],['subject','Subject'],['requested_date','Requested'],['status','Status']], 'ไม่มี RFI/FIR ที่ต้องติดตาม')}</div><div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>NCR Status</h3><button class="btn btn-ghost weekly-add-record" data-register="ncr">+ Add NCR</button></div>${recordTable(model.ncr, [['ncr_no','NCR'],['title','Title'],['severity','Severity'],['due_date','Due'],['status','Status']], 'ไม่มี NCR ที่ต้องติดตาม')}</div><div class="dash-section"><h3>Photograph for QA/QC Activities</h3><div class="photo-grid">${qaPhotos.length ? qaPhotos.map(photo => `<div class="photo-thumb"><img src="${escapeHtml(photo.url)}" data-full="${escapeHtml(photo.url)}" title="${escapeHtml(photo.label)}"></div>`).join('') : '<div class="dash-empty">ยังไม่มีรูปภาพ QA/QC ในสัปดาห์นี้</div>'}</div></div>`;
+            const qcModule = MODULES.find(module => module.id === 'qc');
+            const qcStats = qcModule.computeStats(model.qcCumulative);
+            const qaPhotos = model.qc.concat(model.ncr).flatMap(row => photosOf(row).map(url => ({ url, label:row.rfi_no || row.fir_no || row.ncr_no || 'QA/QC activity' })));
+            return `${sourceNotice(['qc','ncr'])}<div class="dash-note">ยอดสะสมตั้งแต่เริ่มโครงการถึง ${escapeHtml(model.range.end)} · ${numberText(model.qcCumulative.length)} รายการ</div><div class="dash-kpi-row">${qcStats.map(stat => `<div class="dash-kpi"><div class="v">${stat.value}</div><div class="l">${escapeHtml(stat.label)}</div></div>`).join('')}</div><div class="dash-section"><h3>QC Inspection Results (RFI Status) · ยอดสะสม</h3><div class="chart-wrap"><canvas id="weeklyQcChart"></canvas></div></div><div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>QC / RFI / FIR Status (สัปดาห์นี้)</h3><button class="btn btn-ghost" id="weeklyAddQc">+ Add QC / RFI / FIR</button></div>${recordTable(model.qc, [['rfi_no','RFI No.'],['fir_no','FIR No.'],['inspection_activity','Inspection Activity'],['location_area','Location'],['rfi_status','RFI Status'],['fir_status','FIR Status'],['inspection_date','Inspection Date']], 'ไม่มี QC / RFI / FIR ที่ต้องติดตามในสัปดาห์นี้')}</div><div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>NCR Status</h3><button class="btn btn-ghost weekly-add-record" data-register="ncr">+ Add NCR</button></div>${recordTable(model.ncrAll, [['ncr_no','NCR'],['title','Title'],['severity','Severity'],['due_date','Due'],['status','Status']], 'ไม่มี NCR ที่ต้องติดตาม', 'ncr')}</div><div class="dash-section"><h3>Photograph for QA/QC Activities</h3><div class="photo-grid">${qaPhotos.length ? qaPhotos.map(photo => `<div class="photo-thumb"><img src="${escapeHtml(photo.url)}" data-full="${escapeHtml(photo.url)}" title="${escapeHtml(photo.label)}"></div>`).join('') : '<div class="dash-empty">ยังไม่มีรูปภาพ QA/QC ในสัปดาห์นี้</div>'}</div></div>`;
           }
           const openIssues = model.pendingIssues.sort((left,right) => String(left.due_date || '9999').localeCompare(String(right.due_date || '9999')));
           return `${sourceNotice(['issues','ncr'])}<div class="dash-section"><h3>Pending Issue</h3>${recordTable(openIssues, [['issue_no','Issue / NCR'],['follow_up_issue','Description'],['due_date','Due'],['status','Status']], 'ไม่มี Pending Issue')}</div>`;
         }
-        function openRecordModal(key){
+        function openRecordModal(key, record){
           const def = registerDefs[key], modal = $('#modalContent');
-          modal.innerHTML = `<div class="modal-head"><h2>+ ${escapeHtml(def.title)}</h2><button class="modal-close" id="weeklyRecordClose">&times;</button></div><div class="form-grid">${def.fields.map(([field,label,type,options]) => `<div class="field"><label>${escapeHtml(label)}</label>${type==='select' ? `<select id="weeklyField_${field}">${options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}</select>` : type==='textarea' ? `<textarea id="weeklyField_${field}" rows="3"></textarea>` : `<input id="weeklyField_${field}" type="${type==='date'?'date':'text'}">`}</div>`).join('')}</div><div class="btn-row"><button class="btn btn-primary" id="weeklyRecordSave">บันทึก</button><button class="btn btn-ghost" id="weeklyRecordCancel">ยกเลิก</button></div>`;
+          const isEdit = !!record;
+          const fieldControl = ([field,label,type,options]) => {
+            const rawValue = record && record[field] != null ? record[field] : '';
+            const value = type === 'date' ? String(rawValue).slice(0,10) : Array.isArray(rawValue) ? rawValue.join('\n') : String(rawValue);
+            const control = type==='select' ? `<select id="weeklyField_${field}">${options.map(option => `<option value="${escapeHtml(option)}" ${String(rawValue)===option?'selected':''}>${escapeHtml(option)}</option>`).join('')}</select>` : type==='textarea' ? `<textarea id="weeklyField_${field}" rows="3">${escapeHtml(value)}</textarea>` : `<input id="weeklyField_${field}" type="${type==='date'?'date':'text'}" value="${escapeHtml(value)}">`;
+            return `<div class="field"><label>${escapeHtml(label)}</label>${control}</div>`;
+          };
+          modal.innerHTML = `<div class="modal-head"><h2>${isEdit ? 'Edit' : '+'} ${escapeHtml(def.title)}</h2><button class="modal-close" id="weeklyRecordClose">&times;</button></div><div class="form-grid">${def.fields.map(fieldControl).join('')}</div><div class="btn-row"><button class="btn btn-primary" id="weeklyRecordSave">บันทึก</button><button class="btn btn-ghost" id="weeklyRecordCancel">ยกเลิก</button></div>`;
           const close = () => closeModal(); $('#weeklyRecordClose').addEventListener('click', close); $('#weeklyRecordCancel').addEventListener('click', close);
           $('#weeklyRecordSave').addEventListener('click', async ()=>{
             const payload = {}; def.fields.forEach(([field]) => { const value = $('#weeklyField_' + field).value.trim(); payload[field] = field==='photo_urls' ? value.split('\n').map(url => url.trim()).filter(Boolean) : (value || null); });
             if(!payload[def.number]){ showToast('กรุณาระบุ ' + def.number, true); return; }
-            try{ const response = await fetch(SUPABASE_URL + '/rest/v1/' + def.table, { method:'POST', headers:{ ...HEADERS, 'Prefer':'return=minimal' }, body:JSON.stringify(payload) }); if(!response.ok) throw new Error('save failed: ' + response.status); close(); showToast('บันทึก ' + def.title + ' แล้ว'); switchModule('dash_weekly_project'); }catch(error){ showToast('บันทึกไม่สำเร็จ: ' + error.message, true); }
+            try{ const endpoint = SUPABASE_URL + '/rest/v1/' + def.table + (isEdit ? '?id=eq.' + encodeURIComponent(record.id) : ''); const response = await fetch(endpoint, { method:isEdit?'PATCH':'POST', headers:{ ...HEADERS, 'Prefer':'return=minimal' }, body:JSON.stringify(payload) }); if(!response.ok) throw new Error('save failed: ' + response.status); close(); showToast((isEdit?'อัปเดต ':'บันทึก ') + def.title + ' แล้ว'); switchModule('dash_weekly_project'); }catch(error){ showToast((isEdit?'อัปเดต':'บันทึก') + 'ไม่สำเร็จ: ' + error.message, true); }
           });
           $('#modalBg').classList.add('show');
         }
         function renderReport(weekEnd){
           const model = buildModel(weekEnd), snapshot = getSnapshot(weekEnd), options = Array.from({length:26}, (_,index) => addDays(mondayOfWeek(todayISO()), -7*index));
           container.innerHTML = `<div class="dash-section"><div class="dash-weekpicker-row"><label for="weeklyReportPicker">Weekly Project Report</label><select id="weeklyReportPicker" class="kpi-input" style="max-width:280px;">${options.map(value => `<option value="${value}" ${value===weekEnd?'selected':''}>${weekLabel(value)}</option>`).join('')}</select><button class="chip" id="weeklyReportSave">💾 Save Snapshot</button><button class="chip" id="weeklyReportExport">⬇️ Excel</button><button class="chip" id="weeklyReportPrint">🖨️ Print</button></div><div class="dash-note" style="margin:10px 0 0;">Reporting period: ${model.range.start} - ${model.range.end}${sources.snapshots.length ? ' · historical snapshot available' : ''}</div></div><div class="vp-plan-tabs" id="weeklyReportTabs">${tabs.map(([id,label]) => `<button type="button" class="vp-filter-btn ${id===activeTab?'active':''}" data-weekly-tab="${id}">${escapeHtml(label)}</button>`).join('')}</div><div id="weeklyReportTabBody">${renderTab(model)}</div><div class="dash-section"><h3>Management Summary</h3><textarea id="weeklyManagementSummary" class="kpi-input" style="max-width:none;min-height:92px;resize:vertical;" placeholder="Achievements, risks, decisions and next-week commitments">${escapeHtml(snapshot.management_summary || '')}</textarea><div class="weekly-ai-panel" style="margin-top:10px;"><button type="button" class="btn btn-ghost" id="weeklyAiToggle" aria-expanded="false">✨ AI Summary</button><div id="weeklyAiControls" hidden style="margin-top:10px;"><div style="display:flex;gap:8px;flex-wrap:wrap;"><input id="weeklyAiEndpoint" class="kpi-input" style="max-width:300px;" placeholder="AI API endpoint"><input id="weeklyAiModel" class="kpi-input" style="max-width:180px;" list="weeklyAiModels" placeholder="Model ID"><datalist id="weeklyAiModels"><option value="gpt-4o-mini"><option value="gpt-4o"></datalist><input id="weeklyAiKey" class="kpi-input" style="max-width:220px;" type="password" autocomplete="off" placeholder="API key (not saved)"><button type="button" class="btn btn-ghost" id="weeklyAiGenerate">Generate Summary</button></div><div class="dash-note" style="margin:10px 0 0;">Use an API model ID, for example <b>gpt-4o-mini</b>; ChatGPT display names are not valid model IDs. API key is used only for this request and is never saved to Supabase, browser storage, snapshots, or exports.</div></div></div></div>`;
-          $$('#weeklyReportTabs [data-weekly-tab]').forEach(button => button.addEventListener('click', ()=>{ activeTab = button.dataset.weeklyTab; renderReport(weekEnd); }));
+          $$('#weeklyReportTabs [data-weekly-tab]').forEach(button => button.addEventListener('click', ()=>{
+            activeTab = button.dataset.weeklyTab;
+            renderReport(weekEnd);
+            requestAnimationFrame(()=>{
+              const tabs = $('#weeklyReportTabs');
+              const controls = tabs.previousElementSibling;
+              const stickyTop = parseFloat(getComputedStyle(tabs).top) || 0;
+              const controlsTop = window.scrollY + controls.getBoundingClientRect().top;
+              const controlsMargin = parseFloat(getComputedStyle(controls).marginBottom) || 0;
+              window.scrollTo(0, Math.max(0, controlsTop + controls.offsetHeight + controlsMargin - stickyTop));
+            });
+          }));
           const weeklyGanttPlanModeSelect = $('#weeklyGanttPlanMode');
           if(weeklyGanttPlanModeSelect) weeklyGanttPlanModeSelect.addEventListener('change', event => { weeklyGanttPlanMode = event.target.value; renderReport(weekEnd); });
           $$('.weekly-add-record').forEach(button => button.addEventListener('click', ()=> openRecordModal(button.dataset.register)));
+          const addProcurementStagesButton = $('#weeklyAddProcurementStages');
+          if(addProcurementStagesButton) addProcurementStagesButton.addEventListener('click', ()=> openProcurementActivitiesModal(()=>renderReport(weekEnd)));
+          $$('[data-procurement-edit]').forEach(button => button.addEventListener('click', ()=>{
+            const taskCodes = new Set(button.dataset.taskCodes.split('|'));
+            const activities = model.procurementStages.filter(row => taskCodes.has(String(row.task_code)));
+            if(activities.length) openProcurementActualModal(activities, ()=>renderReport(weekEnd));
+            else showToast('ไม่พบ Procurement Activities ที่ต้องการแก้ไข', true);
+          }));
+          $$('.weekly-record-edit').forEach(button => button.addEventListener('click', ()=>{
+            const record = (sources[button.dataset.register] || []).find(row => String(row.id) === button.dataset.recordId);
+            if(record) openRecordModal(button.dataset.register, record);
+            else showToast('ไม่พบรายการที่ต้องการแก้ไข', true);
+          }));
+          $$('.weekly-record-delete').forEach(button => button.addEventListener('click', async ()=>{
+            const key = button.dataset.register, def = registerDefs[key];
+            const record = (sources[key] || []).find(row => String(row.id) === button.dataset.recordId);
+            if(!def || !record){ showToast('ไม่พบรายการที่ต้องการลบ', true); return; }
+            if(!confirm('ยืนยันลบ ' + def.title + ' "' + (record[def.number] || '') + '"? การลบนี้ย้อนกลับไม่ได้')) return;
+            try{
+              const response = await fetch(SUPABASE_URL + '/rest/v1/' + def.table + '?id=eq.' + encodeURIComponent(record.id), { method:'DELETE', headers:{ ...HEADERS, 'Prefer':'return=minimal' } });
+              if(!response.ok) throw new Error('delete failed: ' + response.status);
+              showToast('ลบ ' + def.title + ' ' + (record[def.number] || '') + ' แล้ว');
+              switchModule('dash_weekly_project');
+            }catch(error){ showToast('ลบไม่สำเร็จ: ' + error.message, true); }
+          }));
+          const weeklyAddQcButton = $('#weeklyAddQc'); if(weeklyAddQcButton) weeklyAddQcButton.addEventListener('click', ()=> switchModule('qc'));
           container.querySelectorAll('.photo-thumb img').forEach(image => image.addEventListener('click', ()=> openLightbox(image.dataset.full, image)));
           container.querySelectorAll('.weekly-hse-finding').forEach(card => card.addEventListener('click', ()=>{
             const finding = sources.findings.find(row => String(row.id) === card.dataset.findingId);
@@ -1943,7 +2259,7 @@
               });
             });
           }
-          if(activeTab === 'qc') chartInstances.wrq = new Chart($('#weeklyQcChart'), { type:'doughnut', data:{ labels:['Pass','Fail','Rework'], datasets:[{ data:['Pass','Fail','Rework'].map(result => model.qc.filter(row=>row.result===result).length), backgroundColor:['#16A34A','#DC2626','#F0A93B'] }] }, options:{ responsive:true, maintainAspectRatio:false } });
+          if(activeTab === 'qc') chartInstances.wrq = new Chart($('#weeklyQcChart'), { type:'doughnut', data:{ labels:['Open','Completed','Cancelled','Rejected'], datasets:[{ data:['Open','Completed','Cancelled','Rejected'].map(status => model.qcCumulative.filter(row=>row.rfi_status===status).length), backgroundColor:['#2563EB','#16A34A','#6B7684','#DC2626'] }] }, options:{ responsive:true, maintainAspectRatio:false } });
           $('#weeklyReportPicker').addEventListener('change', event => renderReport(event.target.value));
           $('#weeklyAiToggle').addEventListener('click', ()=>{ const controls=$('#weeklyAiControls'), expanded=controls.hidden; controls.hidden=!expanded; $('#weeklyAiToggle').setAttribute('aria-expanded', String(expanded)); $('#weeklyAiToggle').textContent=expanded ? '✨ ซ่อน AI Summary' : '✨ AI Summary'; });
           const aiEndpointInput = $('#weeklyAiEndpoint'), aiModelInput = $('#weeklyAiModel'), aiKeyInput = $('#weeklyAiKey');
@@ -11441,7 +11757,8 @@
       if(activeModule.id === 'qc'){
         record.location = record.location_area || null;
         record.task = record.inspection_activity;
-        record.result = record.rfi_status === 'Accepted' ? 'Pass' : (record.rfi_status === 'Rejected' ? 'Fail' : 'Rework');
+        // rfi_status ไม่มีค่า 'Accepted' (options จริงคือ Open/Completed/Cancelled/Rejected) — ต้องเช็ค rfi_document_status แทน ไม่งั้น QC Pass จะไม่ตรงกับฐานข้อมูลจริง
+        record.result = record.rfi_document_status === 'Accepted' ? 'Pass' : ((record.rfi_document_status === 'Rejected' || record.rfi_status === 'Rejected') ? 'Fail' : 'Rework');
         record.inspector = record.qa_qc_issuer_name || null;
       }
       // Handle photos: findings uses separate open/close, others use single array

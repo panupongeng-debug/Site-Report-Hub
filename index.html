@@ -182,23 +182,28 @@
   .procurement-gantt-header,.procurement-gantt-group{display:grid;grid-template-columns:var(--label-width) calc(var(--stage-label-width) + var(--time-width));}
   .procurement-gantt-head-label{position:sticky;left:0;z-index:6;display:flex;align-items:center;padding:0 12px;background:#EEF2F7;border-right:1px solid var(--line);font-size:11px;font-weight:800;color:var(--charcoal);}
   .procurement-gantt-axis{display:grid;grid-template-columns:var(--stage-label-width) var(--time-width);}
-  .procurement-gantt-axis-spacer{background:#EEF2F7;border-bottom:1px solid var(--line);}
-  .procurement-gantt-time{width:var(--time-width);}
+  .procurement-gantt-axis-spacer{position:sticky;left:var(--label-width);z-index:5;background:#EEF2F7;border-bottom:1px solid var(--line);}
+  .procurement-gantt-time{position:relative;width:var(--time-width);}
   .procurement-gantt-months,.procurement-gantt-weeks{position:relative;overflow:hidden;}
   .procurement-gantt-months{height:30px;background:#EEF2F7;border-bottom:1px solid var(--line);}
   .procurement-gantt-month{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:7px;border-left:1px solid #CBD5E1;font-size:10px;font-weight:800;color:var(--charcoal);white-space:nowrap;}
   .procurement-gantt-weeks{height:24px;background:#F7F9FB;border-bottom:1px solid var(--line);}
   .procurement-gantt-week{position:absolute;top:0;bottom:0;padding:4px 0 0 3px;border-left:1px solid #E1E5EC;font-size:9px;color:var(--muted);}
   .procurement-gantt-material{position:sticky;left:0;z-index:4;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px 12px;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .procurement-gantt-material.actual-complete{background:#DCFCE7;}
   .procurement-gantt-material-name{font-size:11.5px;line-height:1.4;font-weight:700;color:var(--charcoal);overflow-wrap:anywhere;}
   .procurement-gantt-material-meta{font-size:10px;color:var(--muted);}
   .procurement-gantt-material .btn{align-self:flex-start;padding:4px 8px;font-size:10px;}
   .procurement-gantt-lanes{display:grid;grid-template-rows:repeat(4,52px);}
   .procurement-gantt-lane{display:grid;grid-template-columns:var(--stage-label-width) var(--time-width);}
-  .procurement-gantt-stage-label{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#F8FAFC;border-bottom:1px solid #EEF1F4;font-size:9.5px;line-height:1.25;color:var(--muted);}
+  .procurement-gantt-stage-label{position:sticky;left:var(--label-width);z-index:4;display:flex;align-items:center;gap:6px;padding:4px 8px;background:#F8FAFC;border-bottom:1px solid #EEF1F4;font-size:9.5px;line-height:1.25;color:var(--muted);}
   .procurement-gantt-stage-label strong{flex:0 0 auto;font:700 10px var(--mono);color:var(--charcoal);}
   .procurement-gantt-stage-label span{min-width:0;}
+  .procurement-gantt-stage-label.has-actual{background:#EAF8EF;color:#166534;}
   .procurement-gantt-track{position:relative;width:var(--time-width);height:52px;border-bottom:1px solid #EEF1F4;background-color:#fff;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--week-px) - 1px),#EEF1F4 calc(var(--week-px) - 1px),#EEF1F4 var(--week-px));}
+  .procurement-gantt-track.has-actual{background-color:#F0FBF4;}
+  .procurement-gantt-selected-line{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;z-index:5;pointer-events:none;}
+  .procurement-gantt-selected-label{position:absolute;top:2px;z-index:6;padding:2px 4px;border-radius:3px;background:#DC2626;color:#fff;font-size:8px;font-weight:800;white-space:nowrap;transform:translateX(-100%);}
   .procurement-gantt-event{position:absolute;z-index:2;min-width:52px;padding:2px 4px;border:1px solid currentColor;border-radius:4px;text-align:center;transform:translateX(-50%);font-size:9px;font-weight:800;line-height:1.35;white-space:nowrap;}
   .procurement-gantt-event.plan{top:5px;color:#fff;}
   .procurement-gantt-event.actual{top:29px;background:#fff;}
@@ -211,6 +216,7 @@
   .procurement-gantt-legend span{display:inline-flex;align-items:center;gap:5px;}
   .procurement-gantt-swatch{width:12px;height:10px;border:1px solid currentColor;border-radius:3px;background:currentColor;}
   .procurement-gantt-swatch.actual{background:#fff;}
+  .procurement-gantt-swatch.selected-week{width:2px;height:13px;border:none;border-radius:0;background:#DC2626;}
   .weekly-record-delete:hover{background:#FEF2F2;}
   .zigzag-gantt-wrap{overflow-x:auto;margin-top:12px;}
   .zigzag-gantt{--label-width:320px;min-width:760px;border:1px solid var(--line);border-radius:10px;background:#fff;}
@@ -1834,7 +1840,7 @@
           const actionHeader = editRegister ? '<th>Actions</th>' : '';
           return `<div style="overflow-x:auto;"><table class="kpi-table"><thead><tr>${columns.map(column => `<th>${escapeHtml(column[1])}</th>`).join('')}${actionHeader}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(([key]) => `<td>${key==='status'||key==='result'||key==='rfi_status'||key==='fir_status' ? statusPill(row[key]) : dateText(row[key])}</td>`).join('')}${editRegister ? `<td class="weekly-record-actions"><div style="display:flex;gap:6px;justify-content:flex-end;"><button type="button" class="btn btn-ghost weekly-record-edit" data-register="${escapeHtml(editRegister)}" data-record-id="${escapeHtml(row.id)}">Edit</button><button type="button" class="btn btn-danger weekly-record-delete" data-register="${escapeHtml(editRegister)}" data-record-id="${escapeHtml(row.id)}">Delete</button></div></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
         }
-        function renderProcurementPlanTable(rows, actualRows, actualAvailable){
+        function renderProcurementPlanTable(rows, actualRows, actualAvailable, selectedWeekEnd){
           const groups = new Map();
           rows.forEach(row => {
             const stage = procurementStageFor(row);
@@ -1857,6 +1863,7 @@
             if(actualDate) allDates.push(actualDate);
           }));
           if(!allDates.length) return '<div class="procurement-gantt-empty">ยังไม่มีวัน Forecast Plan หรือ Actual สำหรับแสดงบน Timeline</div>';
+          if(selectedWeekEnd) allDates.push(selectedWeekEnd);
           const dayMs = 86400000, parsedDates = allDates.map(value => Date.parse(value + 'T00:00:00Z')).filter(Number.isFinite);
           const earliest = new Date(Math.min(...parsedDates)), latest = new Date(Math.max(...parsedDates));
           const timelineStart = Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), 1);
@@ -1865,6 +1872,8 @@
           const timelineWidth = Math.max(720, dayCount * pixelsPerDay + plotOffset * 2), weekPixels = pixelsPerDay * 7;
           const xForDate = value => plotOffset + Math.max(0, (Date.parse(value + 'T00:00:00Z') - timelineStart) / dayMs) * pixelsPerDay;
           const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          const compactDate = value => { const date = new Date(value + 'T00:00:00Z'); return `${date.getUTCDate()} ${monthLabels[date.getUTCMonth()]}`; };
+          const selectedWeekX = selectedWeekEnd ? xForDate(selectedWeekEnd) + pixelsPerDay / 2 : null;
           const monthTicks = [];
           for(let monthStart=timelineStart; monthStart<=timelineEnd;){
             const date = new Date(monthStart), year = date.getUTCFullYear(), month = date.getUTCMonth();
@@ -1879,23 +1888,28 @@
             const date = new Date(tick);
             weekTicks.push(`<div class="procurement-gantt-week" style="left:${plotOffset + (tick-timelineStart)/dayMs*pixelsPerDay}px;">${date.getUTCDate()}</div>`);
           }
-          const compactDate = value => { const date = new Date(value + 'T00:00:00Z'); return `${date.getUTCDate()} ${monthLabels[date.getUTCMonth()]}`; };
           const rowsHtml = Array.from(groups.values()).sort((left,right) => left.itemName.localeCompare(right.itemName, 'th') || left.area.localeCompare(right.area, 'th')).map(group => {
             const meta = [group.area,group.packageName].filter(Boolean).join(' · ');
             const taskCodes = Array.from(group.steps.values()).map(row => row.task_code).join('|');
+            const actualComplete = procurementStageDefs.every(stage => {
+              const activity = group.steps.get(stage.code);
+              return activity && actualByTask.get(String(activity.task_code));
+            });
             const lanes = procurementStageDefs.map(stage => {
               const activity = group.steps.get(stage.code);
-              if(!activity) return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track"></div></div>`;
+              if(!activity) return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track">${selectedWeekX === null ? '' : `<span class="procurement-gantt-selected-line" style="left:${selectedWeekX}px;"></span>`}</div></div>`;
               const planDate = activity.forecast_end_date || activity.forecast_start_date || '';
               const actualDate = actualByTask.get(String(activity.task_code)) || '';
               const colorClass = `procurement-gantt-${stage.code.toLowerCase()}`;
               const planMarker = planDate ? `<span class="procurement-gantt-event plan ${colorClass}" style="left:${xForDate(planDate)}px;" title="${escapeHtml(stage.label + ' · Forecast Plan · ' + planDate)}">P ${escapeHtml(compactDate(planDate))}</span>` : '';
               const actualMarker = actualDate ? `<span class="procurement-gantt-event actual ${colorClass}" style="left:${xForDate(actualDate)}px;" title="${escapeHtml(stage.label + ' · Actual · ' + actualDate)}">A ${escapeHtml(compactDate(actualDate))}</span>` : '';
-              return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track">${planMarker}${actualMarker}</div></div>`;
+              return `<div class="procurement-gantt-lane"><div class="procurement-gantt-stage-label${actualDate?' has-actual':''}"><strong>${stage.code}</strong><span>${stage.label}</span></div><div class="procurement-gantt-track${actualDate?' has-actual':''}">${planMarker}${actualMarker}${selectedWeekX === null ? '' : `<span class="procurement-gantt-selected-line" style="left:${selectedWeekX}px;"></span>`}</div></div>`;
             }).join('');
-            return `<div class="procurement-gantt-group"><div class="procurement-gantt-material"><span class="procurement-gantt-material-name">${escapeHtml(group.itemName)}</span>${meta ? `<span class="procurement-gantt-material-meta">${escapeHtml(meta)}</span>` : ''}<button type="button" class="btn btn-ghost weekly-procurement-edit" data-procurement-edit data-task-codes="${escapeHtml(taskCodes)}" ${actualAvailable?'':'disabled'}>Edit Actual</button></div><div class="procurement-gantt-lanes">${lanes}</div></div>`;
+            return `<div class="procurement-gantt-group"><div class="procurement-gantt-material${actualComplete?' actual-complete':''}"><span class="procurement-gantt-material-name">${escapeHtml(group.itemName)}</span>${meta ? `<span class="procurement-gantt-material-meta">${escapeHtml(meta)}</span>` : ''}<button type="button" class="btn btn-ghost weekly-procurement-edit" data-procurement-edit data-task-codes="${escapeHtml(taskCodes)}" ${actualAvailable?'':'disabled'}>Edit Actual</button></div><div class="procurement-gantt-lanes">${lanes}</div></div>`;
           }).join('');
-          return `<div class="procurement-gantt-legend"><span><i class="procurement-gantt-swatch procurement-gantt-rfq"></i>RFQ</span><span><i class="procurement-gantt-swatch procurement-gantt-rq"></i>RQ</span><span><i class="procurement-gantt-swatch procurement-gantt-po"></i>PO</span><span><i class="procurement-gantt-swatch procurement-gantt-mos"></i>MOS</span><span><i class="procurement-gantt-swatch"></i>Plan</span><span><i class="procurement-gantt-swatch actual"></i>Actual</span></div><div class="procurement-gantt-scroll"><div class="procurement-gantt-board" style="--time-width:${timelineWidth}px;--week-px:${weekPixels}px;"><div class="procurement-gantt-header"><div class="procurement-gantt-head-label">Material / Area</div><div class="procurement-gantt-axis"><div class="procurement-gantt-axis-spacer"></div><div class="procurement-gantt-time"><div class="procurement-gantt-months">${monthTicks.join('')}</div><div class="procurement-gantt-weeks">${weekTicks.join('')}</div></div></div></div>${rowsHtml}</div></div>`;
+          const selectedAxisLine = selectedWeekX === null ? '' : `<span class="procurement-gantt-selected-line" style="left:${selectedWeekX}px;"></span>`;
+          const selectedAxisLabel = selectedWeekEnd ? `<span class="procurement-gantt-selected-label" style="left:${selectedWeekX}px;">W/E ${escapeHtml(compactDate(selectedWeekEnd))}</span>` : '';
+          return `<div class="procurement-gantt-legend"><span><i class="procurement-gantt-swatch procurement-gantt-rfq"></i>RFQ</span><span><i class="procurement-gantt-swatch procurement-gantt-rq"></i>RQ</span><span><i class="procurement-gantt-swatch procurement-gantt-po"></i>PO</span><span><i class="procurement-gantt-swatch procurement-gantt-mos"></i>MOS</span><span><i class="procurement-gantt-swatch"></i>Plan</span><span><i class="procurement-gantt-swatch actual"></i>Actual</span><span><i class="procurement-gantt-swatch selected-week"></i>Selected week</span><span><i class="procurement-gantt-swatch complete"></i>Actual entered</span></div><div class="procurement-gantt-scroll"><div class="procurement-gantt-board" style="--time-width:${timelineWidth}px;--week-px:${weekPixels}px;"><div class="procurement-gantt-header"><div class="procurement-gantt-head-label">Material / Area</div><div class="procurement-gantt-axis"><div class="procurement-gantt-axis-spacer"></div><div class="procurement-gantt-time"><div class="procurement-gantt-months">${monthTicks.join('')}${selectedAxisLine}${selectedAxisLabel}</div><div class="procurement-gantt-weeks">${weekTicks.join('')}${selectedAxisLine}</div></div></div></div>${rowsHtml}</div></div>`;
         }
         function openProcurementActivitiesModal(onSaved){
           const modal = $('#modalContent');
@@ -2110,7 +2124,7 @@
           }
           if(activeTab === 'activities') return `<div class="dash-section weekly-activity-phase weekly-phase-this"><h3>This Week (${model.range.start} - ${model.range.end})</h3>${renderWeeklyActivityGroups(model.schedulesThis, 'ไม่มี Key Activities ในช่วงนี้')}</div><div class="dash-section weekly-activity-phase weekly-phase-next"><h3>Next Week (${model.range.nextStart} - ${model.range.nextEnd})</h3>${renderWeeklyActivityGroups(model.schedulesNext, 'ไม่มี Key Activities ในสัปดาห์หน้า')}</div>`;
           if(activeTab === 'permits') return `${sourceNotice(['permits'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3>Construction Permit Status</h3><button class="btn btn-ghost weekly-add-record" data-register="permits">+ Add Permit</button></div>${recordTable(model.permits, [['permit_no','Permit No.'],['title','Title'],['area','Area'],['required_date','Required'],['expiry_date','Expiry'],['status','Status']], 'ไม่มี Permit ที่ต้องติดตาม', 'permits')}</div>`;
-          if(activeTab === 'procurement') return `${sourceNotice(['procurementStageActuals'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3>Procurement Plan vs Actual</h3><button type="button" class="btn btn-ghost" id="weeklyAddProcurementStages">+ Add Activities</button></div><div class="dash-note">Plan ใช้ Forecast Finish ของแต่ละ Activity (ถ้าไม่มีใช้ Forecast Start) · Actual กรอกภายหลังด้วย Edit Actual</div>${renderProcurementPlanTable(model.procurementStages, sources.procurementStageActuals, !unavailable.procurementStageActuals)}</div>`;
+          if(activeTab === 'procurement') return `${sourceNotice(['procurementStageActuals'])}<div class="dash-section"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3>Procurement Plan vs Actual</h3><button type="button" class="btn btn-ghost" id="weeklyAddProcurementStages">+ Add Activities</button></div><div class="dash-note">Plan ใช้ Forecast Finish ของแต่ละ Activity (ถ้าไม่มีใช้ Forecast Start) · Actual กรอกภายหลังด้วย Edit Actual</div>${renderProcurementPlanTable(model.procurementStages, sources.procurementStageActuals, !unavailable.procurementStageActuals, model.weekEnd)}</div>`;
           if(activeTab === 'visual') {
             const plans = sources.visualPlans, marks = sources.visualMarks.filter(row => row.mark_date && row.mark_date >= model.range.start && row.mark_date <= model.range.end);
             return `${sourceNotice(['visualPlans','visualMarks'])}<div class="dash-section"><h3>Construction Work by Area - Visual Progress</h3>${recordTable(marks.map(mark => Object.assign({}, mark, { plan_name:(plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).name || (plans.find(plan => String(plan.id)===String(mark.plan_id)) || {}).title || 'Visual Plan' })), [['plan_name','Area / Plan'],['mark_date','Date'],['progress_pct','Progress %']], 'ไม่มี Visual Progress mark ในสัปดาห์นี้')}</div>`;
@@ -2163,6 +2177,20 @@
         function renderReport(weekEnd){
           const model = buildModel(weekEnd), snapshot = getSnapshot(weekEnd), options = Array.from({length:26}, (_,index) => addDays(mondayOfWeek(todayISO()), -7*index));
           container.innerHTML = `<div class="dash-section"><div class="dash-weekpicker-row"><label for="weeklyReportPicker">Weekly Project Report</label><select id="weeklyReportPicker" class="kpi-input" style="max-width:280px;">${options.map(value => `<option value="${value}" ${value===weekEnd?'selected':''}>${weekLabel(value)}</option>`).join('')}</select><button class="chip" id="weeklyReportSave">💾 Save Snapshot</button><button class="chip" id="weeklyReportExport">⬇️ Excel</button><button class="chip" id="weeklyReportPrint">🖨️ Print</button></div><div class="dash-note" style="margin:10px 0 0;">Reporting period: ${model.range.start} - ${model.range.end}${sources.snapshots.length ? ' · historical snapshot available' : ''}</div></div><div class="vp-plan-tabs" id="weeklyReportTabs">${tabs.map(([id,label]) => `<button type="button" class="vp-filter-btn ${id===activeTab?'active':''}" data-weekly-tab="${id}">${escapeHtml(label)}</button>`).join('')}</div><div id="weeklyReportTabBody">${renderTab(model)}</div><div class="dash-section"><h3>Management Summary</h3><textarea id="weeklyManagementSummary" class="kpi-input" style="max-width:none;min-height:92px;resize:vertical;" placeholder="Achievements, risks, decisions and next-week commitments">${escapeHtml(snapshot.management_summary || '')}</textarea><div class="weekly-ai-panel" style="margin-top:10px;"><button type="button" class="btn btn-ghost" id="weeklyAiToggle" aria-expanded="false">✨ AI Summary</button><div id="weeklyAiControls" hidden style="margin-top:10px;"><div style="display:flex;gap:8px;flex-wrap:wrap;"><input id="weeklyAiEndpoint" class="kpi-input" style="max-width:300px;" placeholder="AI API endpoint"><input id="weeklyAiModel" class="kpi-input" style="max-width:180px;" list="weeklyAiModels" placeholder="Model ID"><datalist id="weeklyAiModels"><option value="gpt-4o-mini"><option value="gpt-4o"></datalist><input id="weeklyAiKey" class="kpi-input" style="max-width:220px;" type="password" autocomplete="off" placeholder="API key (not saved)"><button type="button" class="btn btn-ghost" id="weeklyAiGenerate">Generate Summary</button></div><div class="dash-note" style="margin:10px 0 0;">Use an API model ID, for example <b>gpt-4o-mini</b>; ChatGPT display names are not valid model IDs. API key is used only for this request and is never saved to Supabase, browser storage, snapshots, or exports.</div></div></div></div>`;
+          if(activeTab === 'procurement'){
+            const ganttScroll = $('.procurement-gantt-scroll'), selectedLine = ganttScroll && ganttScroll.querySelector('.procurement-gantt-track .procurement-gantt-selected-line');
+            if(ganttScroll && selectedLine){
+              const board = ganttScroll.querySelector('.procurement-gantt-board');
+              const materialWidth = parseFloat(getComputedStyle(board).getPropertyValue('--label-width')) || 300;
+              const stageWidth = parseFloat(getComputedStyle(board).getPropertyValue('--stage-label-width')) || 220;
+              const plotViewport = Math.max(1, ganttScroll.clientWidth - materialWidth - stageWidth);
+              requestAnimationFrame(()=>{
+                const wrapRect = ganttScroll.getBoundingClientRect(), lineRect = selectedLine.getBoundingClientRect();
+                const lineX = ganttScroll.scrollLeft + lineRect.left - wrapRect.left;
+                ganttScroll.scrollLeft = Math.max(0, lineX - materialWidth - stageWidth - plotViewport * 0.72);
+              });
+            }
+          }
           $$('#weeklyReportTabs [data-weekly-tab]').forEach(button => button.addEventListener('click', ()=>{
             activeTab = button.dataset.weeklyTab;
             renderReport(weekEnd);

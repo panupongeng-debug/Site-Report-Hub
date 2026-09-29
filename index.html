@@ -82,6 +82,52 @@
   .sidebar-backdrop{display:none;}
   .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:24;}
 
+  /* ---------- auth (login / request access) overlay ---------- */
+  #authOverlay{position:fixed;inset:0;z-index:200;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authOverlay[hidden]{display:none;}
+  .auth-card{width:100%;max-width:360px;background:var(--paper-2);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(20,30,60,.08);padding:26px 24px;}
+  .auth-card h1{font-family:var(--disp);font-size:18px;color:var(--charcoal);margin:0 0 4px;}
+  .auth-card .sub{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
+  .auth-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--line);}
+  .auth-tab-btn{flex:1;text-align:center;padding:9px 4px;font-family:var(--disp);font-weight:600;font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .auth-tab-btn.active{color:var(--charcoal);border-bottom-color:var(--amber-deep);}
+  .auth-field{margin-bottom:12px;}
+  .auth-field label{display:block;font-size:12px;font-weight:600;color:var(--charcoal);margin-bottom:5px;}
+  .auth-field input,.auth-field select{width:100%;font-family:var(--body);font-size:14px;color:var(--ink);background:#fff;border:1.3px solid var(--line);border-radius:7px;padding:9px 10px;outline:none;}
+  .auth-field input:focus{border-color:var(--amber-deep);box-shadow:0 0 0 3px rgba(14,163,148,.12);}
+  .auth-submit-btn{width:100%;padding:10px;border:none;border-radius:7px;background:var(--amber-deep);color:#fff;font-family:var(--disp);font-weight:700;font-size:14px;cursor:pointer;margin-top:4px;}
+  .auth-submit-btn:disabled{opacity:.55;cursor:default;}
+  .auth-msg{font-size:12.5px;margin:10px 0 0;padding:8px 10px;border-radius:7px;}
+  .auth-msg.err{background:#FEF2F2;color:var(--danger);border:1px solid #FCA5A5;}
+  .auth-msg.ok{background:#F0FBF9;color:var(--amber-deep);border:1px solid #A7E4DB;}
+  .auth-pane[hidden]{display:none;}
+  .sidebar-user{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;}
+  .sidebar-user .who{flex:1 1 auto;min-width:0;overflow:hidden;}
+  .sidebar-user .name{display:block;font-size:12.5px;font-weight:700;color:var(--charcoal);overflow:hidden;text-overflow:ellipsis;}
+  .sidebar-user .role{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .sidebar-user .logout-btn{flex:0 0 auto;border:1px solid var(--line);background:#F7F9FB;color:var(--charcoal);border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;}
+  .sidebar.collapsed .sidebar-user .who{display:none;}
+  .sidebar.collapsed .sidebar-user{justify-content:center;}
+
+  /* ---------- user management (admin) ---------- */
+  .um-section{margin-bottom:22px;}
+  .um-section h3{font-family:var(--disp);font-size:14.5px;color:var(--charcoal);margin:0 0 10px;}
+  .um-table{width:100%;border-collapse:collapse;background:var(--paper-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .um-table th,.um-table td{padding:9px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--line);}
+  .um-table th{background:#F7F9FB;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+  .um-table tr:last-child td{border-bottom:none;}
+  .um-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .um-pill.pending{background:#FEF9C3;color:#854D0E;}
+  .um-pill.approved{background:#DCFCE7;color:#166534;}
+  .um-pill.rejected{background:#FEE2E2;color:#991B1B;}
+  .um-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;margin-right:5px;}
+  .um-btn.approve{border-color:var(--closed);color:var(--closed);}
+  .um-btn.reject{border-color:var(--danger);color:var(--danger);}
+  .um-btn.approve:hover{background:var(--closed);color:#fff;}
+  .um-btn.reject:hover{background:var(--danger);color:#fff;}
+  .um-role-select{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;}
+  .um-empty{padding:14px;color:var(--muted);font-size:13px;}
+
   .stat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
   .stat-row.qc-kpi-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;}
   .stat-row.qc-kpi-row .stat-chip{min-width:0;}
@@ -728,7 +774,29 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="authOverlay" hidden>
+  <div class="auth-card">
+    <h1>Site Reports Hub</h1>
+    <p class="sub">เข้าสู่ระบบเพื่อใช้งาน หรือขอสิทธิ์การใช้งานใหม่</p>
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab-btn active" data-pane="login">เข้าสู่ระบบ</button>
+      <button type="button" class="auth-tab-btn" data-pane="signup">ขอสิทธิ์การใช้งาน</button>
+    </div>
+    <div class="auth-pane" id="authPaneLogin">
+      <div class="auth-field"><label>Username</label><input type="text" id="authLoginUser" autocomplete="username"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="authLoginPass" autocomplete="current-password"></div>
+      <button type="button" class="auth-submit-btn" id="authLoginBtn">เข้าสู่ระบบ</button>
+    </div>
+    <div class="auth-pane" id="authPaneSignup" hidden>
+      <div class="auth-field"><label>ชื่อ-นามสกุล</label><input type="text" id="authSignupName" autocomplete="name"></div>
+      <div class="auth-field"><label>Username</label><input type="text" id="authSignupUser" autocomplete="username"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="authSignupPass" autocomplete="new-password"></div>
+      <button type="button" class="auth-submit-btn" id="authSignupBtn">ส่งคำขอสิทธิ์การใช้งาน</button>
+    </div>
+    <div class="auth-msg" id="authMsg" hidden></div>
+  </div>
+</div>
+<div class="wrap" id="appWrap" hidden>
 
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
@@ -739,6 +807,7 @@
       <span class="label">Job number</span>
       <span class="value">B-26-6530</span>
     </div>
+    <div class="sidebar-user" id="sidebarUser"></div>
     <div class="sidebar-conn"><span class="conn-dot" id="connDot"></span><span class="sidebar-label" id="connText">เชื่อมต่อ Supabase...</span></div>
     <div class="sidebar-group">
       <div class="sidebar-group-label">📝 Report</div>
@@ -916,6 +985,150 @@
   const STORAGE_OBJ = SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/';
   const STORAGE_PUBLIC = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/';
   const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
+
+  // ============================================================================================
+  // User management (login / request-access / admin approval) — เพิ่ม 2026-09-29
+  // ตาราง app_users เก็บบัญชีผู้ใช้ทั้งหมด (pending/approved/rejected) รันสคริปต์
+  // supabase/user_management.sql ก่อนใช้งานฟีเจอร์นี้ — บัญชีแรกที่สร้างไว้คือ admin/admin123
+  // หมายเหตุความปลอดภัย: เหมือนส่วนอื่นของแอปนี้ (ดูคอมเมนต์ VIEW_ONLY ด้านล่าง) ไม่ได้เปิด RLS
+  // การกันสิทธิ์นี้เป็นการกันระดับ UI/ตรรกะแอป ไม่ใช่การกันที่ฐานข้อมูลจริง
+  // ============================================================================================
+  const AUTH_SESSION_KEY = 'srh_auth_session';
+  let currentUser = null;
+
+  async function sha256Hex(text){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function getSavedSession(){
+    try{ return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null'); }catch(e){ return null; }
+  }
+  function saveSession(user){
+    try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ id:user.id, username:user.username })); }catch(e){}
+  }
+  function clearSession(){
+    try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(e){}
+  }
+  async function fetchAppUsers(){
+    return fetchAllRows(SUPABASE_URL + '/rest/v1/app_users?select=*&order=requested_at.desc');
+  }
+  async function fetchAppUserById(id){
+    const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id) + '&select=*', { headers: HEADERS });
+    if(!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  }
+  async function fetchAppUserByUsername(username){
+    const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?username=eq.' + encodeURIComponent(username) + '&select=*', { headers: HEADERS });
+    if(!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  }
+  function showAuthMsg(text, isErr){
+    const el = document.getElementById('authMsg');
+    if(!el) return;
+    el.hidden = false;
+    el.textContent = text;
+    el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
+  }
+  function showAuthOverlay(){
+    document.getElementById('authOverlay').hidden = false;
+    document.getElementById('appWrap').hidden = true;
+  }
+  function hideAuthOverlay(){
+    document.getElementById('authOverlay').hidden = true;
+    document.getElementById('appWrap').hidden = false;
+  }
+  function setupAuthOverlay(){
+    const overlay = document.getElementById('authOverlay');
+    if(overlay.dataset.wired) return;
+    overlay.dataset.wired = '1';
+    overlay.querySelectorAll('.auth-tab-btn').forEach(btn => btn.addEventListener('click', ()=>{
+      overlay.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('authPaneLogin').hidden = btn.dataset.pane !== 'login';
+      document.getElementById('authPaneSignup').hidden = btn.dataset.pane !== 'signup';
+      const msg = document.getElementById('authMsg'); msg.hidden = true; msg.textContent = '';
+    }));
+    document.getElementById('authLoginBtn').addEventListener('click', doLogin);
+    document.getElementById('authSignupBtn').addEventListener('click', doSignup);
+    ['authLoginUser','authLoginPass'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); }));
+    ['authSignupName','authSignupUser','authSignupPass'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key === 'Enter') doSignup(); }));
+  }
+  async function doLogin(){
+    const username = document.getElementById('authLoginUser').value.trim();
+    const password = document.getElementById('authLoginPass').value;
+    if(!username || !password){ showAuthMsg('กรอก Username และ Password ให้ครบ', true); return; }
+    const btn = document.getElementById('authLoginBtn');
+    btn.disabled = true;
+    try{
+      const user = await fetchAppUserByUsername(username);
+      const passHash = await sha256Hex(password);
+      if(!user || user.password_hash !== passHash){ showAuthMsg('Username หรือ Password ไม่ถูกต้อง', true); return; }
+      if(user.status === 'pending'){ showAuthMsg('บัญชีนี้ยังรอผู้ดูแลระบบอนุมัติสิทธิ์การใช้งาน', true); return; }
+      if(user.status === 'rejected'){ showAuthMsg('บัญชีนี้ถูกปฏิเสธการใช้งาน กรุณาติดต่อผู้ดูแลระบบ', true); return; }
+      currentUser = user;
+      saveSession(user);
+      hideAuthOverlay();
+      startApp();
+    }catch(e){
+      showAuthMsg('เข้าสู่ระบบไม่สำเร็จ: ' + e.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+  async function doSignup(){
+    const fullName = document.getElementById('authSignupName').value.trim();
+    const username = document.getElementById('authSignupUser').value.trim();
+    const password = document.getElementById('authSignupPass').value;
+    if(!fullName || !username || !password){ showAuthMsg('กรอกข้อมูลให้ครบทุกช่อง', true); return; }
+    if(password.length < 6){ showAuthMsg('Password ต้องมีอย่างน้อย 6 ตัวอักษร', true); return; }
+    const btn = document.getElementById('authSignupBtn');
+    btn.disabled = true;
+    try{
+      const existing = await fetchAppUserByUsername(username);
+      if(existing){ showAuthMsg('Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น', true); return; }
+      const passwordHash = await sha256Hex(password);
+      const res = await fetch(SUPABASE_URL + '/rest/v1/app_users', {
+        method:'POST', headers:{ ...HEADERS, 'Prefer':'return=minimal' },
+        body: JSON.stringify({ username, password_hash: passwordHash, full_name: fullName, role:'user', status:'pending' })
+      });
+      if(!res.ok) throw new Error('บันทึกคำขอไม่สำเร็จ (status ' + res.status + ')');
+      showAuthMsg('ส่งคำขอสิทธิ์การใช้งานแล้ว กรุณารอผู้ดูแลระบบอนุมัติ', false);
+      document.getElementById('authSignupName').value = '';
+      document.getElementById('authSignupUser').value = '';
+      document.getElementById('authSignupPass').value = '';
+    }catch(e){
+      showAuthMsg('ส่งคำขอไม่สำเร็จ: ' + e.message, true);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+  function renderSidebarUser(){
+    const el = document.getElementById('sidebarUser');
+    if(!el || !currentUser) return;
+    el.innerHTML = `<span class="who"><span class="name">${escapeHtml(currentUser.full_name || currentUser.username)}</span><span class="role">${currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้งาน'}</span></span><button type="button" class="logout-btn" id="btnLogout">ออกจากระบบ</button>`;
+    document.getElementById('btnLogout').addEventListener('click', ()=>{
+      clearSession();
+      currentUser = null;
+      location.reload();
+    });
+  }
+  async function requireAuth(){
+    setupAuthOverlay();
+    const session = getSavedSession();
+    if(!session || !session.id){ showAuthOverlay(); return false; }
+    try{
+      const user = await fetchAppUserById(session.id);
+      if(!user || user.status !== 'approved'){ clearSession(); showAuthOverlay(); return false; }
+      currentUser = user;
+      hideAuthOverlay();
+      return true;
+    }catch(e){
+      showAuthOverlay();
+      return false;
+    }
+  }
 
   // ============================================================================================
   // โหมด "ดูอย่างเดียว" (View Only) — เพิ่ม 2026-09-08
@@ -9402,6 +9615,85 @@
       }
     },
   ];
+  // ================= USER MANAGEMENT (admin-only, approve/reject access requests) =================
+  const USER_MANAGEMENT_DASHBOARD = {
+    id:'dash_user_management', label:'User Management', icon:'👤',
+    async render(container){
+      if(!currentUser || currentUser.role !== 'admin'){
+        container.innerHTML = '<div class="dash-empty">หน้านี้สำหรับผู้ดูแลระบบเท่านั้น</div>';
+        return;
+      }
+      container.innerHTML = '<div class="dash-empty">กำลังโหลดรายชื่อผู้ใช้...</div>';
+      let users;
+      try{ users = await fetchAppUsers(); }
+      catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '<br><br>ตรวจสอบว่าได้รันไฟล์ supabase/user_management.sql แล้วหรือยัง</div>'; return; }
+
+      async function patchUser(id, payload){
+        const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id), {
+          method:'PATCH', headers:{ ...HEADERS, 'Prefer':'return=minimal' },
+          body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
+        });
+        if(!res.ok) throw new Error('อัปเดตไม่สำเร็จ (status ' + res.status + ')');
+      }
+      function pillHtml(status){
+        const label = status === 'approved' ? 'อนุมัติแล้ว' : status === 'rejected' ? 'ปฏิเสธ' : 'รออนุมัติ';
+        return `<span class="um-pill ${escapeHtml(status)}">${label}</span>`;
+      }
+      function rowActionsHtml(u){
+        const roleOptions = ['user','admin'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r==='admin'?'Admin':'User'}</option>`).join('');
+        const roleSelect = `<select class="um-role-select" data-role-id="${u.id}">${roleOptions}</select>`;
+        if(u.status === 'pending'){
+          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn reject" data-reject-id="${u.id}">❌ ปฏิเสธ</button>`;
+        }
+        if(u.status === 'rejected'){
+          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button>`;
+        }
+        return `${roleSelect} <button type="button" class="um-btn reject" data-reject-id="${u.id}">🚫 เพิกถอนสิทธิ์</button>`;
+      }
+      function tableHtml(rows){
+        if(!rows.length) return '<div class="um-empty">ไม่มีรายการ</div>';
+        return `<table class="um-table"><thead><tr><th>ชื่อ-นามสกุล</th><th>Username</th><th>สถานะ</th><th>วันที่ขอ</th><th>การจัดการ</th></tr></thead><tbody>${
+          rows.map(u => `<tr data-row-id="${u.id}"><td>${escapeHtml(u.full_name || '-')}</td><td>${escapeHtml(u.username)}</td><td>${pillHtml(u.status)}</td><td>${u.requested_at ? escapeHtml(new Date(u.requested_at).toLocaleString('th-TH')) : '-'}</td><td>${rowActionsHtml(u)}</td></tr>`).join('')
+        }</tbody></table>`;
+      }
+      function renderShell(){
+        const pending = users.filter(u => u.status === 'pending');
+        const approved = users.filter(u => u.status === 'approved');
+        const rejected = users.filter(u => u.status === 'rejected');
+        container.innerHTML = `
+          <div class="um-section"><h3>🕓 รอการอนุมัติ (${pending.length})</h3>${tableHtml(pending)}</div>
+          <div class="um-section"><h3>✅ อนุมัติแล้ว (${approved.length})</h3>${tableHtml(approved)}</div>
+          <div class="um-section"><h3>❌ ปฏิเสธ / เพิกถอนสิทธิ์ (${rejected.length})</h3>${tableHtml(rejected)}</div>
+        `;
+        container.querySelectorAll('[data-approve-id]').forEach(btn => btn.addEventListener('click', async ()=>{
+          const id = btn.dataset.approveId;
+          try{
+            await patchUser(id, { status:'approved', approved_at: new Date().toISOString(), approved_by: currentUser.username });
+            showToast('อนุมัติสิทธิ์การใช้งานแล้ว');
+            users = await fetchAppUsers(); renderShell();
+          }catch(e){ showToast('อนุมัติไม่สำเร็จ: ' + e.message, true); }
+        }));
+        container.querySelectorAll('[data-reject-id]').forEach(btn => btn.addEventListener('click', async ()=>{
+          const id = btn.dataset.rejectId;
+          if(id === currentUser.id){ showToast('ไม่สามารถเพิกถอนสิทธิ์ตัวเองได้', true); return; }
+          try{
+            await patchUser(id, { status:'rejected', approved_at:null, approved_by: currentUser.username });
+            showToast('ปฏิเสธ/เพิกถอนสิทธิ์การใช้งานแล้ว');
+            users = await fetchAppUsers(); renderShell();
+          }catch(e){ showToast('ดำเนินการไม่สำเร็จ: ' + e.message, true); }
+        }));
+        container.querySelectorAll('[data-role-id]').forEach(sel => sel.addEventListener('change', async ()=>{
+          const id = sel.dataset.roleId;
+          try{
+            await patchUser(id, { role: sel.value });
+            showToast('เปลี่ยนบทบาทผู้ใช้แล้ว');
+            users = await fetchAppUsers();
+          }catch(e){ showToast('เปลี่ยนบทบาทไม่สำเร็จ: ' + e.message, true); renderShell(); }
+        }));
+      }
+      renderShell();
+    }
+  };
   // ================= CUSTOM REPORTS (non-generic entry pages, listed under 📝 Report) =================
   // Safety KPI & Safe Days: a live-editable summary/counter page (not a per-day journal like the
   // other MODULES), so it renders its own form + save handlers instead of using the generic
@@ -11592,10 +11884,13 @@
   function navBtnHtml(m){
     return `<button class="nav-btn ${m.id===activeModule.id?'active':''}" data-id="${m.id}" title="${escapeHtml(m.label)}"><span class="ic">${m.icon}</span><span class="lbl">${escapeHtml(m.label)}</span></button>`;
   }
+  function allDashboards(){
+    return currentUser && currentUser.role === 'admin' ? DASHBOARDS.concat([USER_MANAGEMENT_DASHBOARD]) : DASHBOARDS;
+  }
   function renderModuleRow(){
     $('#navReports').innerHTML = MODULES.map(navBtnHtml).join('') + CUSTOM_REPORTS.map(navBtnHtml).join('');
     $('#navDatabase').innerHTML = DATABASE_REPORTS.map(navBtnHtml).join('');
-    $('#navDashboards').innerHTML = DASHBOARDS.map(navBtnHtml).join('');
+    $('#navDashboards').innerHTML = allDashboards().map(navBtnHtml).join('');
     $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=>{
       switchModule(btn.dataset.id);
       if(window.innerWidth <= 760) setSidebarCollapsed(true);
@@ -11611,7 +11906,7 @@
     const isDash = id.startsWith('dash_');
     const custom = CUSTOM_REPORTS.concat(DATABASE_REPORTS).find(c => c.id === id);
     if(isDash){
-      const dash = DASHBOARDS.find(d => d.id === id);
+      const dash = allDashboards().find(d => d.id === id);
       activeModule = dash;
       renderModuleRow();
       $('.tabs').style.display = 'none';
@@ -12551,7 +12846,13 @@
     setConn(false, 'กำลังเชื่อมต่อ...');
     await refreshAndRender();
   }
-  init();
+  async function startApp(){
+    renderSidebarUser();
+    await init();
+  }
+  (async function boot(){
+    if(await requireAuth()) await startApp();
+  })();
 })();
 </script>
 </body>

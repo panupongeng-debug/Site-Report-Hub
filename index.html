@@ -10151,6 +10151,477 @@
         }
         renderTable();
       }
+    },
+    {
+      id:'engdoc_status', label:'Engineering Document Status', icon:'📐',
+      async render(container){
+        container.innerHTML = '<div class="dash-empty">กำลังโหลด Engineering Document Status...</div>';
+        let data, importLogs;
+        try{
+          data = await fetchAllRows(SUPABASE_URL + '/rest/v1/engineering_documents?select=*&order=doc_no.asc,revision.asc');
+          importLogs = await fetchAllRows(SUPABASE_URL + '/rest/v1/engineering_document_import_log?select=*&order=imported_at.desc&limit=5');
+        }catch(error){
+          container.innerHTML = '<div class="dash-empty">โหลด Engineering Document Status ไม่สำเร็จ: ' + escapeHtml(error.message) + '<br><br>กรุณาสร้างตารางใน Supabase ตามไฟล์ supabase/engineering_document_status.sql ก่อนใช้งานหน้านี้ครั้งแรก</div>';
+          return;
+        }
+        data = data.map(applyRemaintimeRule);
+
+        const REV_RE = /,\s*Rev\.?\s*([A-Za-z0-9]+)\s*$/i;
+        const ENGDOC_FIELDS = {
+          doc_name:'ชื่อเอกสาร', document_status:'Document Status', pending_person:'Pending Person',
+          actual_issue_date:'Actual Issue Date', pm_approved_date:'PM Approved Date', pm_approval_status:'PM Approval Status',
+          external_approved_date:'External Approved Date', external_approval_status:'External Approval Status',
+          remaintime:'Remaintime', overall_status:'Overall Status'
+        };
+        const COMPARE_FIELDS = Object.keys(ENGDOC_FIELDS);
+
+        let search='', docStatusFilter='', pmFilter='', extFilter='', overallFilter='', revFilter='';
+        let sortKey='actual_issue_date', sortDir='desc', page=1, pageSize=20;
+        let importRows=null, importParseErrors=[], importFileName='', importParseError='', importSummary=null, importing=false;
+
+        function normStatus(value){ if(value==null) return null; const text=String(value).trim(); return (!text || text==='-') ? null : text; }
+        function excelDateTimeToIso(value){
+          if(value instanceof Date && !isNaN(value)) return value.toISOString();
+          if(typeof value === 'number'){
+            const parsed = XLSX.SSF.parse_date_code(value);
+            if(!parsed) return null;
+            return new Date(Date.UTC(parsed.y, (parsed.m||1)-1, parsed.d||1, parsed.H||0, parsed.M||0, Math.floor(parsed.S||0))).toISOString();
+          }
+          return null;
+        }
+        function formatDT(iso){
+          if(!iso) return '-';
+          const d = new Date(iso); if(isNaN(d)) return '-';
+          return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+        function computeOverallStatus(rec){
+          const rt = String(rec.remaintime || '').trim().toLowerCase();
+          if(rt.startsWith('complete')) return 'Complete';
+          const num = Number(rt);
+          if(rt && rt !== '-' && Number.isFinite(num)) return num < 0 ? 'Overdue' : 'In Progress';
+          const pmDone = !!rec.pm_approval_status, extDone = !!rec.external_approval_status;
+          if(pmDone && extDone) return 'Complete';
+          if(pmDone || extDone) return 'In Progress';
+          return 'Pending';
+        }
+        function applyRemaintimeRule(rec){
+          if(rec.pm_approval_status && !rec.pending_person && !rec.external_approval_status){
+            rec.external_approval_status = rec.pm_approval_status;
+          }
+          const rt = String(rec.remaintime || '').trim().toLowerCase();
+          if(!rt.startsWith('complete')){
+            if(rec.external_approval_status) rec.remaintime = 'Complete';
+            else if(rec.pm_approved_date && !rec.pending_person) rec.remaintime = 'Complete by REP';
+          }
+          rec.overall_status = computeOverallStatus(rec);
+          return rec;
+        }
+        function overallPillClass(status){
+          return status==='Complete' ? 'status-closed' : status==='Overdue' ? 'status-overdue' : status==='In Progress' ? 'status-in-progress' : 'status-open';
+        }
+        function statusPill(status){ return `<span class="pill ${overallPillClass(status)}">${escapeHtml(status || '-')}</span>`; }
+        function codePill(code){ return code ? `<span class="pill status-closed">${escapeHtml(code)}</span>` : `<span class="pill status-open">รอ</span>`; }
+        function distinct(key){ return Array.from(new Set(data.map(r=>r[key]).filter(Boolean))).sort(); }
+
+        async function parseImportFile(file){
+          const workbook = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, raw:true});
+          if(!rows.length) throw new Error('ไฟล์ไม่มีข้อมูล');
+          const header = (rows[0] || []).map(h => String(h || '').trim());
+          const expected = ['Doc No','Purpose & Doc Name & Rev','Document Status','Pending Person'];
+          if(!expected.every((label,i)=>header[i] === label)) throw new Error('รูปแบบคอลัมน์ไม่ตรงกับไฟล์ Alldoc Export (ต้องขึ้นต้นด้วย Doc No, Purpose & Doc Name & Rev, Document Status, Pending Person)');
+          const parsed = [], errors = [];
+          let lastDocNo = null;
+          for(let r=1; r<rows.length; r++){
+            const row = rows[r]; if(!row || !row.length) continue;
+            const rawDocNo = row[0], purpose = row[1];
+            if(rawDocNo != null && String(rawDocNo).trim()) lastDocNo = String(rawDocNo).trim();
+            if(purpose == null || String(purpose).trim() === '') continue;
+            const purposeText = String(purpose).trim();
+            if(purposeText === 'Total') continue;
+            if(!lastDocNo){ errors.push({row:r+1, message:'ไม่พบ Doc No สำหรับแถวนี้'}); continue; }
+            const m = purposeText.match(REV_RE);
+            if(!m){ errors.push({row:r+1, message:'ไม่พบ Revision ในชื่อเอกสาร: ' + purposeText}); continue; }
+            const revision = m[1].toUpperCase();
+            const docName = purposeText.slice(0, m.index).replace(/,\s*$/,'').trim();
+            const record = {
+              doc_no:lastDocNo, revision, doc_name:docName,
+              document_status: row[2] != null ? String(row[2]).trim() : null,
+              pending_person: row[3] != null ? String(row[3]).trim() : null,
+              actual_issue_date: excelDateTimeToIso(row[4]),
+              pm_approved_date: excelDateTimeToIso(row[5]),
+              pm_approval_status: normStatus(row[6]),
+              external_approved_date: excelDateTimeToIso(row[7]),
+              external_approval_status: normStatus(row[8]),
+              remaintime: row[9] != null ? String(row[9]).trim() : null
+            };
+            applyRemaintimeRule(record);
+            record.unique_key = lastDocNo + '|' + revision;
+            parsed.push(record);
+          }
+          const byKey = new Map();
+          parsed.forEach(rec=>{
+            if(byKey.has(rec.unique_key)) errors.push({row:'-', message:'พบ Unique Key ซ้ำในไฟล์: ' + rec.unique_key});
+            byKey.set(rec.unique_key, rec);
+          });
+          return { records: Array.from(byKey.values()), errors };
+        }
+
+        function diffRecord(existing, incoming){
+          const changes = {};
+          let changed = false;
+          COMPARE_FIELDS.forEach(key=>{
+            if(String(existing[key] ?? '') !== String(incoming[key] ?? '')){ changes[key] = incoming[key]; changed = true; }
+          });
+          return changed ? changes : null;
+        }
+
+        async function handleFileChange(file){
+          importParseError=''; importRows=null; importParseErrors=[]; importFileName=''; importSummary=null;
+          try{
+            const { records, errors } = await parseImportFile(file);
+            importRows = records; importParseErrors = errors; importFileName = file.name;
+          }catch(error){ importParseError = error.message; }
+          renderTable();
+        }
+
+        async function runImport(){
+          if(!importRows || !importRows.length || importing) return;
+          importing = true; renderTable();
+          const existingByKey = new Map(data.map(r=>[r.unique_key, r]));
+          let inserted=0, updated=0, skipped=0, errorCount = importParseErrors.length;
+          const errors = importParseErrors.slice();
+          const historyPayload = [];
+          for(let i=0; i<importRows.length; i+=8){
+            const batch = importRows.slice(i, i+8);
+            await Promise.all(batch.map(async rec=>{
+              try{
+                const existing = existingByKey.get(rec.unique_key);
+                if(existing){
+                  const changes = diffRecord(existing, rec);
+                  if(!changes){ skipped++; return; }
+                  changes.updated_at = new Date().toISOString();
+                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents?id=eq.' + existing.id, {method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(changes)});
+                  if(!res.ok) throw new Error(await res.text());
+                  const [saved] = await res.json();
+                  historyPayload.push({document_id:existing.id, unique_key:rec.unique_key, action:'update', old_data:{...existing}, new_data:saved});
+                  Object.assign(existing, saved);
+                  updated++;
+                }else{
+                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(rec)});
+                  if(!res.ok) throw new Error(await res.text());
+                  const [saved] = await res.json();
+                  data.push(saved);
+                  existingByKey.set(rec.unique_key, saved);
+                  historyPayload.push({document_id:saved.id, unique_key:rec.unique_key, action:'insert', old_data:null, new_data:saved});
+                  inserted++;
+                }
+              }catch(error){ errorCount++; errors.push({unique_key:rec.unique_key, message:error.message}); }
+            }));
+          }
+          if(historyPayload.length){
+            try{ await fetch(SUPABASE_URL + '/rest/v1/engineering_document_history', {method:'POST', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify(historyPayload)}); }catch(error){}
+          }
+          const logPayload = { file_name:importFileName, total_rows:importRows.length, inserted_count:inserted, updated_count:updated, skipped_count:skipped, error_count:errorCount, errors };
+          try{
+            const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_document_import_log', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(logPayload)});
+            if(res.ok){ const [saved] = await res.json(); importLogs = [saved, ...importLogs].slice(0,5); }
+          }catch(error){}
+          importSummary = { inserted, updated, skipped, error:errorCount };
+          importRows = null; importParseErrors = []; importFileName=''; importing=false; page=1;
+          renderTable();
+          showToast(`Import สำเร็จ ${inserted + updated} รายการ · เพิ่มใหม่ ${inserted} · อัปเดต ${updated} · ข้าม ${skipped} · Error ${errorCount}`, errorCount > 0);
+        }
+
+        function latestSet(){
+          const map = new Map();
+          data.forEach(rec=>{
+            const cur = map.get(rec.doc_no);
+            if(!cur){ map.set(rec.doc_no, rec); return; }
+            const curT = cur.actual_issue_date ? Date.parse(cur.actual_issue_date) : -Infinity;
+            const recT = rec.actual_issue_date ? Date.parse(rec.actual_issue_date) : -Infinity;
+            if(recT > curT || (recT === curT && String(rec.revision) > String(cur.revision))) map.set(rec.doc_no, rec);
+          });
+          return Array.from(map.values());
+        }
+
+        function visibleRows(){
+          const query = search.trim().toLowerCase();
+          let rowsOut = data.filter(rec=>{
+            if(docStatusFilter && rec.document_status !== docStatusFilter) return false;
+            if(pmFilter){ if(pmFilter === '__PENDING__'){ if(rec.pm_approval_status) return false; } else if(rec.pm_approval_status !== pmFilter) return false; }
+            if(extFilter){ if(extFilter === '__PENDING__'){ if(rec.external_approval_status) return false; } else if(rec.external_approval_status !== extFilter) return false; }
+            if(overallFilter && rec.overall_status !== overallFilter) return false;
+            if(revFilter && rec.revision !== revFilter) return false;
+            if(query && !(String(rec.doc_no||'').toLowerCase().includes(query) || String(rec.doc_name||'').toLowerCase().includes(query) || String(rec.pending_person||'').toLowerCase().includes(query))) return false;
+            return true;
+          });
+          if(sortKey){
+            rowsOut = rowsOut.slice().sort((a,b)=>{
+              let av, bv;
+              if(sortKey === 'remaintime'){
+                const an = Number(a.remaintime), bn = Number(b.remaintime);
+                av = Number.isFinite(an) ? an : Infinity;
+                bv = Number.isFinite(bn) ? bn : Infinity;
+              }else if(sortKey === 'actual_issue_date' || sortKey === 'pm_approved_date' || sortKey === 'external_approved_date'){
+                av = a[sortKey] ? Date.parse(a[sortKey]) : null;
+                bv = b[sortKey] ? Date.parse(b[sortKey]) : null;
+                if(av == null && bv == null) return 0;
+                if(av == null) return 1;
+                if(bv == null) return -1;
+              }else{
+                av = String(a[sortKey] ?? '').toLowerCase();
+                bv = String(b[sortKey] ?? '').toLowerCase();
+                if(!av && bv) return 1;
+                if(av && !bv) return -1;
+                const result = av.localeCompare(bv, 'th', {numeric:true});
+                return sortDir === 'asc' ? result : -result;
+              }
+              const result = av === bv ? 0 : (av < bv ? -1 : 1);
+              return sortDir === 'asc' ? result : -result;
+            });
+          }
+          return rowsOut;
+        }
+
+        function exportFiltered(){
+          const rowsOut = visibleRows();
+          const headerRow = ['Doc No','Revision','ชื่อเอกสาร','Document Status','Pending Person','Actual Issue Date','PM Approved Date','PM Approval Status','External Approved Date','External Approval Status','Remaintime','Overall Status'];
+          const aoa = [headerRow, ...rowsOut.map(r=>[r.doc_no, r.revision, r.doc_name, r.document_status, r.pending_person, formatDT(r.actual_issue_date), formatDT(r.pm_approved_date), r.pm_approval_status || '-', formatDT(r.external_approved_date), r.external_approval_status || '-', r.remaintime || '-', r.overall_status])];
+          const sheet = XLSX.utils.aoa_to_sheet(aoa);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, sheet, 'Engineering Documents');
+          XLSX.writeFile(workbook, 'Engineering_Document_Status_' + todayISO() + '.xlsx');
+        }
+
+        async function deleteRecord(rec){
+          if(!confirm(`ลบเอกสาร ${rec.doc_no} · Rev.${rec.revision} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+          try{
+            const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents?id=eq.' + rec.id, { method:'DELETE', headers:{...HEADERS,'Prefer':'return=minimal'} });
+            if(!res.ok) throw new Error(await res.text());
+            try{
+              await fetch(SUPABASE_URL + '/rest/v1/engineering_document_history', {method:'POST', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify({document_id:null, unique_key:rec.unique_key, action:'delete', old_data:rec, new_data:null})});
+            }catch(error){}
+            data = data.filter(item => item.id !== rec.id);
+            showToast('ลบเอกสาร ' + rec.doc_no + ' · Rev.' + rec.revision + ' แล้ว');
+            renderTable();
+          }catch(error){ showToast('ลบไม่สำเร็จ: ' + error.message, true); }
+        }
+
+        async function deleteAllRecords(){
+          if(!data.length){ showToast('ไม่มีข้อมูลให้ลบ', true); return; }
+          if(!confirm(`ยืนยันลบเอกสารทั้งหมด ${data.length} รายการ? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+          if(!confirm('ยืนยันอีกครั้ง: ต้องการลบข้อมูล Engineering Document ทั้งหมดจริงหรือไม่?')) return;
+          try{
+            const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents?id=not.is.null', { method:'DELETE', headers:{...HEADERS,'Prefer':'return=minimal'} });
+            if(!res.ok) throw new Error(await res.text());
+            try{
+              await fetch(SUPABASE_URL + '/rest/v1/engineering_document_history', {method:'POST', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify({document_id:null, unique_key:'*', action:'delete_all', old_data:{count:data.length}, new_data:null})});
+            }catch(error){}
+            data = [];
+            page = 1;
+            showToast('ลบข้อมูล Engineering Document ทั้งหมดแล้ว');
+            renderTable();
+          }catch(error){ showToast('ลบทั้งหมดไม่สำเร็จ: ' + error.message, true); }
+        }
+
+        function openDetail(rec){
+          const modal = $('#modalContent');
+          modal.innerHTML = `
+            <div class="modal-head"><h2>${escapeHtml(rec.doc_no)} · Rev.${escapeHtml(rec.revision)}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+            <div class="detail-grid">
+              <div class="detail-field full"><label>ชื่อเอกสาร</label><div class="val">${escapeHtml(rec.doc_name || '-')}</div></div>
+              <div class="detail-field"><label>Document Status</label><div class="val">${escapeHtml(rec.document_status || '-')}</div></div>
+              <div class="detail-field"><label>Pending Person</label><div class="val">${escapeHtml(rec.pending_person || '-')}</div></div>
+              <div class="detail-field"><label>Overall Status</label><div class="val">${statusPill(rec.overall_status)}</div></div>
+              <div class="detail-field"><label>Actual Issue Date</label><div class="val">${formatDT(rec.actual_issue_date)}</div></div>
+              <div class="detail-field"><label>PM Approved Date</label><div class="val">${formatDT(rec.pm_approved_date)}</div></div>
+              <div class="detail-field"><label>PM Approval Status</label><div class="val">${codePill(rec.pm_approval_status)}</div></div>
+              <div class="detail-field"><label>External Approved Date</label><div class="val">${formatDT(rec.external_approved_date)}</div></div>
+              <div class="detail-field"><label>External Approval Status</label><div class="val">${codePill(rec.external_approval_status)}</div></div>
+              <div class="detail-field"><label>Remaintime</label><div class="val">${escapeHtml(rec.remaintime || '-')}</div></div>
+              <div class="detail-field"><label>Unique Key</label><div class="val">${escapeHtml(rec.unique_key)}</div></div>
+              <div class="detail-field"><label>อัปเดตล่าสุด</label><div class="val">${formatDT(rec.updated_at)}</div></div>
+            </div>`;
+          $('#modalBg').classList.add('show');
+          $('#modalCloseBtn').addEventListener('click', closeModal);
+        }
+
+        async function openHistory(rec){
+          const modal = $('#modalContent');
+          modal.innerHTML = `<div class="modal-head"><h2>ประวัติการอัปเดต · ${escapeHtml(rec.doc_no)} Rev.${escapeHtml(rec.revision)}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div><div class="dash-empty">กำลังโหลดประวัติ...</div>`;
+          $('#modalBg').classList.add('show');
+          $('#modalCloseBtn').addEventListener('click', closeModal);
+          let history;
+          try{
+            history = await fetchAllRows(SUPABASE_URL + '/rest/v1/engineering_document_history?unique_key=eq.' + encodeURIComponent(rec.unique_key) + '&select=*&order=changed_at.desc');
+          }catch(error){
+            modal.innerHTML += '<div class="dash-empty">โหลดประวัติไม่สำเร็จ: ' + escapeHtml(error.message) + '</div>';
+            return;
+          }
+          function rowDiffHtml(entry){
+            const oldD = entry.old_data || {}, newD = entry.new_data || {};
+            const keys = Object.keys(ENGDOC_FIELDS);
+            const changedKeys = entry.action === 'insert' ? keys.filter(k=>newD[k] != null) : keys.filter(k=>String(oldD[k] ?? '') !== String(newD[k] ?? ''));
+            if(!changedKeys.length) return '<div class="dash-note">ไม่มีการเปลี่ยนแปลงข้อมูล</div>';
+            return `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);">ฟิลด์</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);">ค่าเดิม</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);">ค่าใหม่</th></tr></thead><tbody>${changedKeys.map(k=>{
+              const label = ENGDOC_FIELDS[k];
+              const isDate = k.endsWith('_date');
+              const oldV = entry.action === 'insert' ? '-' : (isDate ? formatDT(oldD[k]) : (oldD[k] ?? '-'));
+              const newV = isDate ? formatDT(newD[k]) : (newD[k] ?? '-');
+              return `<tr><td style="padding:4px 8px;border-bottom:1px solid #EEF1F4;font-weight:600;">${escapeHtml(label)}</td><td style="padding:4px 8px;border-bottom:1px solid #EEF1F4;color:var(--danger);">${escapeHtml(String(oldV))}</td><td style="padding:4px 8px;border-bottom:1px solid #EEF1F4;color:var(--closed);">${escapeHtml(String(newV))}</td></tr>`;
+            }).join('')}</tbody></table>`;
+          }
+          modal.innerHTML = `
+            <div class="modal-head"><h2>ประวัติการอัปเดต · ${escapeHtml(rec.doc_no)} Rev.${escapeHtml(rec.revision)}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+            <div style="padding:4px 2px;max-height:70vh;overflow:auto;">
+            ${history.length ? history.map(entry=>`
+              <div class="dash-section" style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <strong>${entry.action === 'insert' ? '➕ เพิ่มรายการใหม่' : '✏️ อัปเดตข้อมูล'}</strong>
+                  <span class="dash-note" style="margin:0;">${formatDT(entry.changed_at)}</span>
+                </div>
+                ${rowDiffHtml(entry)}
+              </div>`).join('') : '<div class="dash-empty">ยังไม่มีประวัติการอัปเดต</div>'}
+            </div>`;
+          $('#modalCloseBtn').addEventListener('click', closeModal);
+        }
+
+        function renderTable(){
+          const latest = latestSet();
+          const latestIds = new Set(latest.map(r=>r.id));
+          data.forEach(rec=>{ if(!latestIds.has(rec.id) && rec.overall_status !== 'Complete'){ rec.remaintime = 'Complete'; rec.overall_status = 'Complete'; } });
+          const total = latest.length;
+          const complete = latest.filter(r=>r.overall_status==='Complete').length;
+          const pending = latest.filter(r=>r.overall_status==='Pending').length;
+          const overdue = latest.filter(r=>r.overall_status==='Overdue').length;
+          const inProgress = latest.filter(r=>r.overall_status==='In Progress').length;
+          const waitingPm = latest.filter(r=>!r.pm_approval_status).length;
+          const waitingExt = latest.filter(r=>!r.external_approval_status).length;
+          const topOverdue = latest.filter(r=>r.overall_status==='Overdue').sort((a,b)=>Number(a.remaintime)-Number(b.remaintime)).slice(0,10);
+
+          const docStatusOptions = distinct('document_status');
+          const pmStatusOptions = distinct('pm_approval_status');
+          const extStatusOptions = distinct('external_approval_status');
+          const revisionOptions = distinct('revision');
+
+          const filtered = visibleRows();
+          const pages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
+          page = Math.min(page, pages);
+          const pageRows = pageSize === 'all' ? filtered : filtered.slice((page-1)*pageSize, page*pageSize);
+          const importNote = (importRows && importParseErrors.length) ? ` · ข้อมูลผิดพลาด ${importParseErrors.length} แถว (จะนับเป็น Error)` : '';
+          const sortHeader = (key,label) => `<th class="resizable"><button class="db-sort-btn" type="button" data-sort-key="${key}" title="เรียงตาม ${escapeHtml(label)}">${escapeHtml(label)} ${sortKey===key?(sortDir==='asc'?'↑':'↓'):''}</button></th>`;
+
+          container.innerHTML = `
+            <div class="dash-section">
+              <h2 style="margin:0 0 4px;">📐 Engineering Document Status — Dashboard</h2>
+              <div class="dash-note" style="margin-bottom:14px;">สรุปจากรายการล่าสุดของแต่ละ Doc No (${total} เอกสาร จากทั้งหมด ${data.length} รายการ/Revision)</div>
+              <div class="dash-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));">
+                <div class="dash-kpi"><div class="v">${total}</div><div class="l">Total Documents</div></div>
+                <div class="dash-kpi"><div class="v" style="color:var(--closed);">${complete}</div><div class="l">Complete</div></div>
+                <div class="dash-kpi"><div class="v" style="color:#B45309;">${pending}</div><div class="l">Pending</div></div>
+                <div class="dash-kpi"><div class="v" style="color:var(--danger);">${overdue}</div><div class="l">Overdue</div></div>
+                <div class="dash-kpi"><div class="v" style="color:var(--progress);">${inProgress}</div><div class="l">In Progress</div></div>
+                <div class="dash-kpi"><div class="v">${waitingPm}</div><div class="l">รอ PM Approval</div></div>
+                <div class="dash-kpi"><div class="v">${waitingExt}</div><div class="l">รอ External Approval</div></div>
+              </div>
+              <div style="margin-top:14px;">
+                <strong style="font-size:13px;">🔥 Overdue มากที่สุด 10 อันดับ</strong>
+                <div class="db-table-wrap" style="margin-top:8px;max-height:260px;">
+                  <table class="db-table"><thead><tr><th>Doc No</th><th>ชื่อเอกสาร</th><th>Rev</th><th>Pending Person</th><th>Remaintime</th></tr></thead>
+                  <tbody>${topOverdue.length ? topOverdue.map(r=>`<tr><td style="font-family:var(--mono);white-space:nowrap;">${escapeHtml(r.doc_no)}</td><td>${escapeHtml(r.doc_name || '-')}</td><td>${escapeHtml(r.revision)}</td><td>${escapeHtml(r.pending_person || '-')}</td><td style="color:var(--danger);font-weight:700;">${escapeHtml(r.remaintime)}</td></tr>`).join('') : '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--muted);">ไม่มีรายการ Overdue</td></tr>'}</tbody></table>
+                </div>
+              </div>
+              ${importLogs.length ? `<div style="margin-top:14px;"><strong style="font-size:13px;">🗂️ ประวัติการ Import ล่าสุด</strong><div class="db-table-wrap" style="margin-top:8px;max-height:180px;"><table class="db-table"><thead><tr><th>วันที่</th><th>ไฟล์</th><th>ทั้งหมด</th><th>เพิ่มใหม่</th><th>อัปเดต</th><th>ข้าม</th><th>Error</th></tr></thead><tbody>${importLogs.map(l=>`<tr><td style="white-space:nowrap;">${formatDT(l.imported_at)}</td><td>${escapeHtml(l.file_name || '-')}</td><td>${l.total_rows}</td><td>${l.inserted_count}</td><td>${l.updated_count}</td><td>${l.skipped_count}</td><td style="color:${l.error_count ? 'var(--danger)' : 'inherit'};">${l.error_count}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+            </div>
+
+            <div class="dash-section" style="margin-bottom:0;">
+              <div class="db-toolbar">
+                <input class="search-box" id="edSearch" placeholder="ค้นหา Doc No, ชื่อเอกสาร, Pending Person..." value="${escapeHtml(search)}" style="margin-bottom:0;flex:2 1 220px;">
+                <select class="kpi-input" id="edDocStatusFilter"><option value="">Document Status ทั้งหมด</option>${docStatusOptions.map(o=>`<option ${docStatusFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edPmFilter"><option value="">PM Approval ทั้งหมด</option><option value="__PENDING__" ${pmFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${pmStatusOptions.map(o=>`<option ${pmFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edExtFilter"><option value="">External Approval ทั้งหมด</option><option value="__PENDING__" ${extFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${extStatusOptions.map(o=>`<option ${extFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edOverallFilter"><option value="">Overall Status ทั้งหมด</option>${['Complete','Pending','Overdue','In Progress'].map(o=>`<option ${overallFilter===o?'selected':''}>${o}</option>`).join('')}</select>
+                <select class="kpi-input" id="edRevFilter"><option value="">Revision ทั้งหมด</option>${revisionOptions.map(o=>`<option ${revFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edPageSize"><option value="20" ${pageSize===20?'selected':''}>20 รายการ/หน้า</option><option value="50" ${pageSize===50?'selected':''}>50 รายการ/หน้า</option><option value="100" ${pageSize===100?'selected':''}>100 รายการ/หน้า</option><option value="all" ${pageSize==='all'?'selected':''}>ทั้งหมด</option></select>
+                <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export Excel</button>
+                <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกไฟล์ Excel<input type="file" id="edImportFile" accept=".xlsx,.xls" hidden></label>
+                <button class="btn btn-primary" type="button" id="edImportBtn" ${(importRows && importRows.length && !importing) ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;">${importing ? 'กำลัง Import...' : 'ยืนยัน Import'}</button>
+                <button class="btn btn-ghost" type="button" id="edRefresh" style="flex:0 0 auto;padding:9px 12px;">รีเฟรช</button>
+                <button class="btn btn-ghost" type="button" id="edDeleteAll" ${data.length ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;color:var(--danger);border-color:#FECACA;">🗑 ลบข้อมูลทั้งหมด</button>
+              </div>
+              <div class="dash-note" style="${importParseError ? 'color:var(--danger);border-color:#FECACA;background:#FEF2F2;' : (importSummary ? 'color:#15803D;border-color:#86EFAC;background:#F0FDF4;' : '')}">
+                ${importParseError ? 'อ่านไฟล์ไม่สำเร็จ: ' + escapeHtml(importParseError)
+                  : importSummary ? `Import สำเร็จ ${importSummary.inserted + importSummary.updated} รายการ · เพิ่มใหม่ ${importSummary.inserted} รายการ · อัปเดต ${importSummary.updated} รายการ · ข้าม ${importSummary.skipped} รายการ · Error ${importSummary.error} รายการ`
+                  : importRows ? `${escapeHtml(importFileName)}: พบ ${importRows.length} รายการ (Doc+Rev)${importNote}`
+                  : 'เลือกไฟล์ Excel รูปแบบ Alldoc Export (Doc No, Purpose &amp; Doc Name &amp; Rev, Document Status, Pending Person, Actual Issue Date, PM Approved Date, Status, External Approved Date, Status, Remaintime)'}
+              </div>
+              <div class="db-table-wrap"><table class="db-table"><thead><tr>
+                ${sortHeader('doc_no','Doc No')}
+                ${sortHeader('revision','Rev')}
+                ${sortHeader('doc_name','ชื่อเอกสาร')}
+                ${sortHeader('document_status','Document Status')}
+                ${sortHeader('pending_person','Pending Person')}
+                ${sortHeader('actual_issue_date','Actual Issue Date')}
+                ${sortHeader('pm_approved_date','PM Approved Date')}
+                ${sortHeader('pm_approval_status','PM Status')}
+                ${sortHeader('external_approved_date','External Approved Date')}
+                ${sortHeader('external_approval_status','External Status')}
+                ${sortHeader('remaintime','Remaintime')}
+                ${sortHeader('overall_status','Overall Status')}
+                <th>Actions</th>
+              </tr></thead>
+              <tbody>${pageRows.length ? pageRows.map(r=>`<tr data-key="${escapeHtml(r.unique_key)}">
+                <td style="font-family:var(--mono);font-weight:700;white-space:nowrap;">${escapeHtml(r.doc_no)}</td>
+                <td>${escapeHtml(r.revision)}</td>
+                <td style="max-width:280px;">${escapeHtml(r.doc_name || '-')}</td>
+                <td style="white-space:nowrap;">${escapeHtml(r.document_status || '-')}</td>
+                <td style="white-space:nowrap;">${escapeHtml(r.pending_person || '-')}</td>
+                <td style="white-space:nowrap;">${formatDT(r.actual_issue_date)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.pm_approved_date)}</td>
+                <td>${codePill(r.pm_approval_status)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.external_approved_date)}</td>
+                <td>${codePill(r.external_approval_status)}</td>
+                <td style="white-space:nowrap;${Number(r.remaintime) < 0 ? 'color:var(--danger);font-weight:700;' : ''}">${escapeHtml(r.remaintime || '-')}</td>
+                <td>${statusPill(r.overall_status)}</td>
+                <td style="white-space:nowrap;"><button class="btn btn-ghost ed-detail-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">รายละเอียด</button> <button class="btn btn-ghost ed-history-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">ประวัติ</button> <button class="btn btn-ghost ed-delete-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;color:var(--danger);border-color:#FECACA;">ลบ</button></td>
+              </tr>`).join('') : `<tr><td colspan="13" style="padding:28px;text-align:center;color:var(--muted);">ไม่พบข้อมูล</td></tr>`}</tbody></table></div>
+              <div class="db-pager"><span>${filtered.length} รายการ · หน้า ${page} / ${pages}</span><span class="db-pager-actions"><button class="btn btn-ghost" id="edPrev" type="button" ${page===1?'disabled':''} style="padding:7px 11px;">ก่อนหน้า</button><button class="btn btn-ghost" id="edNext" type="button" ${page===pages?'disabled':''} style="padding:7px 11px;">ถัดไป</button></span></div>
+            </div>`;
+
+          $('#edSearch').addEventListener('input', event=>{
+            const position = event.target.selectionStart;
+            search = event.target.value; page = 1; renderTable();
+            const input = $('#edSearch'); input.focus(); input.setSelectionRange(position, position);
+          });
+          $('#edDocStatusFilter').addEventListener('change', e=>{ docStatusFilter=e.target.value; page=1; renderTable(); });
+          $('#edPmFilter').addEventListener('change', e=>{ pmFilter=e.target.value; page=1; renderTable(); });
+          $('#edExtFilter').addEventListener('change', e=>{ extFilter=e.target.value; page=1; renderTable(); });
+          $('#edOverallFilter').addEventListener('change', e=>{ overallFilter=e.target.value; page=1; renderTable(); });
+          $('#edRevFilter').addEventListener('change', e=>{ revFilter=e.target.value; page=1; renderTable(); });
+          $('#edPageSize').addEventListener('change', e=>{ pageSize = e.target.value==='all' ? 'all' : Number(e.target.value); page=1; renderTable(); });
+          $('#edExport').addEventListener('click', exportFiltered);
+          $('#edImportFile').addEventListener('change', event=>{
+            const file = event.target.files[0]; event.target.value=''; if(!file) return;
+            handleFileChange(file);
+          });
+          $('#edImportBtn').addEventListener('click', runImport);
+          $('#edRefresh').addEventListener('click', ()=> switchModule('engdoc_status'));
+          $('#edDeleteAll').addEventListener('click', deleteAllRecords);
+          $$('.ed-detail-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openDetail(rec); }));
+          $$('.ed-history-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openHistory(rec); }));
+          $$('.ed-delete-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) deleteRecord(rec); }));
+          $$('.db-sort-btn').forEach(btn=>btn.addEventListener('click', ()=>{
+            const key = btn.dataset.sortKey;
+            sortDir = sortKey===key && sortDir==='asc' ? 'desc' : 'asc';
+            sortKey = key; page=1; renderTable();
+          }));
+          $('#edPrev').addEventListener('click', ()=>{ page--; renderTable(); });
+          $('#edNext').addEventListener('click', ()=>{ page++; renderTable(); });
+        }
+        renderTable();
+      }
     }
   ];
 

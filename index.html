@@ -1070,6 +1070,7 @@
       currentUser = user;
       saveSession(user);
       hideAuthOverlay();
+      if(user.role === 'dev_viewer') activateViewOnlyMode('👁️ Dev Viewer — ดูข้อมูลได้ทุกหน้า แต่แก้ไข/เพิ่ม/ลบข้อมูลไม่ได้');
       startApp();
     }catch(e){
       showAuthMsg('เข้าสู่ระบบไม่สำเร็จ: ' + e.message, true);
@@ -1107,7 +1108,8 @@
   function renderSidebarUser(){
     const el = document.getElementById('sidebarUser');
     if(!el || !currentUser) return;
-    el.innerHTML = `<span class="who"><span class="name">${escapeHtml(currentUser.full_name || currentUser.username)}</span><span class="role">${currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้งาน'}</span></span><button type="button" class="logout-btn" id="btnLogout">ออกจากระบบ</button>`;
+    const roleLabel = currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : currentUser.role === 'dev_viewer' ? 'Dev Viewer' : 'ผู้ใช้งาน';
+    el.innerHTML = `<span class="who"><span class="name">${escapeHtml(currentUser.full_name || currentUser.username)}</span><span class="role">${roleLabel}</span></span><button type="button" class="logout-btn" id="btnLogout">ออกจากระบบ</button>`;
     document.getElementById('btnLogout').addEventListener('click', ()=>{
       clearSession();
       currentUser = null;
@@ -1123,6 +1125,7 @@
       if(!user || user.status !== 'approved'){ clearSession(); showAuthOverlay(); return false; }
       currentUser = user;
       hideAuthOverlay();
+      if(user.role === 'dev_viewer') activateViewOnlyMode('👁️ Dev Viewer — ดูข้อมูลได้ทุกหน้า แต่แก้ไข/เพิ่ม/ลบข้อมูลไม่ได้');
       return true;
     }catch(e){
       showAuthOverlay();
@@ -1148,7 +1151,12 @@
   const VIEW_ONLY_HOSTS = ['site-report-hub-view.vercel.app'];
   const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'readonly'
     || VIEW_ONLY_HOSTS.indexOf(location.hostname) !== -1;
-  if (VIEW_ONLY) {
+  let viewOnlyModeActive = false;
+  // เรียกซ้ำได้อย่างปลอดภัย — ใช้ทั้งกับโดเมน/ลิงก์ view=readonly (เรียกทันที) และกับ
+  // user role 'dev_viewer' ที่รู้จำนวนได้หลัง login เท่านั้น (เรียกจาก requireAuth/doLogin)
+  function activateViewOnlyMode(bannerText){
+    if (viewOnlyModeActive) return;
+    viewOnlyModeActive = true;
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts){
       const method = ((opts && opts.method) || 'GET').toUpperCase();
@@ -1197,7 +1205,7 @@
       const banner = document.createElement('div');
       banner.id = 'viewOnlyBanner';
       banner.className = 'view-only-mode-banner';
-      banner.textContent = '👁️ โหมดดูอย่างเดียว (View Only) — ไม่สามารถแก้ไข/เพิ่ม/ลบข้อมูลได้ในหน้านี้';
+      banner.textContent = bannerText || '👁️ โหมดดูอย่างเดียว (View Only) — ไม่สามารถแก้ไข/เพิ่ม/ลบข้อมูลได้ในหน้านี้';
       document.body.insertBefore(banner, document.body.firstChild);
     }
     if (document.body) insertViewOnlyBanner();
@@ -1216,6 +1224,8 @@
     hideEditAffordances();
     new MutationObserver(()=> hideEditAffordances()).observe(document.documentElement, { childList:true, subtree:true });
   }
+  if (VIEW_ONLY) activateViewOnlyMode();
+
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -9640,7 +9650,8 @@
         return `<span class="um-pill ${escapeHtml(status)}">${label}</span>`;
       }
       function rowActionsHtml(u){
-        const roleOptions = ['user','admin'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r==='admin'?'Admin':'User'}</option>`).join('');
+        const roleLabels = { admin:'Admin', user:'User', dev_viewer:'Dev Viewer' };
+        const roleOptions = ['user','admin','dev_viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${roleLabels[r]}</option>`).join('');
         const roleSelect = `<select class="um-role-select" data-role-id="${u.id}">${roleOptions}</select>`;
         if(u.status === 'pending'){
           return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn reject" data-reject-id="${u.id}">❌ ปฏิเสธ</button>`;

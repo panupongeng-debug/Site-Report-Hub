@@ -44,7 +44,7 @@
     display:flex;flex-direction:column;transition:width .18s ease;z-index:25;
   }
   .sidebar.collapsed{flex:0 0 58px;width:58px;}
-  .sidebar-top{display:flex;align-items:center;gap:8px;padding:14px 12px;border-bottom:1px solid var(--line);}
+  .sidebar-top{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:14px 12px;border-bottom:1px solid var(--line);}
   .sidebar-toggle{flex:0 0 auto;width:30px;height:30px;border-radius:7px;border:1.3px solid var(--line);background:#F7F9FB;color:var(--charcoal);cursor:pointer;font-size:14px;line-height:1;}
   .brand{display:flex;align-items:center;gap:8px;overflow:hidden;font-family:var(--disp);font-weight:700;font-size:14.5px;color:var(--charcoal);white-space:nowrap;}
   .brand .tag{flex:0 0 auto;display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);}
@@ -52,7 +52,7 @@
   .sidebar-jobno{flex:0 0 auto;min-height:52px;margin:10px 12px 0;padding:8px 10px 9px;background:#F0FBF9;border:1px solid #C9EAE5;border-radius:7px;color:var(--charcoal);white-space:nowrap;overflow:hidden;}
   .sidebar-jobno .label{display:block;margin-bottom:3px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-deep);}
   .sidebar-jobno .value{display:block;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;}
-  .sidebar-conn{display:flex;align-items:center;padding:10px 14px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);}
+  .sidebar-conn{flex:0 0 auto;display:flex;align-items:center;padding:10px 14px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);}
   .sidebar-group{padding:10px 0;border-bottom:1px solid var(--line);}
   .sidebar-group:last-child{border-bottom:none;}
   .sidebar-group-label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 14px 6px;white-space:nowrap;overflow:hidden;}
@@ -101,7 +101,7 @@
   .auth-msg.err{background:#FEF2F2;color:var(--danger);border:1px solid #FCA5A5;}
   .auth-msg.ok{background:#F0FBF9;color:var(--amber-deep);border:1px solid #A7E4DB;}
   .auth-pane[hidden]{display:none;}
-  .sidebar-user{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;}
+  .sidebar-user{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;}
   .sidebar-user .who{flex:1 1 auto;min-width:0;overflow:hidden;}
   .sidebar-user .name{display:block;font-size:12.5px;font-weight:700;color:var(--charcoal);overflow:hidden;text-overflow:ellipsis;}
   .sidebar-user .role{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
@@ -125,6 +125,8 @@
   .um-btn.reject{border-color:var(--danger);color:var(--danger);}
   .um-btn.approve:hover{background:var(--closed);color:#fff;}
   .um-btn.reject:hover{background:var(--danger);color:#fff;}
+  .um-btn.delete{border-color:var(--danger);color:var(--danger);}
+  .um-btn.delete:hover{background:var(--danger);color:#fff;}
   .um-role-select{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;}
   .um-empty{padding:14px;color:var(--muted);font-size:13px;}
 
@@ -9672,6 +9674,12 @@
         });
         if(!res.ok) throw new Error('อัปเดตไม่สำเร็จ (status ' + res.status + ')');
       }
+      async function deleteUser(id){
+        const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id), {
+          method:'DELETE', headers:{ ...HEADERS, 'Prefer':'return=minimal' }
+        });
+        if(!res.ok) throw new Error('ลบไม่สำเร็จ (status ' + res.status + ')');
+      }
       function pillHtml(status){
         const label = status === 'approved' ? 'อนุมัติแล้ว' : status === 'rejected' ? 'ปฏิเสธ' : 'รออนุมัติ';
         return `<span class="um-pill ${escapeHtml(status)}">${label}</span>`;
@@ -9684,7 +9692,7 @@
           return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn reject" data-reject-id="${u.id}">❌ ปฏิเสธ</button>`;
         }
         if(u.status === 'rejected'){
-          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button>`;
+          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn delete" data-delete-id="${u.id}">🗑 ลบผู้ใช้</button>`;
         }
         return `${roleSelect} <button type="button" class="um-btn reject" data-reject-id="${u.id}">🚫 เพิกถอนสิทธิ์</button>`;
       }
@@ -9727,6 +9735,16 @@
             showToast('เปลี่ยนบทบาทผู้ใช้แล้ว');
             users = await fetchAppUsers();
           }catch(e){ showToast('เปลี่ยนบทบาทไม่สำเร็จ: ' + e.message, true); renderShell(); }
+        }));
+        container.querySelectorAll('[data-delete-id]').forEach(btn => btn.addEventListener('click', async ()=>{
+          const id = btn.dataset.deleteId;
+          if(id === currentUser.id){ showToast('ไม่สามารถลบบัญชีตัวเองได้', true); return; }
+          if(!confirm('ยืนยันลบผู้ใช้นี้ออกจากระบบถาวร?')) return;
+          try{
+            await deleteUser(id);
+            showToast('ลบผู้ใช้แล้ว');
+            users = await fetchAppUsers(); renderShell();
+          }catch(e){ showToast('ลบไม่สำเร็จ: ' + e.message, true); }
         }));
       }
       renderShell();

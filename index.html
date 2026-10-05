@@ -12798,7 +12798,6 @@
 
       showToast((editingId ? 'บันทึกการแก้ไขแล้ว: ' : 'บันทึกสำเร็จ: ') + label);
       clearForm();
-      await refreshAndRender();
       switchTab('list');
     }catch(e){
       console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true);

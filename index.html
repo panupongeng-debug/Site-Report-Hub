@@ -4314,14 +4314,15 @@
         const today = briefRefDate || realToday;
         const yesterday = addDays(today, -1);
         const dayBeforeYesterday = addDays(today, -2);
-        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null, siteLogIssues=[];
+        const envQueryEnd = mondayOfWeek(today);
+        const envQueryStart = addDays(envQueryEnd, -90);
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null, siteLogIssues=[];
         try{
-          const [r1,r2,r3,r4,r5,r6,r7] = await Promise.all([
+          const [r1,r2,r3,r4,r5,r6] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=report_date,concrete_scrap_kg,soil_disposal_kg,hazardous_waste_kg,general_waste_kg,recyclable_waste_kg,remarks,photo_urls&report_date=gte.' + envQueryStart + '&report_date=lte.' + envQueryEnd + '&order=report_date.asc', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=id,report_date,foreman_count,safety_count,worker_count,other_count,photo_urls', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
             fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
             fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=report_id,structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
           ]);
@@ -4329,9 +4330,8 @@
           if(r2.ok) envData = await r2.json();
           if(r3.ok) dailyData = await r3.json();
           if(r4.ok) concreteReportsData = await r4.json();
-          if(r5.ok) concreteSummaryData = await r5.json();
-          pileData = r6 || [];
-          if(r7.ok) concretePourEntriesData = await r7.json();
+          pileData = r5 || [];
+          if(r6.ok) concretePourEntriesData = await r6.json();
           try{
             const r8 = await fetch(SUPABASE_URL + '/rest/v1/concrete_structure_items?select=id,location,structure_name,plan_m3,sort_order&is_active=eq.true&order=location.asc,sort_order.asc', { headers: HEADERS });
             if(r8.ok) concStructureItemsAll = await r8.json();
@@ -4809,7 +4809,7 @@
         const envSum = (r) => ENV_CATEGORIES.reduce((s,c)=> s + (Number(r[c.key])||0), 0);
         const envByDate = (d) => envData.find(r => r.report_date === d) || {};
         const envToday = envByDate(today), envYest = envByDate(yesterday);
-        const envCurrentWeekEnd = mondayOfWeek(today);
+        const envCurrentWeekEnd = envQueryEnd;
         const envWeekOptionEnds = [];
         for(let i=0;i<13;i++){ envWeekOptionEnds.push(addDays(envCurrentWeekEnd, -7*i)); }
         let briefEnvSelectedWeekEnd = envCurrentWeekEnd;

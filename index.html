@@ -426,6 +426,15 @@
   .db-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
   .db-toolbar .search-box{flex:1 1 260px;min-width:180px;margin:0;}
   .db-toolbar select{width:auto;min-width:150px;}
+  .db-toolbar .ed-filter{position:relative;flex:0 0 auto;}
+  .db-toolbar .ed-filter summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:150px;padding:9px 10px;border:1.3px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-size:14px;cursor:pointer;list-style:none;}
+  .db-toolbar .ed-filter summary::-webkit-details-marker{display:none;}
+  .ed-filter-options{position:absolute;top:calc(100% + 4px);left:0;z-index:30;display:grid;gap:2px;min-width:100%;width:max-content;max-width:min(280px,80vw);max-height:260px;overflow:auto;padding:8px;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 6px 18px rgba(20,30,60,.14);}
+  .ed-filter-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:2px 4px 6px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--charcoal);}
+  .ed-filter-clear{padding:2px 4px;border:0;background:none;color:var(--amber-deep);font:inherit;font-size:11px;cursor:pointer;}
+  .ed-filter-option{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:4px;font-size:13px;white-space:nowrap;cursor:pointer;}
+  .ed-filter-option:hover{background:#F4F6F9;}
+  .ed-filter-option input{margin:0;accent-color:var(--amber-deep);}
   .db-table-wrap{border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:70vh;background:#fff;}
   .db-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;}
   .db-table th{position:sticky;top:0;z-index:1;padding:8px;background:#F7F9FB;border-bottom:1.3px solid var(--line);text-align:left;white-space:nowrap;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
@@ -10538,7 +10547,7 @@
         };
         const COMPARE_FIELDS = Object.keys(ENGDOC_FIELDS);
 
-        let search='', docStatusFilter='', pmFilter='', extFilter='', overallFilter='', revFilter='';
+        let search='', docStatusFilter=[], pmFilter=[], extFilter=[], overallFilter=[], revFilter=[];
         let sortKey='actual_issue_date', sortDir='desc', page=1, pageSize=20;
         let importRows=null, importParseErrors=[], importFileName='', importParseError='', importSummary=null, importing=false;
 
@@ -10712,11 +10721,11 @@
         function visibleRows(){
           const query = search.trim().toLowerCase();
           let rowsOut = data.filter(rec=>{
-            if(docStatusFilter && rec.document_status !== docStatusFilter) return false;
-            if(pmFilter){ if(pmFilter === '__PENDING__'){ if(rec.pm_approval_status) return false; } else if(rec.pm_approval_status !== pmFilter) return false; }
-            if(extFilter){ if(extFilter === '__PENDING__'){ if(rec.external_approval_status) return false; } else if(rec.external_approval_status !== extFilter) return false; }
-            if(overallFilter && rec.overall_status !== overallFilter) return false;
-            if(revFilter && rec.revision !== revFilter) return false;
+            if(docStatusFilter.length && !docStatusFilter.includes(rec.document_status)) return false;
+            if(pmFilter.length && !pmFilter.some(value=>value==='__PENDING__' ? !rec.pm_approval_status : rec.pm_approval_status===value)) return false;
+            if(extFilter.length && !extFilter.some(value=>value==='__PENDING__' ? !rec.external_approval_status : rec.external_approval_status===value)) return false;
+            if(overallFilter.length && !overallFilter.includes(rec.overall_status)) return false;
+            if(revFilter.length && !revFilter.includes(rec.revision)) return false;
             if(query && !(String(rec.doc_no||'').toLowerCase().includes(query) || String(rec.doc_name||'').toLowerCase().includes(query) || String(rec.pending_person||'').toLowerCase().includes(query))) return false;
             return true;
           });
@@ -10852,6 +10861,7 @@
         }
 
         function renderTable(){
+          const openFilter = container.querySelector('.ed-filter[open]')?.dataset.filter;
           const latest = latestSet();
           const latestIds = new Set(latest.map(r=>r.id));
           data.forEach(rec=>{ if(!latestIds.has(rec.id) && rec.overall_status !== 'Complete'){ rec.remaintime = 'Complete'; rec.overall_status = 'Complete'; } });
@@ -10875,6 +10885,14 @@
           const pageRows = pageSize === 'all' ? filtered : filtered.slice((page-1)*pageSize, page*pageSize);
           const importNote = (importRows && importParseErrors.length) ? ` · ข้อมูลผิดพลาด ${importParseErrors.length} แถว (จะนับเป็น Error)` : '';
           const sortHeader = (key,label) => `<th class="resizable"><button class="db-sort-btn" type="button" data-sort-key="${key}" title="เรียงตาม ${escapeHtml(label)}">${escapeHtml(label)} ${sortKey===key?(sortDir==='asc'?'↑':'↓'):''}</button></th>`;
+          const checkboxFilter = (key,label,options,selected) => `<details class="ed-filter" data-filter="${key}"><summary>${label}${selected.length ? ` (${selected.length})` : ''}<span aria-hidden="true">▾</span></summary><div class="ed-filter-options"><div class="ed-filter-head"><span>${label}</span><button class="ed-filter-clear" type="button" data-clear-filter="${key}">ล้าง</button></div>${options.map(option=>`<label class="ed-filter-option"><input class="ed-filter-input" type="checkbox" data-filter="${key}" value="${escapeHtml(option.value)}" ${selected.includes(option.value)?'checked':''}><span>${escapeHtml(option.label)}</span></label>`).join('')}</div></details>`;
+          const filterSetters = {
+            document:value=>{ docStatusFilter=value; },
+            pm:value=>{ pmFilter=value; },
+            external:value=>{ extFilter=value; },
+            overall:value=>{ overallFilter=value; },
+            revision:value=>{ revFilter=value; }
+          };
 
           container.innerHTML = `
             <div class="dash-section">
@@ -10902,11 +10920,11 @@
             <div class="dash-section" style="margin-bottom:0;">
               <div class="db-toolbar">
                 <input class="search-box" id="edSearch" placeholder="ค้นหา Doc No, ชื่อเอกสาร, Pending Person..." value="${escapeHtml(search)}" style="margin-bottom:0;flex:2 1 220px;">
-                <select class="kpi-input" id="edDocStatusFilter"><option value="">Document Status ทั้งหมด</option>${docStatusOptions.map(o=>`<option ${docStatusFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
-                <select class="kpi-input" id="edPmFilter"><option value="">PM Approval ทั้งหมด</option><option value="__PENDING__" ${pmFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${pmStatusOptions.map(o=>`<option ${pmFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
-                <select class="kpi-input" id="edExtFilter"><option value="">External Approval ทั้งหมด</option><option value="__PENDING__" ${extFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${extStatusOptions.map(o=>`<option ${extFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
-                <select class="kpi-input" id="edOverallFilter"><option value="">Overall Status ทั้งหมด</option>${['Complete','Pending','Overdue','In Progress'].map(o=>`<option ${overallFilter===o?'selected':''}>${o}</option>`).join('')}</select>
-                <select class="kpi-input" id="edRevFilter"><option value="">Revision ทั้งหมด</option>${revisionOptions.map(o=>`<option ${revFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                ${checkboxFilter('document','Document Status',docStatusOptions.map(value=>({value,label:value})),docStatusFilter)}
+                ${checkboxFilter('pm','PM Approval',[{value:'__PENDING__',label:'ยังไม่อนุมัติ'},...pmStatusOptions.map(value=>({value,label:value}))],pmFilter)}
+                ${checkboxFilter('external','External Approval',[{value:'__PENDING__',label:'ยังไม่อนุมัติ'},...extStatusOptions.map(value=>({value,label:value}))],extFilter)}
+                ${checkboxFilter('overall','Overall Status',['Complete','Pending','Overdue','In Progress'].map(value=>({value,label:value})),overallFilter)}
+                ${checkboxFilter('revision','Revision',revisionOptions.map(value=>({value,label:value})),revFilter)}
                 <select class="kpi-input" id="edPageSize"><option value="20" ${pageSize===20?'selected':''}>20 รายการ/หน้า</option><option value="50" ${pageSize===50?'selected':''}>50 รายการ/หน้า</option><option value="100" ${pageSize===100?'selected':''}>100 รายการ/หน้า</option><option value="all" ${pageSize==='all'?'selected':''}>ทั้งหมด</option></select>
                 <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export Excel</button>
                 <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกไฟล์ Excel<input type="file" id="edImportFile" accept=".xlsx,.xls" hidden></label>
@@ -10958,11 +10976,15 @@
             search = event.target.value; page = 1; renderTable();
             const input = $('#edSearch'); input.focus(); input.setSelectionRange(position, position);
           });
-          $('#edDocStatusFilter').addEventListener('change', e=>{ docStatusFilter=e.target.value; page=1; renderTable(); });
-          $('#edPmFilter').addEventListener('change', e=>{ pmFilter=e.target.value; page=1; renderTable(); });
-          $('#edExtFilter').addEventListener('change', e=>{ extFilter=e.target.value; page=1; renderTable(); });
-          $('#edOverallFilter').addEventListener('change', e=>{ overallFilter=e.target.value; page=1; renderTable(); });
-          $('#edRevFilter').addEventListener('change', e=>{ revFilter=e.target.value; page=1; renderTable(); });
+          if(openFilter){ const details=container.querySelector(`.ed-filter[data-filter="${openFilter}"]`); if(details) details.open=true; }
+          container.querySelectorAll('.ed-filter-input').forEach(input=>input.addEventListener('change', event=>{
+            const details=event.target.closest('.ed-filter'), filter=details.dataset.filter;
+            filterSetters[filter](Array.from(details.querySelectorAll('.ed-filter-input:checked')).map(checkbox=>checkbox.value));
+            page=1; renderTable();
+          }));
+          container.querySelectorAll('.ed-filter-clear').forEach(button=>button.addEventListener('click', ()=>{
+            filterSetters[button.dataset.clearFilter]([]); page=1; renderTable();
+          }));
           $('#edPageSize').addEventListener('change', e=>{ pageSize = e.target.value==='all' ? 'all' : Number(e.target.value); page=1; renderTable(); });
           $('#edExport').addEventListener('click', exportFiltered);
           $('#edImportFile').addEventListener('change', event=>{

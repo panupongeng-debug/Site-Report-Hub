@@ -4705,20 +4705,7 @@
                   { label:'State - Workshop Modular', data:briefTrendWorkshopModular, backgroundColor:'#8B5CF6', stack:'manpower' },
                   { label:'รวมทั้งหมด (Total)', type:'line', data:briefTrendTotal, borderColor:'#DC2626', backgroundColor:'#DC2626', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#DC2626', tension:.25, fill:false, order:-1, stack:'total-line' },
                 ]},
-                options:{
-                  responsive:true,
-                  maintainAspectRatio:false,
-                  scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } },
-                  plugins:{
-                    datalabels:{
-                      display:ctx => ctx.dataset.type !== 'line' && ctx.dataset.data[ctx.dataIndex] > 0,
-                      color:'#fff',
-                      font:{ weight:'700', size:10 },
-                      formatter:value => Math.round(value)
-                    }
-                  }
-                },
-                plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+                options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } } }
               });
             }
           }

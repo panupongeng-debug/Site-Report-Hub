@@ -10540,24 +10540,53 @@
 
         const REV_RE = /,\s*Rev\.?\s*([A-Za-z0-9]+)\s*$/i;
         const ENGDOC_FIELDS = {
-          doc_name:'ชื่อเอกสาร', document_status:'Document Status', pending_person:'Pending Person',
+          doc_no:'Doc No', revision:'Revision', doc_name:'ชื่อเอกสาร', document_status:'Document Status', pending_person:'Pending Person',
           actual_issue_date:'Actual Issue Date', pm_approved_date:'PM Approved Date', pm_approval_status:'PM Approval Status',
-          external_approved_date:'External Approved Date', external_approval_status:'External Approval Status',
-          remaintime:'Remaintime', overall_status:'Overall Status'
+          external_approved_date:'External Approved Date', external_approval_status:'External Approval Status', remaintime:'Remaintime', overall_status:'Overall Status',
+          discipline:'Discipline', plan_issue_to_backspace_rev_a:'Plan Issue to Backspace (Rev.A)', actual_issue_to_backspace_rev_a:'Actual Issue to Backspace (Rev.A)',
+          plan_internal_rev_a:'Plan Internal (Rev.A)', actual_internal_rev_a:'Actual Internal (Rev.A)', plan_external_rev_a:'Plan External (Rev.A)',
+          actual_external_rev_a:'Actual External (Rev.A)', for_review_status:'For Review Status', for_review_ac:'For Review AC',
+          plan_issue_to_backspace_rev_0:'Plan Issue to Backspace (Rev.0)', actual_issue_to_backspace_rev_0:'Actual Issue to Backspace (Rev.0)',
+          plan_internal_rev_0:'Plan Internal (Rev.0)', actual_internal_rev_0:'Actual Internal (Rev.0)', plan_external_rev_0:'Plan External (Rev.0)',
+          actual_external_rev_0:'Actual External (Rev.0)', for_con_status:'For Con Status', for_con_ac:'For Con AC', plan_progress:'Plan Progress',
+          actual_progress:'Actual Progress', latest_rev:'Latest Rev.', latest_stage:'Latest Stage', source_status:'Source Status', issue_for:'Issue For',
+          issue_date:'Issue Date', due_response:'Due Response', response_date:'Response Date', latest_status:'Latest Status',
+          pending_review_name:'Pending Review Name', project_name:'Project Name', pending_review_status:'Pending Review Status',
+          issued_to_backspace:'Issued to BackSpace', internal_due_date:'Internal Due Date', internal_approved:'Internal Approved',
+          external_due_date:'External Due Date', external_approved:'External Approved', source_row:'Progress Source Row',
+          pending_review_source_row:'Pending Review Source Row', revision_source_row:'Revision Source Row'
+        };
+        const ENGDOC_EDIT_FIELDS = Object.keys(ENGDOC_FIELDS).filter(key=>key!=='overall_status');
+        const ENGDOC_DATE_FIELDS = new Set(['actual_issue_date','pm_approved_date','external_approved_date','plan_issue_to_backspace_rev_a','actual_issue_to_backspace_rev_a','plan_internal_rev_a','actual_internal_rev_a','plan_external_rev_a','actual_external_rev_a','plan_issue_to_backspace_rev_0','actual_issue_to_backspace_rev_0','plan_internal_rev_0','actual_internal_rev_0','plan_external_rev_0','actual_external_rev_0','issue_date','due_response','response_date','issued_to_backspace','internal_due_date','internal_approved','external_due_date','external_approved']);
+        const ENGDOC_NUMBER_FIELDS = new Set(['plan_progress','actual_progress']);
+        const ENGDOC_JSON_FIELDS = new Set(['source_row','pending_review_source_row','revision_source_row']);
+        const PROGRESS_HEADERS = ['Doc No','Doc Name','Discipline','Plan Issue to Backspace','Actual Issue to Backspace','Plan Internal (Rev.A)','Actual Internal (Rev.A)','Plan External (Rev.A)','Actual External (Rev.A)','For Review Status','AC','Plan Issue to Backspace','Actual Issue to Backspace','Plan Internal (Rev.0)','Actual Internal (Rev.0)','Plan External (Rev.0)','Actual External (Rev.0)','For Con Status','AC','Plan Progress','Actual Progress','Latest Rev.','Latest Stage','Status','Rev.','Issue For','Issue Date','Due Response','Remaintime','Response Date','Latest Status'];
+        const PENDING_REVIEW_HEADERS = ['Name','Project Name','Doc No','Doc Name','Doc Status','Issued to BackSpace','Internal Due Date','Internal Approved','External Due Date','External Approved'];
+        const IMPORT_FIELD_KEYS = {
+          progress:['doc_name','document_status','discipline','plan_issue_to_backspace_rev_a','actual_issue_to_backspace_rev_a','plan_internal_rev_a','actual_internal_rev_a','plan_external_rev_a','actual_external_rev_a','for_review_status','for_review_ac','plan_issue_to_backspace_rev_0','actual_issue_to_backspace_rev_0','plan_internal_rev_0','actual_internal_rev_0','plan_external_rev_0','actual_external_rev_0','for_con_status','for_con_ac','plan_progress','actual_progress','latest_rev','latest_stage','source_status','issue_for','issue_date','due_response','remaintime','response_date','latest_status','source_row'],
+          revision:['doc_name','document_status','pending_person','actual_issue_date','pm_approved_date','pm_approval_status','external_approved_date','external_approval_status','remaintime','revision_source_row'],
+          pending_review:['doc_name','document_status','pending_person','actual_issue_date','pm_approved_date','external_approved_date','pending_review_name','project_name','pending_review_status','issued_to_backspace','internal_due_date','internal_approved','external_due_date','external_approved','pending_review_source_row'],
+          backup:ENGDOC_EDIT_FIELDS
         };
         const COMPARE_FIELDS = Object.keys(ENGDOC_FIELDS);
 
         let search='', docStatusFilter=[], pmFilter=[], extFilter=[], overallFilter=[], revFilter=[];
         let sortKey='actual_issue_date', sortDir='desc', page=1, pageSize=20;
-        let importRows=null, importParseErrors=[], importFileName='', importParseError='', importSummary=null, importing=false;
+        let importBatches=[], importParseErrors=[], importParseError='', importSummary=null, importing=false;
 
         function normStatus(value){ if(value==null) return null; const text=String(value).trim(); return (!text || text==='-') ? null : text; }
+        function sourceText(value){ return value==null ? null : (String(value).trim() && String(value).trim()!=='-' ? String(value).trim() : null); }
+        function sourceNumber(value){ if(value==null || String(value).trim()==='') return null; const number=Number(value); return Number.isFinite(number) ? number : null; }
         function excelDateTimeToIso(value){
           if(value instanceof Date && !isNaN(value)) return value.toISOString();
           if(typeof value === 'number'){
             const parsed = XLSX.SSF.parse_date_code(value);
             if(!parsed) return null;
             return new Date(Date.UTC(parsed.y, (parsed.m||1)-1, parsed.d||1, parsed.H||0, parsed.M||0, Math.floor(parsed.S||0))).toISOString();
+          }
+          if(typeof value === 'string' && value.trim()){
+            const parsed = new Date(value.trim());
+            if(!isNaN(parsed)) return parsed.toISOString();
           }
           return null;
         }
@@ -10595,12 +10624,110 @@
         function codePill(code){ return code ? `<span class="pill status-closed">${escapeHtml(code)}</span>` : `<span class="pill status-open">รอ</span>`; }
         function distinct(key){ return Array.from(new Set(data.map(r=>r[key]).filter(Boolean))).sort(); }
 
-        async function parseImportFile(file){
+        async function parseImportFile(file,contextualRecords=[]){
           const workbook = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, raw:true});
           if(!rows.length) throw new Error('ไฟล์ไม่มีข้อมูล');
-          const header = (rows[0] || []).map(h => String(h || '').trim());
+          const header = (rows[0] || []).map(h => String(h ?? '').trim());
+          if(PENDING_REVIEW_HEADERS.every((label,index)=>header[index]===label)){
+            const parsed=[], errors=[], groupedRows=new Map();
+            const currentByDoc=new Map(latestSet(data.concat(contextualRecords)).map(rec=>[rec.doc_no,rec]));
+            for(let r=1; r<rows.length; r++){
+              const row=rows[r];
+              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
+              if(String(row[0] ?? '').trim().startsWith('Applied filters:')) continue;
+              const docNo=sourceText(row[2]);
+              if(!docNo){ errors.push({row:r+1,message:'ไม่พบ Doc No'}); continue; }
+              if(!groupedRows.has(docNo)) groupedRows.set(docNo,[]);
+              groupedRows.get(docNo).push(row);
+            }
+            for(const [docNo,sourceRows] of groupedRows){
+              const current=currentByDoc.get(docNo);
+              const latestRow=sourceRows.reduce((latest,row)=>{
+                const currentDate=excelDateTimeToIso(latest[5]), nextDate=excelDateTimeToIso(row[5]);
+                return (nextDate && (!currentDate || Date.parse(nextDate)>Date.parse(currentDate))) ? row : latest;
+              },sourceRows[0]);
+              const date=index=>excelDateTimeToIso(latestRow[index]);
+              const pendingName=Array.from(new Set(sourceRows.map(row=>sourceText(row[0])).filter(Boolean))).join('; ') || null;
+              const record={
+                doc_no:docNo, revision:current?.revision || 'CURRENT', doc_name:sourceText(latestRow[3]),
+                document_status:sourceText(latestRow[4]), pending_person:pendingName,
+                actual_issue_date:date(5), pm_approved_date:date(7), external_approved_date:date(9),
+                pending_review_name:pendingName, project_name:sourceText(latestRow[1]), pending_review_status:sourceText(latestRow[4]),
+                issued_to_backspace:date(5), internal_due_date:date(6), internal_approved:date(7),
+                external_due_date:date(8), external_approved:date(9),
+                pending_review_source_row:sourceRows.map(row=>row.map(value=>value instanceof Date ? value.toISOString() : value))
+              };
+              record.unique_key=docNo+'|'+record.revision;
+              parsed.push(record);
+            }
+            if(!parsed.length) throw new Error('ไม่พบข้อมูล Doc No ในไฟล์');
+            return {records:parsed,errors,mode:'pending_review'};
+          }
+          if(PROGRESS_HEADERS.every((label,index)=>header[index]===label)){
+            const parsed=[], errors=[], seenDocNos=new Set();
+            for(let r=1; r<rows.length; r++){
+              const row=rows[r];
+              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
+              const docNo=sourceText(row[0]);
+              if(!docNo){ errors.push({row:r+1,message:'ไม่พบ Doc No'}); continue; }
+              if(seenDocNos.has(docNo)){ errors.push({row:r+1,message:'พบ Doc No ซ้ำ: '+docNo}); continue; }
+              seenDocNos.add(docNo);
+              const revision=sourceText(row[24]) || sourceText(row[21]) || 'CURRENT';
+              const date=index=>excelDateTimeToIso(row[index]);
+              parsed.push({
+                unique_key:docNo+'|'+revision, doc_no:docNo, revision,
+                doc_name:sourceText(row[1]), document_status:sourceText(row[30]), pending_person:null,
+                actual_issue_date:date(26), pm_approved_date:null, pm_approval_status:null,
+                external_approved_date:null, external_approval_status:null,
+                remaintime:sourceText(row[28]), overall_status:null,
+                discipline:sourceText(row[2]),
+                plan_issue_to_backspace_rev_a:date(3), actual_issue_to_backspace_rev_a:date(4),
+                plan_internal_rev_a:date(5), actual_internal_rev_a:date(6),
+                plan_external_rev_a:date(7), actual_external_rev_a:date(8),
+                for_review_status:sourceText(row[9]), for_review_ac:sourceText(row[10]),
+                plan_issue_to_backspace_rev_0:date(11), actual_issue_to_backspace_rev_0:date(12),
+                plan_internal_rev_0:date(13), actual_internal_rev_0:date(14),
+                plan_external_rev_0:date(15), actual_external_rev_0:date(16),
+                for_con_status:sourceText(row[17]), for_con_ac:sourceText(row[18]),
+                plan_progress:sourceNumber(row[19]), actual_progress:sourceNumber(row[20]),
+                latest_rev:sourceText(row[21]), latest_stage:sourceText(row[22]),
+                source_status:sourceText(row[23]), issue_for:sourceText(row[25]),
+                issue_date:date(26), due_response:date(27), response_date:date(29),
+                latest_status:sourceText(row[30]),
+                source_row:row.map(value=>value instanceof Date ? value.toISOString() : value)
+              });
+            }
+            if(!parsed.length) throw new Error('ไม่พบข้อมูล Doc No ในไฟล์');
+            return {records:parsed,errors,mode:'progress'};
+          }
+          if(header.includes('doc_no') && header.includes('revision')){
+            const columnIndex=new Map(header.map((key,index)=>[key,index]));
+            const parsed=[], errors=[];
+            const backupFields=Object.keys(ENGDOC_FIELDS).filter(key=>columnIndex.has(key));
+            for(let r=1; r<rows.length; r++){
+              const row=rows[r];
+              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
+              const record={};
+              try{
+                backupFields.forEach(key=>{
+                  const value=row[columnIndex.get(key)];
+                  if(ENGDOC_JSON_FIELDS.has(key)) record[key]=value==null || value==='' ? null : (typeof value==='string' ? JSON.parse(value) : value);
+                  else if(ENGDOC_DATE_FIELDS.has(key)) record[key]=excelDateTimeToIso(value);
+                  else if(ENGDOC_NUMBER_FIELDS.has(key)) record[key]=sourceNumber(value);
+                  else record[key]=value==null ? null : String(value);
+                });
+              }catch(error){ errors.push({row:r+1,message:'อ่าน JSON ในข้อมูลสำรองไม่สำเร็จ: '+error.message}); continue; }
+              record.doc_no=sourceText(row[columnIndex.get('doc_no')]);
+              record.revision=sourceText(row[columnIndex.get('revision')]);
+              if(!record.doc_no || !record.revision){ errors.push({row:r+1,message:'ข้อมูลสำรองต้องมี Doc No และ Revision'}); continue; }
+              record.unique_key=record.doc_no+'|'+record.revision;
+              parsed.push(record);
+            }
+            if(!parsed.length) throw new Error('ไม่พบรายการที่นำเข้าจากข้อมูลสำรอง');
+            return {records:parsed,errors,mode:'backup'};
+          }
           const expected = ['Doc No','Purpose & Doc Name & Rev','Document Status','Pending Person'];
           if(!expected.every((label,i)=>header[i] === label)) throw new Error('รูปแบบคอลัมน์ไม่ตรงกับไฟล์ Alldoc Export (ต้องขึ้นต้นด้วย Doc No, Purpose & Doc Name & Rev, Document Status, Pending Person)');
           const parsed = [], errors = [];
@@ -10619,14 +10746,15 @@
             const docName = purposeText.slice(0, m.index).replace(/,\s*$/,'').trim();
             const record = {
               doc_no:lastDocNo, revision, doc_name:docName,
-              document_status: row[2] != null ? String(row[2]).trim() : null,
-              pending_person: row[3] != null ? String(row[3]).trim() : null,
+              document_status: sourceText(row[2]),
+              pending_person: sourceText(row[3]),
               actual_issue_date: excelDateTimeToIso(row[4]),
               pm_approved_date: excelDateTimeToIso(row[5]),
               pm_approval_status: normStatus(row[6]),
               external_approved_date: excelDateTimeToIso(row[7]),
               external_approval_status: normStatus(row[8]),
-              remaintime: row[9] != null ? String(row[9]).trim() : null
+              remaintime: sourceText(row[9]),
+              revision_source_row:row.map(value=>value instanceof Date ? value.toISOString() : value)
             };
             applyRemaintimeRule(record);
             record.unique_key = lastDocNo + '|' + revision;
@@ -10637,78 +10765,136 @@
             if(byKey.has(rec.unique_key)) errors.push({row:'-', message:'พบ Unique Key ซ้ำในไฟล์: ' + rec.unique_key});
             byKey.set(rec.unique_key, rec);
           });
-          return { records: Array.from(byKey.values()), errors };
+          return { records: Array.from(byKey.values()), errors, mode:'revision' };
         }
 
-        function diffRecord(existing, incoming){
+        function diffRecord(existing, incoming, fields, preserveNulls=true){
           const changes = {};
           let changed = false;
-          COMPARE_FIELDS.forEach(key=>{
-            if(String(existing[key] ?? '') !== String(incoming[key] ?? '')){ changes[key] = incoming[key]; changed = true; }
+          fields.forEach(key=>{
+            if(preserveNulls && incoming[key] == null) return;
+            let isSame;
+            if(ENGDOC_DATE_FIELDS.has(key)){
+              const oldTime=existing[key] ? Date.parse(existing[key]) : null;
+              const newTime=incoming[key] ? Date.parse(incoming[key]) : null;
+              isSame=oldTime===newTime;
+            }else if(ENGDOC_JSON_FIELDS.has(key)){
+              isSame=JSON.stringify(existing[key] ?? null)===JSON.stringify(incoming[key] ?? null);
+            }else{
+              isSame=String(existing[key] ?? '')===String(incoming[key] ?? '');
+            }
+            if(!isSame){ changes[key] = incoming[key]; changed = true; }
           });
           return changed ? changes : null;
         }
 
-        async function handleFileChange(file){
-          importParseError=''; importRows=null; importParseErrors=[]; importFileName=''; importSummary=null;
-          try{
-            const { records, errors } = await parseImportFile(file);
-            importRows = records; importParseErrors = errors; importFileName = file.name;
-          }catch(error){ importParseError = error.message; }
+        function buildImportPreview(batches){
+          const simulated=new Map(data.map(record=>[record.unique_key,{...record}]));
+          return batches.map(source=>{
+            const summary={inserted:0,updated:0,skipped:0,error:source.errors.length};
+            const fields=IMPORT_FIELD_KEYS[source.mode] || [];
+            source.records.forEach(record=>{
+              const existing=simulated.get(record.unique_key);
+              if(existing){
+                const changes=diffRecord(existing,record,fields,source.mode!=='backup');
+                if(!changes){ summary.skipped++; return; }
+                const merged=applyRemaintimeRule({...existing,...changes});
+                simulated.set(record.unique_key,{...existing,...changes,overall_status:merged.overall_status});
+                summary.updated++;
+              }else{
+                simulated.set(record.unique_key,applyRemaintimeRule({...record}));
+                summary.inserted++;
+              }
+            });
+            return {...source,summary};
+          });
+        }
+
+        async function handleFilesChange(files){
+          importParseError=''; importBatches=[]; importParseErrors=[]; importSummary=null;
+          const selected=Array.from(files || []);
+          if(!selected.length){ renderTable(); return; }
+          const batches=[];
+          for(const file of selected){
+            try{
+              const parsed=await parseImportFile(file);
+              const source={...parsed,fileName:file.name};
+              batches.push(source);
+              source.errors.forEach(error=>importParseErrors.push({...error,fileName:file.name}));
+            }catch(error){ importParseErrors.push({fileName:file.name,row:'-',message:error.message}); }
+          }
+          const priority={progress:0,revision:1,legacy:2,pending_review:3,backup:4};
+          batches.sort((a,b)=>(priority[a.mode] ?? 9)-(priority[b.mode] ?? 9));
+          if(batches.some(source=>source.mode==='backup') && batches.length>1){
+            importParseError='ไฟล์ Backup เป็นข้อมูลทั้งฐานข้อมูล ให้นำเข้าแยกจากไฟล์ Progress, Revision หรือ Pending Review';
+          }else if(batches.length){
+            const contextRecords=batches.filter(source=>['progress','revision','legacy'].includes(source.mode)).flatMap(source=>source.records);
+            const latestByDoc=new Map(latestSet(data.concat(contextRecords)).map(record=>[record.doc_no,record]));
+            batches.filter(source=>source.mode==='pending_review').forEach(source=>source.records.forEach(record=>{
+              const latest=latestByDoc.get(record.doc_no);
+              if(latest){ record.revision=latest.revision; record.unique_key=record.doc_no+'|'+record.revision; }
+            }));
+            importBatches=buildImportPreview(batches);
+          }
+          if(!batches.length && !importParseErrors.length) importParseError='ไม่พบไฟล์ที่นำเข้าได้';
           renderTable();
         }
 
         async function runImport(){
-          if(!importRows || !importRows.length || importing) return;
-          importing = true; renderTable();
-          const existingByKey = new Map(data.map(r=>[r.unique_key, r]));
-          let inserted=0, updated=0, skipped=0, errorCount = importParseErrors.length;
-          const errors = importParseErrors.slice();
-          const historyPayload = [];
-          for(let i=0; i<importRows.length; i+=8){
-            const batch = importRows.slice(i, i+8);
-            await Promise.all(batch.map(async rec=>{
-              try{
-                const existing = existingByKey.get(rec.unique_key);
-                if(existing){
-                  const changes = diffRecord(existing, rec);
-                  if(!changes){ skipped++; return; }
-                  changes.updated_at = new Date().toISOString();
-                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents?id=eq.' + existing.id, {method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(changes)});
-                  if(!res.ok) throw new Error(await res.text());
-                  const [saved] = await res.json();
-                  historyPayload.push({document_id:existing.id, unique_key:rec.unique_key, action:'update', old_data:{...existing}, new_data:saved});
-                  Object.assign(existing, saved);
-                  updated++;
-                }else{
-                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(rec)});
-                  if(!res.ok) throw new Error(await res.text());
-                  const [saved] = await res.json();
-                  data.push(saved);
-                  existingByKey.set(rec.unique_key, saved);
-                  historyPayload.push({document_id:saved.id, unique_key:rec.unique_key, action:'insert', old_data:null, new_data:saved});
-                  inserted++;
-                }
-              }catch(error){ errorCount++; errors.push({unique_key:rec.unique_key, message:error.message}); }
-            }));
+          if(!importBatches.length || importParseErrors.length || importParseError || importing) return;
+          importing=true; renderTable();
+          const existingByKey=new Map(data.map(record=>[record.unique_key,record]));
+          let totalInserted=0,totalUpdated=0,totalSkipped=0,totalErrors=0;
+          for(const source of importBatches){
+            let inserted=0,updated=0,skipped=0,errorCount=0;
+            const errors=[],historyPayload=[];
+            const fields=IMPORT_FIELD_KEYS[source.mode] || [];
+            for(let i=0;i<source.records.length;i+=8){
+              await Promise.all(source.records.slice(i,i+8).map(async record=>{
+                try{
+                  const existing=existingByKey.get(record.unique_key);
+                  if(existing){
+                    const changes=diffRecord(existing,record,fields,source.mode!=='backup');
+                    if(!changes){ skipped++; return; }
+                    changes.overall_status=applyRemaintimeRule({...existing,...changes}).overall_status;
+                    changes.updated_at=new Date().toISOString();
+                    const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents?id=eq.'+existing.id,{method:'PATCH',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(changes)});
+                    if(!res.ok) throw new Error(await res.text());
+                    const [saved]=await res.json();
+                    historyPayload.push({document_id:existing.id,unique_key:record.unique_key,action:'update',old_data:{...existing},new_data:saved});
+                    Object.assign(existing,applyRemaintimeRule(saved));
+                    updated++;
+                  }else{
+                    const newRecord=applyRemaintimeRule({...record,overall_status:record.overall_status || null});
+                    const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents',{method:'POST',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(newRecord)});
+                    if(!res.ok) throw new Error(await res.text());
+                    const [saved]=await res.json();
+                    data.push(saved); existingByKey.set(record.unique_key,saved);
+                    historyPayload.push({document_id:saved.id,unique_key:record.unique_key,action:'insert',old_data:null,new_data:saved});
+                    inserted++;
+                  }
+                }catch(error){ errorCount++; errors.push({unique_key:record.unique_key,message:error.message}); }
+              }));
+            }
+            if(historyPayload.length){
+              try{ await fetch(SUPABASE_URL+'/rest/v1/engineering_document_history',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify(historyPayload)}); }catch(error){}
+            }
+            const logPayload={file_name:source.fileName,total_rows:source.records.length,inserted_count:inserted,updated_count:updated,skipped_count:skipped,error_count:errorCount,errors};
+            try{
+              const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_document_import_log',{method:'POST',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(logPayload)});
+              if(res.ok){ const [saved]=await res.json(); importLogs=[saved,...importLogs].slice(0,5); }
+            }catch(error){}
+            totalInserted+=inserted; totalUpdated+=updated; totalSkipped+=skipped; totalErrors+=errorCount;
           }
-          if(historyPayload.length){
-            try{ await fetch(SUPABASE_URL + '/rest/v1/engineering_document_history', {method:'POST', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify(historyPayload)}); }catch(error){}
-          }
-          const logPayload = { file_name:importFileName, total_rows:importRows.length, inserted_count:inserted, updated_count:updated, skipped_count:skipped, error_count:errorCount, errors };
-          try{
-            const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_document_import_log', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(logPayload)});
-            if(res.ok){ const [saved] = await res.json(); importLogs = [saved, ...importLogs].slice(0,5); }
-          }catch(error){}
-          importSummary = { inserted, updated, skipped, error:errorCount };
-          importRows = null; importParseErrors = []; importFileName=''; importing=false; page=1;
+          importSummary={files:importBatches.length,inserted:totalInserted,updated:totalUpdated,skipped:totalSkipped,error:totalErrors};
+          importBatches=[]; importParseErrors=[]; importParseError=''; importing=false; page=1;
           renderTable();
-          showToast(`Import สำเร็จ ${inserted + updated} รายการ · เพิ่มใหม่ ${inserted} · อัปเดต ${updated} · ข้าม ${skipped} · Error ${errorCount}`, errorCount > 0);
+          showToast(`Import ${importSummary.files} ไฟล์สำเร็จ · เพิ่มใหม่ ${totalInserted} · อัปเดต ${totalUpdated} · ข้าม ${totalSkipped} · Error ${totalErrors}`,totalErrors>0);
         }
 
-        function latestSet(){
+        function latestSet(records=data){
           const map = new Map();
-          data.forEach(rec=>{
+          records.forEach(rec=>{
             const cur = map.get(rec.doc_no);
             if(!cur){ map.set(rec.doc_no, rec); return; }
             const curT = cur.actual_issue_date ? Date.parse(cur.actual_issue_date) : -Infinity;
@@ -10757,15 +10943,16 @@
           return rowsOut;
         }
 
-        function exportFiltered(){
-          const rowsOut = visibleRows();
-          const headerRow = ['Doc No','Revision','ชื่อเอกสาร','Document Status','Pending Person','Actual Issue Date','PM Approved Date','PM Approval Status','External Approved Date','External Approval Status','Remaintime','Overall Status'];
-          const aoa = [headerRow, ...rowsOut.map(r=>[r.doc_no, r.revision, r.doc_name, r.document_status, r.pending_person, formatDT(r.actual_issue_date), formatDT(r.pm_approved_date), r.pm_approval_status || '-', formatDT(r.external_approved_date), r.external_approval_status || '-', r.remaintime || '-', r.overall_status])];
+        function exportRows(rowsOut,filePrefix){
+          const fields=Object.keys(ENGDOC_FIELDS);
+          const aoa=[fields,...rowsOut.map(record=>fields.map(key=>ENGDOC_JSON_FIELDS.has(key) ? (record[key]==null ? '' : JSON.stringify(record[key])) : (record[key] ?? '')))];
           const sheet = XLSX.utils.aoa_to_sheet(aoa);
           const workbook = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(workbook, sheet, 'Engineering Documents');
-          XLSX.writeFile(workbook, 'Engineering_Document_Status_' + todayISO() + '.xlsx');
+          XLSX.writeFile(workbook, filePrefix + '_' + todayISO() + '.xlsx');
         }
+        function exportFiltered(){ exportRows(visibleRows(),'Engineering_Documents_Filtered'); }
+        function exportDatabase(){ exportRows(data,'Engineering_Documents_Backup'); }
 
         async function deleteRecord(rec){
           if(!confirm(`ลบเอกสาร ${rec.doc_no} · Rev.${rec.revision} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
@@ -10796,6 +10983,56 @@
             showToast('ลบข้อมูล Engineering Document ทั้งหมดแล้ว');
             renderTable();
           }catch(error){ showToast('ลบทั้งหมดไม่สำเร็จ: ' + error.message, true); }
+        }
+
+        function editDateValue(value){
+          if(!value) return '';
+          const date=new Date(value); if(isNaN(date)) return '';
+          return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')+'T'+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0');
+        }
+
+        function openEdit(rec){
+          const modal=$('#modalContent');
+          const fieldMarkup=ENGDOC_EDIT_FIELDS.map(key=>{
+            const value=rec[key];
+            const isJson=ENGDOC_JSON_FIELDS.has(key), isDate=ENGDOC_DATE_FIELDS.has(key), isNumber=ENGDOC_NUMBER_FIELDS.has(key);
+            const inputValue=isJson ? (value==null ? '' : JSON.stringify(value,null,2)) : (isDate ? editDateValue(value) : (value ?? ''));
+            const input=isJson ? `<textarea data-edit-field="${key}" rows="4">${escapeHtml(inputValue)}</textarea>` : `<input data-edit-field="${key}" type="${isDate?'datetime-local':isNumber?'number':'text'}" ${isNumber?'step="any"':''} value="${escapeHtml(String(inputValue))}">`;
+            const full=key==='doc_name' || isJson ? ' full' : '';
+            return `<div class="detail-field${full}"><label>${escapeHtml(ENGDOC_FIELDS[key])}</label>${input}</div>`;
+          }).join('');
+          modal.innerHTML=`
+            <div class="modal-head"><h2>แก้ไขข้อมูล · ${escapeHtml(rec.doc_no)} Rev.${escapeHtml(rec.revision)}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
+            <div class="detail-grid" style="max-height:65vh;overflow:auto;padding:4px;">${fieldMarkup}</div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;"><button class="btn btn-ghost" type="button" id="edEditCancel">ยกเลิก</button><button class="btn btn-primary" type="button" id="edEditSave">บันทึก</button></div>`;
+          $('#modalBg').classList.add('show');
+          $('#modalCloseBtn').addEventListener('click',closeModal);
+          $('#edEditCancel').addEventListener('click',closeModal);
+          $('#edEditSave').addEventListener('click',async()=>{
+            const changes={};
+            try{
+              ENGDOC_EDIT_FIELDS.forEach(key=>{
+                const input=modal.querySelector(`[data-edit-field="${key}"]`), value=input.value.trim();
+                if(ENGDOC_JSON_FIELDS.has(key)) changes[key]=value ? JSON.parse(value) : null;
+                else if(ENGDOC_DATE_FIELDS.has(key)) changes[key]=value ? new Date(value).toISOString() : null;
+                else if(ENGDOC_NUMBER_FIELDS.has(key)) changes[key]=value==='' ? null : Number(value);
+                else changes[key]=value || null;
+              });
+              if(!changes.doc_no || !changes.revision) throw new Error('Doc No และ Revision ห้ามเว้นว่าง');
+              const newKey=changes.doc_no+'|'+changes.revision;
+              if(data.some(item=>item.id!==rec.id && item.unique_key===newKey)) throw new Error('Doc No และ Revision นี้มีอยู่แล้ว');
+              changes.unique_key=newKey;
+              const prepared=applyRemaintimeRule({...rec,...changes});
+              changes.overall_status=prepared.overall_status;
+              changes.updated_at=new Date().toISOString();
+              const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents?id=eq.'+encodeURIComponent(rec.id),{method:'PATCH',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(changes)});
+              if(!res.ok) throw new Error(await res.text());
+              const [saved]=await res.json();
+              try{ await fetch(SUPABASE_URL+'/rest/v1/engineering_document_history',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify({document_id:rec.id,unique_key:newKey,action:'update',old_data:{...rec},new_data:saved})}); }catch(error){}
+              Object.assign(rec,applyRemaintimeRule(saved));
+              closeModal(); renderTable(); showToast('บันทึกการแก้ไขแล้ว');
+            }catch(error){ showToast('บันทึกไม่สำเร็จ: '+error.message,true); }
+          });
         }
 
         function openDetail(rec){
@@ -10883,7 +11120,8 @@
           const pages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
           page = Math.min(page, pages);
           const pageRows = pageSize === 'all' ? filtered : filtered.slice((page-1)*pageSize, page*pageSize);
-          const importNote = (importRows && importParseErrors.length) ? ` · ข้อมูลผิดพลาด ${importParseErrors.length} แถว (จะนับเป็น Error)` : '';
+          const importNote = importParseErrors.length ? ` · ผิดพลาด ${importParseErrors.length} จุด: ${importParseErrors.slice(0,3).map(error=>`${error.fileName || ''} แถว ${error.row} ${error.message}`).join(' / ')}` : '';
+          const importPreviewHtml = importBatches.length ? `<div class="db-table-wrap" style="margin-top:8px;max-height:180px;"><table class="db-table"><thead><tr><th>ไฟล์</th><th>รายการ</th><th>เพิ่มใหม่</th><th>อัปเดต</th><th>ข้าม</th><th>Error</th></tr></thead><tbody>${importBatches.map(source=>`<tr><td>${escapeHtml(source.fileName)}</td><td>${source.records.length}</td><td>${source.summary.inserted}</td><td>${source.summary.updated}</td><td>${source.summary.skipped}</td><td style="color:${source.summary.error?'var(--danger)':'inherit'};">${source.summary.error}</td></tr>`).join('')}</tbody></table></div>` : '';
           const sortHeader = (key,label) => `<th class="resizable"><button class="db-sort-btn" type="button" data-sort-key="${key}" title="เรียงตาม ${escapeHtml(label)}">${escapeHtml(label)} ${sortKey===key?(sortDir==='asc'?'↑':'↓'):''}</button></th>`;
           const checkboxFilter = (key,label,options,selected) => `<details class="ed-filter" data-filter="${key}"><summary>${label}${selected.length ? ` (${selected.length})` : ''}<span aria-hidden="true">▾</span></summary><div class="ed-filter-options"><div class="ed-filter-head"><span>${label}</span><button class="ed-filter-clear" type="button" data-clear-filter="${key}">ล้าง</button></div>${options.map(option=>`<label class="ed-filter-option"><input class="ed-filter-input" type="checkbox" data-filter="${key}" value="${escapeHtml(option.value)}" ${selected.includes(option.value)?'checked':''}><span>${escapeHtml(option.label)}</span></label>`).join('')}</div></details>`;
           const filterSetters = {
@@ -10926,24 +11164,33 @@
                 ${checkboxFilter('overall','Overall Status',['Complete','Pending','Overdue','In Progress'].map(value=>({value,label:value})),overallFilter)}
                 ${checkboxFilter('revision','Revision',revisionOptions.map(value=>({value,label:value})),revFilter)}
                 <select class="kpi-input" id="edPageSize"><option value="20" ${pageSize===20?'selected':''}>20 รายการ/หน้า</option><option value="50" ${pageSize===50?'selected':''}>50 รายการ/หน้า</option><option value="100" ${pageSize===100?'selected':''}>100 รายการ/หน้า</option><option value="all" ${pageSize==='all'?'selected':''}>ทั้งหมด</option></select>
-                <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export Excel</button>
-                <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกไฟล์ Excel<input type="file" id="edImportFile" accept=".xlsx,.xls" hidden></label>
-                <button class="btn btn-primary" type="button" id="edImportBtn" ${(importRows && importRows.length && !importing) ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;">${importing ? 'กำลัง Import...' : 'ยืนยัน Import'}</button>
+                <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export filtered</button>
+                <button class="btn btn-ghost" type="button" id="edBackup" style="flex:0 0 auto;padding:9px 12px;">⬇ Backup all</button>
+                <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกหลายไฟล์<input type="file" id="edImportFile" accept=".xlsx,.xls" multiple hidden></label>
+                <button class="btn btn-primary" type="button" id="edImportBtn" ${(importBatches.length && !importParseErrors.length && !importParseError && !importing) ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;">${importing ? 'กำลัง Import...' : 'ยืนยัน Import'}</button>
                 <button class="btn btn-ghost" type="button" id="edRefresh" style="flex:0 0 auto;padding:9px 12px;">รีเฟรช</button>
                 <button class="btn btn-ghost" type="button" id="edDeleteAll" ${data.length ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;color:var(--danger);border-color:#FECACA;">🗑 ลบข้อมูลทั้งหมด</button>
               </div>
               <div class="dash-note" style="${importParseError ? 'color:var(--danger);border-color:#FECACA;background:#FEF2F2;' : (importSummary ? 'color:#15803D;border-color:#86EFAC;background:#F0FDF4;' : '')}">
                 ${importParseError ? 'อ่านไฟล์ไม่สำเร็จ: ' + escapeHtml(importParseError)
-                  : importSummary ? `Import สำเร็จ ${importSummary.inserted + importSummary.updated} รายการ · เพิ่มใหม่ ${importSummary.inserted} รายการ · อัปเดต ${importSummary.updated} รายการ · ข้าม ${importSummary.skipped} รายการ · Error ${importSummary.error} รายการ`
-                  : importRows ? `${escapeHtml(importFileName)}: พบ ${importRows.length} รายการ (Doc+Rev)${importNote}`
-                  : 'เลือกไฟล์ Excel รูปแบบ Alldoc Export (Doc No, Purpose &amp; Doc Name &amp; Rev, Document Status, Pending Person, Actual Issue Date, PM Approved Date, Status, External Approved Date, Status, Remaintime)'}
+                  : importSummary ? `Import ${importSummary.files} ไฟล์สำเร็จ · เพิ่มใหม่ ${importSummary.inserted} · อัปเดต ${importSummary.updated} · ข้าม ${importSummary.skipped} · Error ${importSummary.error}`
+                  : importBatches.length ? `ตรวจพบ ${importBatches.length} ไฟล์ · ระบบจะประมวลผล Progress → Revision → Pending Review · ไม่ลบรายการเดิม${importBatches.some(source=>source.mode==='backup') ? ' · Backup จะเขียนทับทุกคอลัมน์รวมถึงค่าว่าง' : ' · ค่าว่างจะไม่ทับข้อมูลเดิม'}${importNote}`
+                  : 'เลือก Pending review, Progress doc และ Revision พร้อมกันได้ ระบบจะแสดงผลก่อนยืนยัน Import'}
               </div>
+              ${importPreviewHtml}
               <div class="db-table-wrap"><table class="db-table"><thead><tr>
                 ${sortHeader('doc_no','Doc No')}
                 ${sortHeader('revision','Rev')}
                 ${sortHeader('doc_name','ชื่อเอกสาร')}
                 ${sortHeader('document_status','Document Status')}
                 ${sortHeader('pending_person','Pending Person')}
+                ${sortHeader('plan_issue_to_backspace_rev_a','Plan Issue (Rev.A)')}
+                ${sortHeader('plan_internal_rev_a','Plan Internal (Rev.A)')}
+                ${sortHeader('plan_external_rev_a','Plan External (Rev.A)')}
+                ${sortHeader('plan_issue_to_backspace_rev_0','Plan Issue (Rev.0)')}
+                ${sortHeader('plan_internal_rev_0','Plan Internal (Rev.0)')}
+                ${sortHeader('plan_external_rev_0','Plan External (Rev.0)')}
+                ${sortHeader('plan_progress','Plan Progress')}
                 ${sortHeader('actual_issue_date','Actual Issue Date')}
                 ${sortHeader('pm_approved_date','PM Approved Date')}
                 ${sortHeader('pm_approval_status','PM Status')}
@@ -10959,6 +11206,13 @@
                 <td style="max-width:280px;">${escapeHtml(r.doc_name || '-')}</td>
                 <td style="white-space:nowrap;">${escapeHtml(r.document_status || '-')}</td>
                 <td style="white-space:nowrap;">${escapeHtml(r.pending_person || '-')}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_issue_to_backspace_rev_a)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_internal_rev_a)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_external_rev_a)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_issue_to_backspace_rev_0)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_internal_rev_0)}</td>
+                <td style="white-space:nowrap;">${formatDT(r.plan_external_rev_0)}</td>
+                <td style="white-space:nowrap;">${r.plan_progress == null ? '-' : escapeHtml(String(r.plan_progress))}</td>
                 <td style="white-space:nowrap;">${formatDT(r.actual_issue_date)}</td>
                 <td style="white-space:nowrap;">${formatDT(r.pm_approved_date)}</td>
                 <td>${codePill(r.pm_approval_status)}</td>
@@ -10966,8 +11220,8 @@
                 <td>${codePill(r.external_approval_status)}</td>
                 <td style="white-space:nowrap;${Number(r.remaintime) < 0 ? 'color:var(--danger);font-weight:700;' : ''}">${escapeHtml(r.remaintime || '-')}</td>
                 <td>${statusPill(r.overall_status)}</td>
-                <td style="white-space:nowrap;"><button class="btn btn-ghost ed-detail-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">รายละเอียด</button> <button class="btn btn-ghost ed-history-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">ประวัติ</button> <button class="btn btn-ghost ed-delete-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;color:var(--danger);border-color:#FECACA;">ลบ</button></td>
-              </tr>`).join('') : `<tr><td colspan="13" style="padding:28px;text-align:center;color:var(--muted);">ไม่พบข้อมูล</td></tr>`}</tbody></table></div>
+                <td style="white-space:nowrap;"><button class="btn btn-ghost ed-detail-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">รายละเอียด</button> <button class="btn btn-ghost ed-edit-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">แก้ไข</button> <button class="btn btn-ghost ed-history-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">ประวัติ</button> <button class="btn btn-ghost ed-delete-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;color:var(--danger);border-color:#FECACA;">ลบ</button></td>
+              </tr>`).join('') : `<tr><td colspan="20" style="padding:28px;text-align:center;color:var(--muted);">ไม่พบข้อมูล</td></tr>`}</tbody></table></div>
               <div class="db-pager"><span>${filtered.length} รายการ · หน้า ${page} / ${pages}</span><span class="db-pager-actions"><button class="btn btn-ghost" id="edPrev" type="button" ${page===1?'disabled':''} style="padding:7px 11px;">ก่อนหน้า</button><button class="btn btn-ghost" id="edNext" type="button" ${page===pages?'disabled':''} style="padding:7px 11px;">ถัดไป</button></span></div>
             </div>`;
 
@@ -10987,14 +11241,16 @@
           }));
           $('#edPageSize').addEventListener('change', e=>{ pageSize = e.target.value==='all' ? 'all' : Number(e.target.value); page=1; renderTable(); });
           $('#edExport').addEventListener('click', exportFiltered);
+          $('#edBackup').addEventListener('click', exportDatabase);
           $('#edImportFile').addEventListener('change', event=>{
-            const file = event.target.files[0]; event.target.value=''; if(!file) return;
-            handleFileChange(file);
+            const files=Array.from(event.target.files || []); event.target.value=''; if(!files.length) return;
+            handleFilesChange(files);
           });
           $('#edImportBtn').addEventListener('click', runImport);
           $('#edRefresh').addEventListener('click', ()=> switchModule('engdoc_status'));
           $('#edDeleteAll').addEventListener('click', deleteAllRecords);
           $$('.ed-detail-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openDetail(rec); }));
+          $$('.ed-edit-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openEdit(rec); }));
           $$('.ed-history-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openHistory(rec); }));
           $$('.ed-delete-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) deleteRecord(rec); }));
           $$('.db-sort-btn').forEach(btn=>btn.addEventListener('click', ()=>{

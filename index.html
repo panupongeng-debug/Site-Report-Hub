@@ -357,6 +357,10 @@
   .vp-date-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
   .vp-date-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .vp-badge{display:inline-block;background:#F7F9FB;border:1px solid var(--line);border-radius:7px;padding:8px 12px;font-size:12.5px;font-weight:700;color:var(--charcoal);margin-bottom:12px;}
+  .vp-progress-panel{margin-bottom:12px;}
+  .vp-progress-panel summary{width:fit-content;padding:6px 12px;border:1.3px solid var(--line);border-radius:7px;background:#fff;color:var(--charcoal);cursor:pointer;font-size:12.5px;font-weight:700;}
+  .vp-progress-panel[open] summary{margin-bottom:8px;background:#F7F9FB;}
+  .vp-progress-panel .vp-badge{display:block;margin-bottom:6px;}
   .vp-legend-group{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#FAFBFC;}
   .vp-legend-group-head{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;color:var(--charcoal);cursor:pointer;margin-bottom:6px;}
   .vp-legend-group .vp-toolbar{margin-bottom:0;}
@@ -8204,12 +8208,17 @@
               if(choice === 'cancel') return;
               if(choice === 'save'){ const ok = await vpSaveCurrentFn(); if(!ok) return; }
             }
+            const pageScrollY = window.scrollY;
+            const planListScrollTop = document.getElementById('vpPlanTabsList')?.scrollTop ?? 0;
             vpActivePlanId = Number(btn.dataset.planId);
             vpSelectedDate = todayISO();
             vpShapes = loadShapesFor(vpActivePlanId, vpSelectedDate);
             vpLoadedSnapshot = JSON.stringify(vpShapes);
             vpActiveColorIdx = -1; vpActiveGroupId = null; vpEraseMode = false; vpUndoStack = []; vpShapeType = 'square'; vpSizeMult = 1; vpHiddenGroups = new Set();
             renderShell();
+            window.scrollTo(0, pageScrollY);
+            const planList = document.getElementById('vpPlanTabsList');
+            if(planList) planList.scrollTop = planListScrollTop;
           };
         }
         // แยกการ render รายการแท็บออกจาก renderShell() เพื่อให้พิมพ์ค้นหา (vpTabSearch)
@@ -8337,8 +8346,9 @@
               badgeHtml += `<div class="vp-badge" data-completion-group="${escapeHtml(g.id)}" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(g.name || '')} — ${escapeHtml(item.label)}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
             });
           });
+          const progressOpen = editor.querySelector('.vp-progress-panel')?.open ?? false;
           editor.innerHTML = `
-            ${badgeHtml}
+            ${badgeHtml ? `<details class="vp-progress-panel"${progressOpen?' open':''}><summary>Progress</summary>${badgeHtml}</details>` : ''}
             <div class="vp-date-row">
               <label>วันที่:</label>
               <input type="date" id="vpDateInput" value="${vpSelectedDate}" style="width:auto;">
@@ -9114,8 +9124,9 @@
               badgeHtml += `<div class="vp-badge" data-completion-group="${escapeHtml(g.id)}" data-completion-color="${escapeHtml(item.color)}">${escapeHtml(g.name || '')} — ${escapeHtml(item.label)}: ทั้งหมด ${g.total_units} จุด แล้วเสร็จ ${cnt} จุด คิดเป็น ${pct}%</div>`;
             });
           });
+          const progressOpen = editor.querySelector('.vp-progress-panel')?.open ?? false;
           editor.innerHTML = `
-            ${badgeHtml}
+            ${badgeHtml ? `<details class="vp-progress-panel"${progressOpen?' open':''}><summary>Progress</summary>${badgeHtml}</details>` : ''}
             <div class="vp-date-row">
               <label>วันที่:</label>
               <input type="date" id="vp3dDateInput" value="${vpSelectedDate}" style="width:auto;">

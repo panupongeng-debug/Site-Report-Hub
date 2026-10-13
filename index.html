@@ -44,7 +44,7 @@
     display:flex;flex-direction:column;transition:width .18s ease;z-index:25;
   }
   .sidebar.collapsed{flex:0 0 58px;width:58px;}
-  .sidebar-top{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:14px 12px;border-bottom:1px solid var(--line);}
+  .sidebar-top{display:flex;align-items:center;gap:8px;padding:14px 12px;border-bottom:1px solid var(--line);}
   .sidebar-toggle{flex:0 0 auto;width:30px;height:30px;border-radius:7px;border:1.3px solid var(--line);background:#F7F9FB;color:var(--charcoal);cursor:pointer;font-size:14px;line-height:1;}
   .brand{display:flex;align-items:center;gap:8px;overflow:hidden;font-family:var(--disp);font-weight:700;font-size:14.5px;color:var(--charcoal);white-space:nowrap;}
   .brand .tag{flex:0 0 auto;display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);}
@@ -52,7 +52,7 @@
   .sidebar-jobno{flex:0 0 auto;min-height:52px;margin:10px 12px 0;padding:8px 10px 9px;background:#F0FBF9;border:1px solid #C9EAE5;border-radius:7px;color:var(--charcoal);white-space:nowrap;overflow:hidden;}
   .sidebar-jobno .label{display:block;margin-bottom:3px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-deep);}
   .sidebar-jobno .value{display:block;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;}
-  .sidebar-conn{flex:0 0 auto;display:flex;align-items:center;padding:10px 14px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);}
+  .sidebar-conn{display:flex;align-items:center;padding:10px 14px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);}
   .sidebar-group{padding:10px 0;border-bottom:1px solid var(--line);}
   .sidebar-group:last-child{border-bottom:none;}
   .sidebar-group-label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 14px 6px;white-space:nowrap;overflow:hidden;}
@@ -81,54 +81,6 @@
   }
   .sidebar-backdrop{display:none;}
   .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:24;}
-
-  /* ---------- auth (login / request access) overlay ---------- */
-  #authOverlay{position:fixed;inset:0;z-index:200;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:20px;}
-  #authOverlay[hidden]{display:none;}
-  .auth-card{width:100%;max-width:360px;background:var(--paper-2);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(20,30,60,.08);padding:26px 24px;}
-  .auth-card h1{font-family:var(--disp);font-size:18px;color:var(--charcoal);margin:0 0 4px;}
-  .auth-card .sub{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
-  .auth-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--line);}
-  .auth-tab-btn{flex:1;text-align:center;padding:9px 4px;font-family:var(--disp);font-weight:600;font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
-  .auth-tab-btn.active{color:var(--charcoal);border-bottom-color:var(--amber-deep);}
-  .auth-field{margin-bottom:12px;}
-  .auth-field label{display:block;font-size:12px;font-weight:600;color:var(--charcoal);margin-bottom:5px;}
-  .auth-field input,.auth-field select{width:100%;font-family:var(--body);font-size:14px;color:var(--ink);background:#fff;border:1.3px solid var(--line);border-radius:7px;padding:9px 10px;outline:none;}
-  .auth-field input:focus{border-color:var(--amber-deep);box-shadow:0 0 0 3px rgba(14,163,148,.12);}
-  .auth-submit-btn{width:100%;padding:10px;border:none;border-radius:7px;background:var(--amber-deep);color:#fff;font-family:var(--disp);font-weight:700;font-size:14px;cursor:pointer;margin-top:4px;}
-  .auth-submit-btn:disabled{opacity:.55;cursor:default;}
-  .auth-msg{font-size:12.5px;margin:10px 0 0;padding:8px 10px;border-radius:7px;}
-  .auth-msg.err{background:#FEF2F2;color:var(--danger);border:1px solid #FCA5A5;}
-  .auth-msg.ok{background:#F0FBF9;color:var(--amber-deep);border:1px solid #A7E4DB;}
-  .auth-pane[hidden]{display:none;}
-  .sidebar-user{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;}
-  .sidebar-user .who{flex:1 1 auto;min-width:0;overflow:hidden;}
-  .sidebar-user .name{display:block;font-size:12.5px;font-weight:700;color:var(--charcoal);overflow:hidden;text-overflow:ellipsis;}
-  .sidebar-user .role{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
-  .sidebar-user .logout-btn{flex:0 0 auto;border:1px solid var(--line);background:#F7F9FB;color:var(--charcoal);border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;}
-  .sidebar.collapsed .sidebar-user .who{display:none;}
-  .sidebar.collapsed .sidebar-user{justify-content:center;}
-
-  /* ---------- user management (admin) ---------- */
-  .um-section{margin-bottom:22px;}
-  .um-section h3{font-family:var(--disp);font-size:14.5px;color:var(--charcoal);margin:0 0 10px;}
-  .um-table{width:100%;border-collapse:collapse;background:var(--paper-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-  .um-table th,.um-table td{padding:9px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--line);}
-  .um-table th{background:#F7F9FB;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
-  .um-table tr:last-child td{border-bottom:none;}
-  .um-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
-  .um-pill.pending{background:#FEF9C3;color:#854D0E;}
-  .um-pill.approved{background:#DCFCE7;color:#166534;}
-  .um-pill.rejected{background:#FEE2E2;color:#991B1B;}
-  .um-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;margin-right:5px;}
-  .um-btn.approve{border-color:var(--closed);color:var(--closed);}
-  .um-btn.reject{border-color:var(--danger);color:var(--danger);}
-  .um-btn.approve:hover{background:var(--closed);color:#fff;}
-  .um-btn.reject:hover{background:var(--danger);color:#fff;}
-  .um-btn.delete{border-color:var(--danger);color:var(--danger);}
-  .um-btn.delete:hover{background:var(--danger);color:#fff;}
-  .um-role-select{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;}
-  .um-empty{padding:14px;color:var(--muted);font-size:13px;}
 
   .stat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
   .stat-row.qc-kpi-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;}
@@ -175,8 +127,6 @@
   .btn:active{transform:scale(.98);} .btn:disabled{opacity:.5;}
   .btn-primary{background:var(--amber);color:#fff;}
   .btn-ghost{background:none;border:1.3px solid var(--line);color:var(--charcoal);flex:0 0 auto;}
-  #vpLoadPrevBtn{background:#DCFCE7;border-color:#86EFAC;color:#166534;}
-  #vpLoadPrevBtn:hover{background:#BBF7D0;border-color:#4ADE80;}
   .btn-ghost.active{background:#D946EF;border-color:#D946EF;color:#fff;}
   .btn-ghost.active-soon{background:#F0A93B;border-color:#F0A93B;color:#1a1a1a;}
   .btn-danger{background:none;border:1.3px solid var(--danger);color:var(--danger);}
@@ -371,6 +321,24 @@
   .dash-weekpicker-row label{font-weight:700;font-size:13px;color:var(--charcoal);}
   .dash-weekpicker-row select{max-width:260px;}
   .vp-plan-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .vp-workspace{display:grid;grid-template-columns:230px minmax(0,1fr);gap:16px;align-items:start;}
+  .vp-plan-sidebar{min-width:0;display:flex;flex-direction:column;gap:8px;}
+  #vpPlanTabsList{display:flex;flex-direction:column;gap:6px;max-height:65vh;overflow-y:auto;}
+  .vp-plan-row{display:flex;align-items:center;gap:3px;min-width:0;flex-wrap:wrap;}
+  .vp-plan-row.dragging{opacity:.45;}
+  .vp-plan-row .vp-tab{flex:1;min-width:0;text-align:left;white-space:normal;overflow-wrap:anywhere;cursor:grab;}
+  .vp-plan-section{border-top:2px solid var(--line);padding-top:8px;}
+  .vp-plan-section[data-status="executing"]{border-color:#D99A24;}
+  .vp-plan-section[data-status="monitoring"]{border-color:#3785B8;}
+  .vp-plan-section[data-status="complete"]{border-color:#2E9E5B;}
+  .vp-plan-section h4{display:flex;justify-content:space-between;gap:6px;margin:0 0 6px;font-size:12px;color:var(--ink);}
+  .vp-plan-section h4 span{color:var(--muted);font-weight:400;}
+  .vp-plan-section-list{display:flex;flex-direction:column;gap:8px;min-height:36px;padding:3px 0;}
+  .vp-plan-section.drop-target{background:#EAF4F8;}
+  .vp-plan-move{width:26px;height:28px;flex:0 0 26px;padding:0;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);cursor:pointer;}
+  .vp-plan-move:disabled{opacity:.35;cursor:default;}
+  #vpPlanEditor{min-width:0;}
+  @media(max-width:760px){.vp-workspace{grid-template-columns:minmax(0,1fr);}.vp-plan-sidebar{width:100%;}#vpPlanTabsList{max-height:240px;}}
   #weeklyReportTabs{position:sticky;top:29px;z-index:19;padding:8px 0;background:var(--paper);}
   .vp-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
   .vp-filter-btn{padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);}
@@ -426,15 +394,6 @@
   .db-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
   .db-toolbar .search-box{flex:1 1 260px;min-width:180px;margin:0;}
   .db-toolbar select{width:auto;min-width:150px;}
-  .db-toolbar .ed-filter{position:relative;flex:0 0 auto;}
-  .db-toolbar .ed-filter summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:150px;padding:9px 10px;border:1.3px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-size:14px;cursor:pointer;list-style:none;}
-  .db-toolbar .ed-filter summary::-webkit-details-marker{display:none;}
-  .ed-filter-options{position:absolute;top:calc(100% + 4px);left:0;z-index:30;display:grid;gap:2px;min-width:100%;width:max-content;max-width:min(280px,80vw);max-height:260px;overflow:auto;padding:8px;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 6px 18px rgba(20,30,60,.14);}
-  .ed-filter-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:2px 4px 6px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--charcoal);}
-  .ed-filter-clear{padding:2px 4px;border:0;background:none;color:var(--amber-deep);font:inherit;font-size:11px;cursor:pointer;}
-  .ed-filter-option{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:4px;font-size:13px;white-space:nowrap;cursor:pointer;}
-  .ed-filter-option:hover{background:#F4F6F9;}
-  .ed-filter-option input{margin:0;accent-color:var(--amber-deep);}
   .db-table-wrap{border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:70vh;background:#fff;}
   .db-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;}
   .db-table th{position:sticky;top:0;z-index:1;padding:8px;background:#F7F9FB;border-bottom:1.3px solid var(--line);text-align:left;white-space:nowrap;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
@@ -787,29 +746,7 @@
 </style>
 </head>
 <body>
-<div id="authOverlay" hidden>
-  <div class="auth-card">
-    <h1>Site Reports Hub</h1>
-    <p class="sub">เข้าสู่ระบบเพื่อใช้งาน หรือขอสิทธิ์การใช้งานใหม่</p>
-    <div class="auth-tabs">
-      <button type="button" class="auth-tab-btn active" data-pane="login">เข้าสู่ระบบ</button>
-      <button type="button" class="auth-tab-btn" data-pane="signup">ขอสิทธิ์การใช้งาน</button>
-    </div>
-    <div class="auth-pane" id="authPaneLogin">
-      <div class="auth-field"><label>Username</label><input type="text" id="authLoginUser" autocomplete="username"></div>
-      <div class="auth-field"><label>Password</label><input type="password" id="authLoginPass" autocomplete="current-password"></div>
-      <button type="button" class="auth-submit-btn" id="authLoginBtn">เข้าสู่ระบบ</button>
-    </div>
-    <div class="auth-pane" id="authPaneSignup" hidden>
-      <div class="auth-field"><label>ชื่อ-นามสกุล</label><input type="text" id="authSignupName" autocomplete="name"></div>
-      <div class="auth-field"><label>Username</label><input type="text" id="authSignupUser" autocomplete="username"></div>
-      <div class="auth-field"><label>Password</label><input type="password" id="authSignupPass" autocomplete="new-password"></div>
-      <button type="button" class="auth-submit-btn" id="authSignupBtn">ส่งคำขอสิทธิ์การใช้งาน</button>
-    </div>
-    <div class="auth-msg" id="authMsg" hidden></div>
-  </div>
-</div>
-<div class="wrap" id="appWrap" hidden>
+<div class="wrap">
 
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
@@ -820,7 +757,6 @@
       <span class="label">Job number</span>
       <span class="value">B-26-6530</span>
     </div>
-    <div class="sidebar-user" id="sidebarUser"></div>
     <div class="sidebar-conn"><span class="conn-dot" id="connDot"></span><span class="sidebar-label" id="connText">เชื่อมต่อ Supabase...</span></div>
     <div class="sidebar-group">
       <div class="sidebar-group-label">📝 Report</div>
@@ -1000,153 +936,6 @@
   const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
 
   // ============================================================================================
-  // User management (login / request-access / admin approval) — เพิ่ม 2026-09-29
-  // ตาราง app_users เก็บบัญชีผู้ใช้ทั้งหมด (pending/approved/rejected) รันสคริปต์
-  // supabase/user_management.sql ก่อนใช้งานฟีเจอร์นี้ — บัญชีแรกที่สร้างไว้คือ admin/admin123
-  // หมายเหตุความปลอดภัย: เหมือนส่วนอื่นของแอปนี้ (ดูคอมเมนต์ VIEW_ONLY ด้านล่าง) ไม่ได้เปิด RLS
-  // การกันสิทธิ์นี้เป็นการกันระดับ UI/ตรรกะแอป ไม่ใช่การกันที่ฐานข้อมูลจริง
-  // ============================================================================================
-  const AUTH_SESSION_KEY = 'srh_auth_session';
-  let currentUser = null;
-
-  async function sha256Hex(text){
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  function getSavedSession(){
-    try{ return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null'); }catch(e){ return null; }
-  }
-  function saveSession(user){
-    try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ id:user.id, username:user.username })); }catch(e){}
-  }
-  function clearSession(){
-    try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(e){}
-  }
-  async function fetchAppUsers(){
-    return fetchAllRows(SUPABASE_URL + '/rest/v1/app_users?select=*&order=requested_at.desc');
-  }
-  async function fetchAppUserById(id){
-    const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id) + '&select=*', { headers: HEADERS });
-    if(!res.ok) return null;
-    const rows = await res.json();
-    return rows[0] || null;
-  }
-  async function fetchAppUserByUsername(username){
-    const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?username=eq.' + encodeURIComponent(username) + '&select=*', { headers: HEADERS });
-    if(!res.ok) return null;
-    const rows = await res.json();
-    return rows[0] || null;
-  }
-  function showAuthMsg(text, isErr){
-    const el = document.getElementById('authMsg');
-    if(!el) return;
-    el.hidden = false;
-    el.textContent = text;
-    el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
-  }
-  function showAuthOverlay(){
-    document.getElementById('authOverlay').hidden = false;
-    document.getElementById('appWrap').hidden = true;
-  }
-  function hideAuthOverlay(){
-    document.getElementById('authOverlay').hidden = true;
-    document.getElementById('appWrap').hidden = false;
-  }
-  function setupAuthOverlay(){
-    const overlay = document.getElementById('authOverlay');
-    if(overlay.dataset.wired) return;
-    overlay.dataset.wired = '1';
-    overlay.querySelectorAll('.auth-tab-btn').forEach(btn => btn.addEventListener('click', ()=>{
-      overlay.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('authPaneLogin').hidden = btn.dataset.pane !== 'login';
-      document.getElementById('authPaneSignup').hidden = btn.dataset.pane !== 'signup';
-      const msg = document.getElementById('authMsg'); msg.hidden = true; msg.textContent = '';
-    }));
-    document.getElementById('authLoginBtn').addEventListener('click', doLogin);
-    document.getElementById('authSignupBtn').addEventListener('click', doSignup);
-    ['authLoginUser','authLoginPass'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); }));
-    ['authSignupName','authSignupUser','authSignupPass'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key === 'Enter') doSignup(); }));
-  }
-  async function doLogin(){
-    const username = document.getElementById('authLoginUser').value.trim();
-    const password = document.getElementById('authLoginPass').value;
-    if(!username || !password){ showAuthMsg('กรอก Username และ Password ให้ครบ', true); return; }
-    const btn = document.getElementById('authLoginBtn');
-    btn.disabled = true;
-    try{
-      const user = await fetchAppUserByUsername(username);
-      const passHash = await sha256Hex(password);
-      if(!user || user.password_hash !== passHash){ showAuthMsg('Username หรือ Password ไม่ถูกต้อง', true); return; }
-      if(user.status === 'pending'){ showAuthMsg('บัญชีนี้ยังรอผู้ดูแลระบบอนุมัติสิทธิ์การใช้งาน', true); return; }
-      if(user.status === 'rejected'){ showAuthMsg('บัญชีนี้ถูกปฏิเสธการใช้งาน กรุณาติดต่อผู้ดูแลระบบ', true); return; }
-      currentUser = user;
-      saveSession(user);
-      hideAuthOverlay();
-      if(user.role === 'dev_viewer') activateViewOnlyMode('👁️ Dev Viewer — ดูข้อมูลได้ทุกหน้า แต่แก้ไข/เพิ่ม/ลบข้อมูลไม่ได้');
-      startApp();
-    }catch(e){
-      showAuthMsg('เข้าสู่ระบบไม่สำเร็จ: ' + e.message, true);
-    }finally{
-      btn.disabled = false;
-    }
-  }
-  async function doSignup(){
-    const fullName = document.getElementById('authSignupName').value.trim();
-    const username = document.getElementById('authSignupUser').value.trim();
-    const password = document.getElementById('authSignupPass').value;
-    if(!fullName || !username || !password){ showAuthMsg('กรอกข้อมูลให้ครบทุกช่อง', true); return; }
-    if(password.length < 6){ showAuthMsg('Password ต้องมีอย่างน้อย 6 ตัวอักษร', true); return; }
-    const btn = document.getElementById('authSignupBtn');
-    btn.disabled = true;
-    try{
-      const existing = await fetchAppUserByUsername(username);
-      if(existing){ showAuthMsg('Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น', true); return; }
-      const passwordHash = await sha256Hex(password);
-      const res = await fetch(SUPABASE_URL + '/rest/v1/app_users', {
-        method:'POST', headers:{ ...HEADERS, 'Prefer':'return=minimal' },
-        body: JSON.stringify({ username, password_hash: passwordHash, full_name: fullName, role:'user', status:'pending' })
-      });
-      if(!res.ok) throw new Error('บันทึกคำขอไม่สำเร็จ (status ' + res.status + ')');
-      showAuthMsg('ส่งคำขอสิทธิ์การใช้งานแล้ว กรุณารอผู้ดูแลระบบอนุมัติ', false);
-      document.getElementById('authSignupName').value = '';
-      document.getElementById('authSignupUser').value = '';
-      document.getElementById('authSignupPass').value = '';
-    }catch(e){
-      showAuthMsg('ส่งคำขอไม่สำเร็จ: ' + e.message, true);
-    }finally{
-      btn.disabled = false;
-    }
-  }
-  function renderSidebarUser(){
-    const el = document.getElementById('sidebarUser');
-    if(!el || !currentUser) return;
-    const roleLabel = currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : currentUser.role === 'dev_viewer' ? 'Dev Viewer' : 'ผู้ใช้งาน';
-    el.innerHTML = `<span class="who"><span class="name">${escapeHtml(currentUser.full_name || currentUser.username)}</span><span class="role">${roleLabel}</span></span><button type="button" class="logout-btn" id="btnLogout">ออกจากระบบ</button>`;
-    document.getElementById('btnLogout').addEventListener('click', ()=>{
-      clearSession();
-      currentUser = null;
-      location.reload();
-    });
-  }
-  async function requireAuth(){
-    setupAuthOverlay();
-    const session = getSavedSession();
-    if(!session || !session.id){ showAuthOverlay(); return false; }
-    try{
-      const user = await fetchAppUserById(session.id);
-      if(!user || user.status !== 'approved'){ clearSession(); showAuthOverlay(); return false; }
-      currentUser = user;
-      hideAuthOverlay();
-      if(user.role === 'dev_viewer') activateViewOnlyMode('👁️ Dev Viewer — ดูข้อมูลได้ทุกหน้า แต่แก้ไข/เพิ่ม/ลบข้อมูลไม่ได้');
-      return true;
-    }catch(e){
-      showAuthOverlay();
-      return false;
-    }
-  }
-
-  // ============================================================================================
   // โหมด "ดูอย่างเดียว" (View Only) — เพิ่ม 2026-09-08
   // เปิดด้วย query param ?view=readonly ต่อท้าย URL เช่น https://.../index.html?view=readonly
   // ใช้แจกลิงก์ให้คนนอกทีม/ผู้บริหาร/ลูกค้าดูข้อมูล โดยไม่ให้แก้ไข/เพิ่ม/ลบข้อมูลได้เลย
@@ -1164,12 +953,7 @@
   const VIEW_ONLY_HOSTS = ['site-report-hub-view.vercel.app'];
   const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'readonly'
     || VIEW_ONLY_HOSTS.indexOf(location.hostname) !== -1;
-  let viewOnlyModeActive = false;
-  // เรียกซ้ำได้อย่างปลอดภัย — ใช้ทั้งกับโดเมน/ลิงก์ view=readonly (เรียกทันที) และกับ
-  // user role 'dev_viewer' ที่รู้จำนวนได้หลัง login เท่านั้น (เรียกจาก requireAuth/doLogin)
-  function activateViewOnlyMode(bannerText){
-    if (viewOnlyModeActive) return;
-    viewOnlyModeActive = true;
+  if (VIEW_ONLY) {
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts){
       const method = ((opts && opts.method) || 'GET').toUpperCase();
@@ -1218,7 +1002,7 @@
       const banner = document.createElement('div');
       banner.id = 'viewOnlyBanner';
       banner.className = 'view-only-mode-banner';
-      banner.textContent = bannerText || '👁️ โหมดดูอย่างเดียว (View Only) — ไม่สามารถแก้ไข/เพิ่ม/ลบข้อมูลได้ในหน้านี้';
+      banner.textContent = '👁️ โหมดดูอย่างเดียว (View Only) — ไม่สามารถแก้ไข/เพิ่ม/ลบข้อมูลได้ในหน้านี้';
       document.body.insertBefore(banner, document.body.firstChild);
     }
     if (document.body) insertViewOnlyBanner();
@@ -1237,8 +1021,6 @@
     hideEditAffordances();
     new MutationObserver(()=> hideEditAffordances()).observe(document.documentElement, { childList:true, subtree:true });
   }
-  if (VIEW_ONLY) activateViewOnlyMode();
-
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -4325,15 +4107,14 @@
         const today = briefRefDate || realToday;
         const yesterday = addDays(today, -1);
         const dayBeforeYesterday = addDays(today, -2);
-        const envQueryEnd = mondayOfWeek(today);
-        const envQueryStart = addDays(envQueryEnd, -90);
-        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null, siteLogIssues=[];
+        let findingsData=[], envData=[], dailyData=[], pileData=[], concreteReportsData=[], concreteSummaryData=[], concretePourEntriesData=[], concStructureItemsAll=[], kpiCategories=[], hseSettings=null, siteLogIssues=[];
         try{
-          const [r1,r2,r3,r4,r5,r6] = await Promise.all([
+          const [r1,r2,r3,r4,r5,r6,r7] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/findings?select=*', { headers: HEADERS }),
-            fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=report_date,concrete_scrap_kg,soil_disposal_kg,hazardous_waste_kg,general_waste_kg,recyclable_waste_kg,remarks,photo_urls&report_date=gte.' + envQueryStart + '&report_date=lte.' + envQueryEnd + '&order=report_date.asc', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/environment_reports?select=*&order=report_date.asc', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/daily_reports?select=*', { headers: HEADERS }),
             fetch(SUPABASE_URL + '/rest/v1/concrete_reports?select=id,report_date,foreman_count,safety_count,worker_count,other_count,photo_urls', { headers: HEADERS }),
+            fetch(SUPABASE_URL + '/rest/v1/concrete_area_summary?select=*', { headers: HEADERS }),
             fetchAllRows(SUPABASE_URL + '/rest/v1/pile_reports?select=id,pile_number,status,piled_date,plan_date,design_n,design_e,area,rig_code'),
             fetch(SUPABASE_URL + '/rest/v1/concrete_pour_entries?select=report_id,structure_item_id,floor,poured_today_m3', { headers: HEADERS }),
           ]);
@@ -4341,8 +4122,9 @@
           if(r2.ok) envData = await r2.json();
           if(r3.ok) dailyData = await r3.json();
           if(r4.ok) concreteReportsData = await r4.json();
-          pileData = r5 || [];
-          if(r6.ok) concretePourEntriesData = await r6.json();
+          if(r5.ok) concreteSummaryData = await r5.json();
+          pileData = r6 || [];
+          if(r7.ok) concretePourEntriesData = await r7.json();
           try{
             const r8 = await fetch(SUPABASE_URL + '/rest/v1/concrete_structure_items?select=id,location,structure_name,plan_m3,sort_order&is_active=eq.true&order=location.asc,sort_order.asc', { headers: HEADERS });
             if(r8.ok) concStructureItemsAll = await r8.json();
@@ -4716,20 +4498,7 @@
                   { label:'State - Workshop Modular', data:briefTrendWorkshopModular, backgroundColor:'#8B5CF6', stack:'manpower' },
                   { label:'รวมทั้งหมด (Total)', type:'line', data:briefTrendTotal, borderColor:'#DC2626', backgroundColor:'#DC2626', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#DC2626', tension:.25, fill:false, order:-1, stack:'total-line' },
                 ]},
-                options:{
-                  responsive:true,
-                  maintainAspectRatio:false,
-                  scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } },
-                  plugins:{
-                    datalabels:{
-                      display:ctx => ctx.dataset.type !== 'line' && ctx.dataset.data[ctx.dataIndex] > 0,
-                      color:'#fff',
-                      font:{ weight:'700', size:10 },
-                      formatter:value => Math.round(value)
-                    }
-                  }
-                },
-                plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+                options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ precision:0 } } } }
               });
             }
           }
@@ -4833,7 +4602,7 @@
         const envSum = (r) => ENV_CATEGORIES.reduce((s,c)=> s + (Number(r[c.key])||0), 0);
         const envByDate = (d) => envData.find(r => r.report_date === d) || {};
         const envToday = envByDate(today), envYest = envByDate(yesterday);
-        const envCurrentWeekEnd = envQueryEnd;
+        const envCurrentWeekEnd = mondayOfWeek(today);
         const envWeekOptionEnds = [];
         for(let i=0;i<13;i++){ envWeekOptionEnds.push(addDays(envCurrentWeekEnd, -7*i)); }
         let briefEnvSelectedWeekEnd = envCurrentWeekEnd;
@@ -4934,25 +4703,11 @@
               <div class="detail-field full detail-photos"><label>Photos</label>
                 <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
               </div>
-            </div>
-            <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
-              <button class="btn btn-primary" id="dailyModalEditBtn">✏️ แก้ไขรายการนี้</button>
             </div>`;
           const closeBtn = document.getElementById('modalCloseBtn');
           if(closeBtn) closeBtn.addEventListener('click', closeModal);
-          const editBtn = document.getElementById('dailyModalEditBtn');
-          if(editBtn) editBtn.addEventListener('click', ()=>{ closeModal(); openDailyForEdit(r); });
           modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
           document.getElementById('modalBg').classList.add('show');
-        }
-        async function openDailyForEdit(record){
-          // ถ้ากำลังอยู่โหมดเต็มจอ ต้องออกจากเต็มจอก่อน ไม่งั้นฟอร์มที่สลับไปจะอยู่นอก element ที่เต็มจออยู่
-          const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-          if(document.fullscreenElement && exitFs){
-            await exitFs.call(document);
-          }
-          await switchModule('daily');
-          loadIntoForm(record);
         }
         const manpowerOf = (r) => r ? (sumPersonnel(r.repco_personnel) + sumPersonnel(r.state_personnel_site) + sumPersonnel(r.state_personnel_workshop) + sumPersonnel(r.state_personnel_workshop_modular)) : 0;
         const equipOf = (r) => r ? sumPersonnel(r.equipment) : 0;
@@ -4970,13 +4725,10 @@
           if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)} (${escapeHtml(dateIso)})</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
           const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
           return `
-          <div class="dash-section brief-daily-card" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="margin-bottom:10px;cursor:pointer;" title="คลิกเพื่อดูรายละเอียด · Alt+คลิกเพื่อแก้ไขทันที">
+          <div class="dash-section brief-daily-card" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="margin-bottom:10px;cursor:pointer;" title="คลิกเพื่อดูรายละเอียดทั้งหมดแบบเต็มหน้า">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
               <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||dateIso)})</div>
-              <div style="display:flex;gap:8px;align-items:baseline;white-space:nowrap;">
-                <button type="button" class="btn btn-ghost brief-daily-edit-btn" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="padding:2px 8px;font-size:11.5px;" title="แก้ไข Daily Report วันนี้">✏️ แก้ไข</button>
-                <span style="font-size:11.5px;color:var(--progress);">ดูทั้งหมด ↗</span>
-              </div>
+              <div style="font-size:11.5px;color:var(--progress);white-space:nowrap;">ดูทั้งหมด ↗</div>
             </div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
@@ -5002,18 +4754,8 @@
             document.querySelectorAll('#briefSlideBody [data-daily-date]').forEach(card => {
               card.addEventListener('click', (e)=>{
                 if(e.target.closest('.photo-thumb')) return;
-                if(e.target.closest('.brief-daily-edit-btn')) return;
                 const rec = briefDailyRecordsByDate[card.dataset.dailyDate];
-                if(!rec) return;
-                if(e.altKey) openDailyForEdit(rec);
-                else openDailyReportPresentationModal(rec);
-              });
-            });
-            document.querySelectorAll('#briefSlideBody .brief-daily-edit-btn').forEach(btn => {
-              btn.addEventListener('click', (e)=>{
-                e.stopPropagation();
-                const rec = briefDailyRecordsByDate[btn.dataset.dailyDate];
-                if(rec) openDailyForEdit(rec);
+                if(rec) openDailyReportPresentationModal(rec);
               });
             });
             document.querySelectorAll('#briefSlideBody .photo-thumb img').forEach(img => img.addEventListener('click', (e)=>{ e.stopPropagation(); openLightbox(img.dataset.full, img); }));
@@ -8365,6 +8107,14 @@
         let vpHiddenGroups = new Set();
         let vpTabFilter = 'all'; // 'all' | 'has' | 'none' — กรองแปลนที่มี/ไม่มีการอัพโหลด Visual Progress แล้ว (เพิ่ม 2026-09-16)
         let vpTabSearch = ''; // คำค้นชื่อแปลนในแถบแท็บ (เพิ่ม 2026-09-18)
+        const vpPlanSections = [
+          {id:'executing',label:'Excuting'},
+          {id:'monitoring',label:'Monitoring and Controling'},
+          {id:'complete',label:'Complete'}
+        ];
+        let vpSavedPlanOrder = vpLayoutSnapshot(plans);
+        let vpLayoutSaving = false;
+        let vpDraggingPlanId = null;
         let vpLoadedSnapshot = '[]'; // JSON snapshot ของ vpShapes ณ ตอนโหลด/บันทึกล่าสุด — ใช้เทียบว่ามีแก้ไขที่ยังไม่บันทึกหรือไม่ (เพิ่ม 2026-09-18)
         function vpIsDirty(){ return vpActivePlanId != null && JSON.stringify(vpShapes) !== vpLoadedSnapshot; }
         function vpSquareSizeFrac(){ return VP_DEFAULT_SQUARE_SIZE * vpSizeMult; }
@@ -8394,6 +8144,59 @@
         function shapeGroupId(s){ return s.group || '_default'; }
 
         function vpHasData(planId){ return (marksByPlan.get(planId) || []).length > 0; }
+        function vpPlanStatus(plan){ return vpPlanSections.some(section=>section.id===plan.layout_status) ? plan.layout_status : 'executing'; }
+        function vpLayoutSnapshot(rows){ return JSON.stringify(rows.map(p=>[String(p.id),vpPlanStatus(p)])); }
+        function updateLayoutSaveButton(){
+          const button = document.getElementById('vpSaveLayoutBtn');
+          if(!button) return;
+          button.disabled = vpLayoutSaving || vpLayoutSnapshot(plans) === vpSavedPlanOrder;
+          button.textContent = vpLayoutSaving ? 'กำลังบันทึก...' : '💾 บันทึก Layout';
+        }
+        function reorderVisiblePlans(ids){
+          const byId = new Map(plans.map(p=>[String(p.id),p]));
+          const visibleIds = new Set(ids);
+          const queue = ids.slice();
+          plans = plans.map(p=>visibleIds.has(String(p.id)) ? byId.get(queue.shift()) : p);
+          updateLayoutSaveButton();
+        }
+        function movePlanToSection(planId,status,beforeId=null){
+          if(vpLayoutSaving || !vpPlanSections.some(section=>section.id===status)) return;
+          const plan = plans.find(p=>String(p.id)===planId);
+          if(!plan || beforeId===planId) return;
+          const remaining = plans.filter(p=>p!==plan);
+          let index = beforeId ? remaining.findIndex(p=>String(p.id)===beforeId && vpPlanStatus(p)===status) : -1;
+          if(index < 0){
+            const last = remaining.map(p=>vpPlanStatus(p)).lastIndexOf(status);
+            index = last < 0 ? remaining.length : last + 1;
+          }
+          plan.layout_status = status;
+          remaining.splice(index,0,plan);
+          plans = remaining;
+          updateLayoutSaveButton();
+        }
+        async function savePlanLayout(){
+          if(vpLayoutSaving) return;
+          vpLayoutSaving = true;
+          updateLayoutSaveButton();
+          renderTabsList();
+          const orderedPlans = vpPlanSections.flatMap(section=>plans.filter(p=>vpPlanStatus(p)===section.id));
+          try{
+            for(const [index,plan] of orderedPlans.entries()){
+              const response = await fetch(SUPABASE_URL + '/rest/v1/visual_progress_plans?id=eq.' + encodeURIComponent(plan.id), {
+                method:'PATCH', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify({sort_order:index * 10,layout_status:vpPlanStatus(plan)})
+              });
+              if(!response.ok){
+                const detail = await response.text();
+                throw new Error(detail.includes('layout_status') ? 'กรุณารัน SQL visual_progress_layout.sql ใน Supabase ก่อน' : 'HTTP ' + response.status);
+              }
+              plan.sort_order = index * 10;
+            }
+            plans = orderedPlans;
+            vpSavedPlanOrder = vpLayoutSnapshot(plans);
+            showToast('บันทึก Layout แล้ว');
+          }catch(error){ showToast('บันทึก Layout ไม่สำเร็จ: ' + error.message, true); }
+          finally{ vpLayoutSaving = false; updateLayoutSaveButton(); renderTabsList(); }
+        }
         function vpTabClickHandler(btn){
           return async ()=>{
             if(vpIsDirty()){
@@ -8421,11 +8224,56 @@
             const matchesSearch = !q || (p.building_name||'').toLowerCase().includes(q);
             return matchesFilter && matchesSearch;
           });
-          listEl.innerHTML = visiblePlans.map(p=>`<button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}" title="${vpHasData(p.id)?'มีการอัพโหลด Visual Progress แล้ว':'ยังไม่มีการอัพโหลด Visual Progress'}"><span class="vp-tab-dot ${vpHasData(p.id)?'has':'none'}"></span>${escapeHtml(p.building_name)}</button>`).join('')
-            || (plans.length ? '<span class="dash-empty" style="padding:6px 0;">ไม่พบแปลนที่ตรงกับตัวกรอง/คำค้นนี้</span>' : '');
+          listEl.innerHTML = vpPlanSections.map(section=>{
+            const sectionPlans = visiblePlans.filter(p=>vpPlanStatus(p)===section.id);
+            return `<section class="vp-plan-section" data-status="${section.id}"><h4>${section.label}<span>${sectionPlans.length}</span></h4><div class="vp-plan-section-list">${sectionPlans.map((p,index)=>`<div class="vp-plan-row" draggable="${!vpLayoutSaving}" data-plan-id="${p.id}"><button type="button" class="chip vp-tab ${p.id===vpActivePlanId?'active':''}" data-plan-id="${p.id}" title="${vpHasData(p.id)?'มีการอัพโหลด Visual Progress แล้ว':'ยังไม่มีการอัพโหลด Visual Progress'}"><span class="vp-tab-dot ${vpHasData(p.id)?'has':'none'}"></span>${escapeHtml(p.building_name)}</button><button type="button" class="vp-plan-move" data-direction="-1" title="เลื่อนขึ้น" aria-label="เลื่อน ${escapeHtml(p.building_name)} ขึ้น" ${vpLayoutSaving || index===0?'disabled':''}>↑</button><button type="button" class="vp-plan-move" data-direction="1" title="เลื่อนลง" aria-label="เลื่อน ${escapeHtml(p.building_name)} ลง" ${vpLayoutSaving || index===sectionPlans.length-1?'disabled':''}>↓</button></div>`).join('')}</div></section>`;
+          }).join('') + (plans.length && !visiblePlans.length ? '<span class="dash-empty" style="padding:6px 0;">ไม่พบแปลนที่ตรงกับตัวกรอง/คำค้นนี้</span>' : '');
           listEl.querySelectorAll('.vp-tab').forEach(btn=>{
             btn.addEventListener('click', vpTabClickHandler(btn));
           });
+          listEl.querySelectorAll('.vp-plan-move').forEach(button=>button.addEventListener('click', ()=>{
+            if(vpLayoutSaving) return;
+            const status = button.closest('.vp-plan-section').dataset.status;
+            const ids = visiblePlans.filter(p=>vpPlanStatus(p)===status).map(p=>String(p.id));
+            const index = ids.indexOf(button.closest('.vp-plan-row').dataset.planId);
+            const next = index + Number(button.dataset.direction);
+            if(next < 0 || next >= ids.length) return;
+            [ids[index],ids[next]] = [ids[next],ids[index]];
+            reorderVisiblePlans(ids);
+            renderTabsList();
+            listEl.querySelector(`.vp-plan-row[data-plan-id="${ids[next]}"] [data-direction="${button.dataset.direction}"]`)?.focus();
+          }));
+          listEl.querySelectorAll('.vp-plan-row').forEach(row=>{
+            row.addEventListener('dragstart', event=>{
+              if(vpLayoutSaving){ event.preventDefault(); return; }
+              vpDraggingPlanId = row.dataset.planId;
+              event.dataTransfer.setData('text/plain', vpDraggingPlanId);
+              event.dataTransfer.effectAllowed = 'move';
+              row.classList.add('dragging');
+            });
+            row.addEventListener('dragend', ()=>{ vpDraggingPlanId = null; renderTabsList(); });
+          });
+          listEl.ondragover = event=>{
+            if(!vpDraggingPlanId || vpLayoutSaving) return;
+            const section = event.target.closest('.vp-plan-section');
+            if(!section) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            listEl.querySelectorAll('.vp-plan-section').forEach(item=>item.classList.toggle('drop-target',item===section));
+          };
+          listEl.ondrop = event=>{
+            if(!vpDraggingPlanId || vpLayoutSaving) return;
+            const section = event.target.closest('.vp-plan-section');
+            if(!section) return;
+            event.preventDefault();
+            const target = Array.from(section.querySelectorAll('.vp-plan-row:not(.dragging)')).find(row=>{
+              const box = row.getBoundingClientRect();
+              return event.clientY < box.top + box.height / 2;
+            });
+            movePlanToSection(vpDraggingPlanId,section.dataset.status,target ? target.dataset.planId : null);
+            vpDraggingPlanId = null;
+            renderTabsList();
+          };
         }
         function renderShell(){
           const hasCount = plans.filter(p=>vpHasData(p.id)).length;
@@ -8437,13 +8285,18 @@
               <button type="button" class="vp-filter-btn ${vpTabFilter==='none'?'active':''}" data-filter="none">⚪ ยังไม่มีข้อมูล (${noneCount})</button>
               <input type="text" id="vpTabSearchInput" class="vp-tab-search" placeholder="🔎 ค้นหาชื่อแปลน..." value="${escapeHtml(vpTabSearch)}">
             </div>` : ''}
-            <div class="vp-plan-tabs">
-              <div id="vpPlanTabsList" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;"></div>
-              <button type="button" class="chip" id="vpAddPlanBtn">＋ เพิ่มแปลนใหม่</button>
+            <div class="vp-workspace">
+              <aside class="vp-plan-sidebar">
+                <div id="vpPlanTabsList"></div>
+                <button type="button" class="chip" id="vpAddPlanBtn" ${vpLayoutSaving?'disabled':''}>＋ เพิ่มแปลนใหม่</button>
+                <button type="button" class="btn btn-ghost" id="vpSaveLayoutBtn">💾 บันทึก Layout</button>
+              </aside>
+              ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
             </div>
-            ${plans.length ? '<div id="vpPlanEditor"></div>' : '<div class="dash-empty">ยังไม่มีแปลน — กด "เพิ่มแปลนใหม่" ด้านบนเพื่อเริ่มต้น</div>'}
           `;
           renderTabsList();
+          updateLayoutSaveButton();
+          document.getElementById('vpSaveLayoutBtn').addEventListener('click', savePlanLayout);
           container.querySelectorAll('.vp-filter-btn').forEach(btn=>{
             btn.addEventListener('click', ()=>{
               vpTabFilter = btn.dataset.filter;
@@ -9678,102 +9531,6 @@
       }
     },
   ];
-  // ================= USER MANAGEMENT (admin-only, approve/reject access requests) =================
-  const USER_MANAGEMENT_DASHBOARD = {
-    id:'dash_user_management', label:'User Management', icon:'👤',
-    async render(container){
-      if(!currentUser || currentUser.role !== 'admin'){
-        container.innerHTML = '<div class="dash-empty">หน้านี้สำหรับผู้ดูแลระบบเท่านั้น</div>';
-        return;
-      }
-      container.innerHTML = '<div class="dash-empty">กำลังโหลดรายชื่อผู้ใช้...</div>';
-      let users;
-      try{ users = await fetchAppUsers(); }
-      catch(e){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(e.message) + '<br><br>ตรวจสอบว่าได้รันไฟล์ supabase/user_management.sql แล้วหรือยัง</div>'; return; }
-
-      async function patchUser(id, payload){
-        const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id), {
-          method:'PATCH', headers:{ ...HEADERS, 'Prefer':'return=minimal' },
-          body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
-        });
-        if(!res.ok) throw new Error('อัปเดตไม่สำเร็จ (status ' + res.status + ')');
-      }
-      async function deleteUser(id){
-        const res = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id), {
-          method:'DELETE', headers:{ ...HEADERS, 'Prefer':'return=minimal' }
-        });
-        if(!res.ok) throw new Error('ลบไม่สำเร็จ (status ' + res.status + ')');
-      }
-      function pillHtml(status){
-        const label = status === 'approved' ? 'อนุมัติแล้ว' : status === 'rejected' ? 'ปฏิเสธ' : 'รออนุมัติ';
-        return `<span class="um-pill ${escapeHtml(status)}">${label}</span>`;
-      }
-      function rowActionsHtml(u){
-        const roleLabels = { admin:'Admin', user:'User', dev_viewer:'Dev Viewer' };
-        const roleOptions = ['user','admin','dev_viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${roleLabels[r]}</option>`).join('');
-        const roleSelect = `<select class="um-role-select" data-role-id="${u.id}">${roleOptions}</select>`;
-        if(u.status === 'pending'){
-          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn reject" data-reject-id="${u.id}">❌ ปฏิเสธ</button>`;
-        }
-        if(u.status === 'rejected'){
-          return `${roleSelect} <button type="button" class="um-btn approve" data-approve-id="${u.id}">✅ อนุมัติ</button><button type="button" class="um-btn delete" data-delete-id="${u.id}">🗑 ลบผู้ใช้</button>`;
-        }
-        return `${roleSelect} <button type="button" class="um-btn reject" data-reject-id="${u.id}">🚫 เพิกถอนสิทธิ์</button>`;
-      }
-      function tableHtml(rows){
-        if(!rows.length) return '<div class="um-empty">ไม่มีรายการ</div>';
-        return `<table class="um-table"><thead><tr><th>ชื่อ-นามสกุล</th><th>Username</th><th>สถานะ</th><th>วันที่ขอ</th><th>การจัดการ</th></tr></thead><tbody>${
-          rows.map(u => `<tr data-row-id="${u.id}"><td>${escapeHtml(u.full_name || '-')}</td><td>${escapeHtml(u.username)}</td><td>${pillHtml(u.status)}</td><td>${u.requested_at ? escapeHtml(new Date(u.requested_at).toLocaleString('th-TH')) : '-'}</td><td>${rowActionsHtml(u)}</td></tr>`).join('')
-        }</tbody></table>`;
-      }
-      function renderShell(){
-        const pending = users.filter(u => u.status === 'pending');
-        const approved = users.filter(u => u.status === 'approved');
-        const rejected = users.filter(u => u.status === 'rejected');
-        container.innerHTML = `
-          <div class="um-section"><h3>🕓 รอการอนุมัติ (${pending.length})</h3>${tableHtml(pending)}</div>
-          <div class="um-section"><h3>✅ อนุมัติแล้ว (${approved.length})</h3>${tableHtml(approved)}</div>
-          <div class="um-section"><h3>❌ ปฏิเสธ / เพิกถอนสิทธิ์ (${rejected.length})</h3>${tableHtml(rejected)}</div>
-        `;
-        container.querySelectorAll('[data-approve-id]').forEach(btn => btn.addEventListener('click', async ()=>{
-          const id = btn.dataset.approveId;
-          try{
-            await patchUser(id, { status:'approved', approved_at: new Date().toISOString(), approved_by: currentUser.username });
-            showToast('อนุมัติสิทธิ์การใช้งานแล้ว');
-            users = await fetchAppUsers(); renderShell();
-          }catch(e){ showToast('อนุมัติไม่สำเร็จ: ' + e.message, true); }
-        }));
-        container.querySelectorAll('[data-reject-id]').forEach(btn => btn.addEventListener('click', async ()=>{
-          const id = btn.dataset.rejectId;
-          if(id === currentUser.id){ showToast('ไม่สามารถเพิกถอนสิทธิ์ตัวเองได้', true); return; }
-          try{
-            await patchUser(id, { status:'rejected', approved_at:null, approved_by: currentUser.username });
-            showToast('ปฏิเสธ/เพิกถอนสิทธิ์การใช้งานแล้ว');
-            users = await fetchAppUsers(); renderShell();
-          }catch(e){ showToast('ดำเนินการไม่สำเร็จ: ' + e.message, true); }
-        }));
-        container.querySelectorAll('[data-role-id]').forEach(sel => sel.addEventListener('change', async ()=>{
-          const id = sel.dataset.roleId;
-          try{
-            await patchUser(id, { role: sel.value });
-            showToast('เปลี่ยนบทบาทผู้ใช้แล้ว');
-            users = await fetchAppUsers();
-          }catch(e){ showToast('เปลี่ยนบทบาทไม่สำเร็จ: ' + e.message, true); renderShell(); }
-        }));
-        container.querySelectorAll('[data-delete-id]').forEach(btn => btn.addEventListener('click', async ()=>{
-          const id = btn.dataset.deleteId;
-          if(id === currentUser.id){ showToast('ไม่สามารถลบบัญชีตัวเองได้', true); return; }
-          if(!confirm('ยืนยันลบผู้ใช้นี้ออกจากระบบถาวร?')) return;
-          try{
-            await deleteUser(id);
-            showToast('ลบผู้ใช้แล้ว');
-            users = await fetchAppUsers(); renderShell();
-          }catch(e){ showToast('ลบไม่สำเร็จ: ' + e.message, true); }
-        }));
-      }
-      renderShell();
-    }
-  };
   // ================= CUSTOM REPORTS (non-generic entry pages, listed under 📝 Report) =================
   // Safety KPI & Safe Days: a live-editable summary/counter page (not a per-day journal like the
   // other MODULES), so it renders its own form + save handlers instead of using the generic
@@ -10540,53 +10297,24 @@
 
         const REV_RE = /,\s*Rev\.?\s*([A-Za-z0-9]+)\s*$/i;
         const ENGDOC_FIELDS = {
-          doc_no:'Doc No', revision:'Revision', doc_name:'ชื่อเอกสาร', document_status:'Document Status', pending_person:'Pending Person',
+          doc_name:'ชื่อเอกสาร', document_status:'Document Status', pending_person:'Pending Person',
           actual_issue_date:'Actual Issue Date', pm_approved_date:'PM Approved Date', pm_approval_status:'PM Approval Status',
-          external_approved_date:'External Approved Date', external_approval_status:'External Approval Status', remaintime:'Remaintime', overall_status:'Overall Status',
-          discipline:'Discipline', plan_issue_to_backspace_rev_a:'Plan Issue to Backspace (Rev.A)', actual_issue_to_backspace_rev_a:'Actual Issue to Backspace (Rev.A)',
-          plan_internal_rev_a:'Plan Internal (Rev.A)', actual_internal_rev_a:'Actual Internal (Rev.A)', plan_external_rev_a:'Plan External (Rev.A)',
-          actual_external_rev_a:'Actual External (Rev.A)', for_review_status:'For Review Status', for_review_ac:'For Review AC',
-          plan_issue_to_backspace_rev_0:'Plan Issue to Backspace (Rev.0)', actual_issue_to_backspace_rev_0:'Actual Issue to Backspace (Rev.0)',
-          plan_internal_rev_0:'Plan Internal (Rev.0)', actual_internal_rev_0:'Actual Internal (Rev.0)', plan_external_rev_0:'Plan External (Rev.0)',
-          actual_external_rev_0:'Actual External (Rev.0)', for_con_status:'For Con Status', for_con_ac:'For Con AC', plan_progress:'Plan Progress',
-          actual_progress:'Actual Progress', latest_rev:'Latest Rev.', latest_stage:'Latest Stage', source_status:'Source Status', issue_for:'Issue For',
-          issue_date:'Issue Date', due_response:'Due Response', response_date:'Response Date', latest_status:'Latest Status',
-          pending_review_name:'Pending Review Name', project_name:'Project Name', pending_review_status:'Pending Review Status',
-          issued_to_backspace:'Issued to BackSpace', internal_due_date:'Internal Due Date', internal_approved:'Internal Approved',
-          external_due_date:'External Due Date', external_approved:'External Approved', source_row:'Progress Source Row',
-          pending_review_source_row:'Pending Review Source Row', revision_source_row:'Revision Source Row'
-        };
-        const ENGDOC_EDIT_FIELDS = Object.keys(ENGDOC_FIELDS).filter(key=>key!=='overall_status');
-        const ENGDOC_DATE_FIELDS = new Set(['actual_issue_date','pm_approved_date','external_approved_date','plan_issue_to_backspace_rev_a','actual_issue_to_backspace_rev_a','plan_internal_rev_a','actual_internal_rev_a','plan_external_rev_a','actual_external_rev_a','plan_issue_to_backspace_rev_0','actual_issue_to_backspace_rev_0','plan_internal_rev_0','actual_internal_rev_0','plan_external_rev_0','actual_external_rev_0','issue_date','due_response','response_date','issued_to_backspace','internal_due_date','internal_approved','external_due_date','external_approved']);
-        const ENGDOC_NUMBER_FIELDS = new Set(['plan_progress','actual_progress']);
-        const ENGDOC_JSON_FIELDS = new Set(['source_row','pending_review_source_row','revision_source_row']);
-        const PROGRESS_HEADERS = ['Doc No','Doc Name','Discipline','Plan Issue to Backspace','Actual Issue to Backspace','Plan Internal (Rev.A)','Actual Internal (Rev.A)','Plan External (Rev.A)','Actual External (Rev.A)','For Review Status','AC','Plan Issue to Backspace','Actual Issue to Backspace','Plan Internal (Rev.0)','Actual Internal (Rev.0)','Plan External (Rev.0)','Actual External (Rev.0)','For Con Status','AC','Plan Progress','Actual Progress','Latest Rev.','Latest Stage','Status','Rev.','Issue For','Issue Date','Due Response','Remaintime','Response Date','Latest Status'];
-        const PENDING_REVIEW_HEADERS = ['Name','Project Name','Doc No','Doc Name','Doc Status','Issued to BackSpace','Internal Due Date','Internal Approved','External Due Date','External Approved'];
-        const IMPORT_FIELD_KEYS = {
-          progress:['doc_name','document_status','discipline','plan_issue_to_backspace_rev_a','actual_issue_to_backspace_rev_a','plan_internal_rev_a','actual_internal_rev_a','plan_external_rev_a','actual_external_rev_a','for_review_status','for_review_ac','plan_issue_to_backspace_rev_0','actual_issue_to_backspace_rev_0','plan_internal_rev_0','actual_internal_rev_0','plan_external_rev_0','actual_external_rev_0','for_con_status','for_con_ac','plan_progress','actual_progress','latest_rev','latest_stage','source_status','issue_for','issue_date','due_response','remaintime','response_date','latest_status','source_row'],
-          revision:['doc_name','document_status','pending_person','actual_issue_date','pm_approved_date','pm_approval_status','external_approved_date','external_approval_status','remaintime','revision_source_row'],
-          pending_review:['doc_name','document_status','pending_person','actual_issue_date','pm_approved_date','external_approved_date','pending_review_name','project_name','pending_review_status','issued_to_backspace','internal_due_date','internal_approved','external_due_date','external_approved','pending_review_source_row'],
-          backup:ENGDOC_EDIT_FIELDS
+          external_approved_date:'External Approved Date', external_approval_status:'External Approval Status',
+          remaintime:'Remaintime', overall_status:'Overall Status'
         };
         const COMPARE_FIELDS = Object.keys(ENGDOC_FIELDS);
 
-        let search='', docStatusFilter=[], pmFilter=[], extFilter=[], overallFilter=[], revFilter=[];
+        let search='', docStatusFilter='', pmFilter='', extFilter='', overallFilter='', revFilter='';
         let sortKey='actual_issue_date', sortDir='desc', page=1, pageSize=20;
-        let importBatches=[], importParseErrors=[], importParseError='', importSummary=null, importing=false;
+        let importRows=null, importParseErrors=[], importFileName='', importParseError='', importSummary=null, importing=false;
 
         function normStatus(value){ if(value==null) return null; const text=String(value).trim(); return (!text || text==='-') ? null : text; }
-        function sourceText(value){ return value==null ? null : (String(value).trim() && String(value).trim()!=='-' ? String(value).trim() : null); }
-        function sourceNumber(value){ if(value==null || String(value).trim()==='') return null; const number=Number(value); return Number.isFinite(number) ? number : null; }
         function excelDateTimeToIso(value){
           if(value instanceof Date && !isNaN(value)) return value.toISOString();
           if(typeof value === 'number'){
             const parsed = XLSX.SSF.parse_date_code(value);
             if(!parsed) return null;
             return new Date(Date.UTC(parsed.y, (parsed.m||1)-1, parsed.d||1, parsed.H||0, parsed.M||0, Math.floor(parsed.S||0))).toISOString();
-          }
-          if(typeof value === 'string' && value.trim()){
-            const parsed = new Date(value.trim());
-            if(!isNaN(parsed)) return parsed.toISOString();
           }
           return null;
         }
@@ -10624,110 +10352,12 @@
         function codePill(code){ return code ? `<span class="pill status-closed">${escapeHtml(code)}</span>` : `<span class="pill status-open">รอ</span>`; }
         function distinct(key){ return Array.from(new Set(data.map(r=>r[key]).filter(Boolean))).sort(); }
 
-        async function parseImportFile(file,contextualRecords=[]){
+        async function parseImportFile(file){
           const workbook = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, raw:true});
           if(!rows.length) throw new Error('ไฟล์ไม่มีข้อมูล');
-          const header = (rows[0] || []).map(h => String(h ?? '').trim());
-          if(PENDING_REVIEW_HEADERS.every((label,index)=>header[index]===label)){
-            const parsed=[], errors=[], groupedRows=new Map();
-            const currentByDoc=new Map(latestSet(data.concat(contextualRecords)).map(rec=>[rec.doc_no,rec]));
-            for(let r=1; r<rows.length; r++){
-              const row=rows[r];
-              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
-              if(String(row[0] ?? '').trim().startsWith('Applied filters:')) continue;
-              const docNo=sourceText(row[2]);
-              if(!docNo){ errors.push({row:r+1,message:'ไม่พบ Doc No'}); continue; }
-              if(!groupedRows.has(docNo)) groupedRows.set(docNo,[]);
-              groupedRows.get(docNo).push(row);
-            }
-            for(const [docNo,sourceRows] of groupedRows){
-              const current=currentByDoc.get(docNo);
-              const latestRow=sourceRows.reduce((latest,row)=>{
-                const currentDate=excelDateTimeToIso(latest[5]), nextDate=excelDateTimeToIso(row[5]);
-                return (nextDate && (!currentDate || Date.parse(nextDate)>Date.parse(currentDate))) ? row : latest;
-              },sourceRows[0]);
-              const date=index=>excelDateTimeToIso(latestRow[index]);
-              const pendingName=Array.from(new Set(sourceRows.map(row=>sourceText(row[0])).filter(Boolean))).join('; ') || null;
-              const record={
-                doc_no:docNo, revision:current?.revision || 'CURRENT', doc_name:sourceText(latestRow[3]),
-                document_status:sourceText(latestRow[4]), pending_person:pendingName,
-                actual_issue_date:date(5), pm_approved_date:date(7), external_approved_date:date(9),
-                pending_review_name:pendingName, project_name:sourceText(latestRow[1]), pending_review_status:sourceText(latestRow[4]),
-                issued_to_backspace:date(5), internal_due_date:date(6), internal_approved:date(7),
-                external_due_date:date(8), external_approved:date(9),
-                pending_review_source_row:sourceRows.map(row=>row.map(value=>value instanceof Date ? value.toISOString() : value))
-              };
-              record.unique_key=docNo+'|'+record.revision;
-              parsed.push(record);
-            }
-            if(!parsed.length) throw new Error('ไม่พบข้อมูล Doc No ในไฟล์');
-            return {records:parsed,errors,mode:'pending_review'};
-          }
-          if(PROGRESS_HEADERS.every((label,index)=>header[index]===label)){
-            const parsed=[], errors=[], seenDocNos=new Set();
-            for(let r=1; r<rows.length; r++){
-              const row=rows[r];
-              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
-              const docNo=sourceText(row[0]);
-              if(!docNo){ errors.push({row:r+1,message:'ไม่พบ Doc No'}); continue; }
-              if(seenDocNos.has(docNo)){ errors.push({row:r+1,message:'พบ Doc No ซ้ำ: '+docNo}); continue; }
-              seenDocNos.add(docNo);
-              const revision=sourceText(row[24]) || sourceText(row[21]) || 'CURRENT';
-              const date=index=>excelDateTimeToIso(row[index]);
-              parsed.push({
-                unique_key:docNo+'|'+revision, doc_no:docNo, revision,
-                doc_name:sourceText(row[1]), document_status:sourceText(row[30]), pending_person:null,
-                actual_issue_date:date(26), pm_approved_date:null, pm_approval_status:null,
-                external_approved_date:null, external_approval_status:null,
-                remaintime:sourceText(row[28]), overall_status:null,
-                discipline:sourceText(row[2]),
-                plan_issue_to_backspace_rev_a:date(3), actual_issue_to_backspace_rev_a:date(4),
-                plan_internal_rev_a:date(5), actual_internal_rev_a:date(6),
-                plan_external_rev_a:date(7), actual_external_rev_a:date(8),
-                for_review_status:sourceText(row[9]), for_review_ac:sourceText(row[10]),
-                plan_issue_to_backspace_rev_0:date(11), actual_issue_to_backspace_rev_0:date(12),
-                plan_internal_rev_0:date(13), actual_internal_rev_0:date(14),
-                plan_external_rev_0:date(15), actual_external_rev_0:date(16),
-                for_con_status:sourceText(row[17]), for_con_ac:sourceText(row[18]),
-                plan_progress:sourceNumber(row[19]), actual_progress:sourceNumber(row[20]),
-                latest_rev:sourceText(row[21]), latest_stage:sourceText(row[22]),
-                source_status:sourceText(row[23]), issue_for:sourceText(row[25]),
-                issue_date:date(26), due_response:date(27), response_date:date(29),
-                latest_status:sourceText(row[30]),
-                source_row:row.map(value=>value instanceof Date ? value.toISOString() : value)
-              });
-            }
-            if(!parsed.length) throw new Error('ไม่พบข้อมูล Doc No ในไฟล์');
-            return {records:parsed,errors,mode:'progress'};
-          }
-          if(header.includes('doc_no') && header.includes('revision')){
-            const columnIndex=new Map(header.map((key,index)=>[key,index]));
-            const parsed=[], errors=[];
-            const backupFields=Object.keys(ENGDOC_FIELDS).filter(key=>columnIndex.has(key));
-            for(let r=1; r<rows.length; r++){
-              const row=rows[r];
-              if(!row || row.every(value=>value==null || String(value).trim()==='')) continue;
-              const record={};
-              try{
-                backupFields.forEach(key=>{
-                  const value=row[columnIndex.get(key)];
-                  if(ENGDOC_JSON_FIELDS.has(key)) record[key]=value==null || value==='' ? null : (typeof value==='string' ? JSON.parse(value) : value);
-                  else if(ENGDOC_DATE_FIELDS.has(key)) record[key]=excelDateTimeToIso(value);
-                  else if(ENGDOC_NUMBER_FIELDS.has(key)) record[key]=sourceNumber(value);
-                  else record[key]=value==null ? null : String(value);
-                });
-              }catch(error){ errors.push({row:r+1,message:'อ่าน JSON ในข้อมูลสำรองไม่สำเร็จ: '+error.message}); continue; }
-              record.doc_no=sourceText(row[columnIndex.get('doc_no')]);
-              record.revision=sourceText(row[columnIndex.get('revision')]);
-              if(!record.doc_no || !record.revision){ errors.push({row:r+1,message:'ข้อมูลสำรองต้องมี Doc No และ Revision'}); continue; }
-              record.unique_key=record.doc_no+'|'+record.revision;
-              parsed.push(record);
-            }
-            if(!parsed.length) throw new Error('ไม่พบรายการที่นำเข้าจากข้อมูลสำรอง');
-            return {records:parsed,errors,mode:'backup'};
-          }
+          const header = (rows[0] || []).map(h => String(h || '').trim());
           const expected = ['Doc No','Purpose & Doc Name & Rev','Document Status','Pending Person'];
           if(!expected.every((label,i)=>header[i] === label)) throw new Error('รูปแบบคอลัมน์ไม่ตรงกับไฟล์ Alldoc Export (ต้องขึ้นต้นด้วย Doc No, Purpose & Doc Name & Rev, Document Status, Pending Person)');
           const parsed = [], errors = [];
@@ -10746,15 +10376,14 @@
             const docName = purposeText.slice(0, m.index).replace(/,\s*$/,'').trim();
             const record = {
               doc_no:lastDocNo, revision, doc_name:docName,
-              document_status: sourceText(row[2]),
-              pending_person: sourceText(row[3]),
+              document_status: row[2] != null ? String(row[2]).trim() : null,
+              pending_person: row[3] != null ? String(row[3]).trim() : null,
               actual_issue_date: excelDateTimeToIso(row[4]),
               pm_approved_date: excelDateTimeToIso(row[5]),
               pm_approval_status: normStatus(row[6]),
               external_approved_date: excelDateTimeToIso(row[7]),
               external_approval_status: normStatus(row[8]),
-              remaintime: sourceText(row[9]),
-              revision_source_row:row.map(value=>value instanceof Date ? value.toISOString() : value)
+              remaintime: row[9] != null ? String(row[9]).trim() : null
             };
             applyRemaintimeRule(record);
             record.unique_key = lastDocNo + '|' + revision;
@@ -10765,136 +10394,78 @@
             if(byKey.has(rec.unique_key)) errors.push({row:'-', message:'พบ Unique Key ซ้ำในไฟล์: ' + rec.unique_key});
             byKey.set(rec.unique_key, rec);
           });
-          return { records: Array.from(byKey.values()), errors, mode:'revision' };
+          return { records: Array.from(byKey.values()), errors };
         }
 
-        function diffRecord(existing, incoming, fields, preserveNulls=true){
+        function diffRecord(existing, incoming){
           const changes = {};
           let changed = false;
-          fields.forEach(key=>{
-            if(preserveNulls && incoming[key] == null) return;
-            let isSame;
-            if(ENGDOC_DATE_FIELDS.has(key)){
-              const oldTime=existing[key] ? Date.parse(existing[key]) : null;
-              const newTime=incoming[key] ? Date.parse(incoming[key]) : null;
-              isSame=oldTime===newTime;
-            }else if(ENGDOC_JSON_FIELDS.has(key)){
-              isSame=JSON.stringify(existing[key] ?? null)===JSON.stringify(incoming[key] ?? null);
-            }else{
-              isSame=String(existing[key] ?? '')===String(incoming[key] ?? '');
-            }
-            if(!isSame){ changes[key] = incoming[key]; changed = true; }
+          COMPARE_FIELDS.forEach(key=>{
+            if(String(existing[key] ?? '') !== String(incoming[key] ?? '')){ changes[key] = incoming[key]; changed = true; }
           });
           return changed ? changes : null;
         }
 
-        function buildImportPreview(batches){
-          const simulated=new Map(data.map(record=>[record.unique_key,{...record}]));
-          return batches.map(source=>{
-            const summary={inserted:0,updated:0,skipped:0,error:source.errors.length};
-            const fields=IMPORT_FIELD_KEYS[source.mode] || [];
-            source.records.forEach(record=>{
-              const existing=simulated.get(record.unique_key);
-              if(existing){
-                const changes=diffRecord(existing,record,fields,source.mode!=='backup');
-                if(!changes){ summary.skipped++; return; }
-                const merged=applyRemaintimeRule({...existing,...changes});
-                simulated.set(record.unique_key,{...existing,...changes,overall_status:merged.overall_status});
-                summary.updated++;
-              }else{
-                simulated.set(record.unique_key,applyRemaintimeRule({...record}));
-                summary.inserted++;
-              }
-            });
-            return {...source,summary};
-          });
-        }
-
-        async function handleFilesChange(files){
-          importParseError=''; importBatches=[]; importParseErrors=[]; importSummary=null;
-          const selected=Array.from(files || []);
-          if(!selected.length){ renderTable(); return; }
-          const batches=[];
-          for(const file of selected){
-            try{
-              const parsed=await parseImportFile(file);
-              const source={...parsed,fileName:file.name};
-              batches.push(source);
-              source.errors.forEach(error=>importParseErrors.push({...error,fileName:file.name}));
-            }catch(error){ importParseErrors.push({fileName:file.name,row:'-',message:error.message}); }
-          }
-          const priority={progress:0,revision:1,legacy:2,pending_review:3,backup:4};
-          batches.sort((a,b)=>(priority[a.mode] ?? 9)-(priority[b.mode] ?? 9));
-          if(batches.some(source=>source.mode==='backup') && batches.length>1){
-            importParseError='ไฟล์ Backup เป็นข้อมูลทั้งฐานข้อมูล ให้นำเข้าแยกจากไฟล์ Progress, Revision หรือ Pending Review';
-          }else if(batches.length){
-            const contextRecords=batches.filter(source=>['progress','revision','legacy'].includes(source.mode)).flatMap(source=>source.records);
-            const latestByDoc=new Map(latestSet(data.concat(contextRecords)).map(record=>[record.doc_no,record]));
-            batches.filter(source=>source.mode==='pending_review').forEach(source=>source.records.forEach(record=>{
-              const latest=latestByDoc.get(record.doc_no);
-              if(latest){ record.revision=latest.revision; record.unique_key=record.doc_no+'|'+record.revision; }
-            }));
-            importBatches=buildImportPreview(batches);
-          }
-          if(!batches.length && !importParseErrors.length) importParseError='ไม่พบไฟล์ที่นำเข้าได้';
+        async function handleFileChange(file){
+          importParseError=''; importRows=null; importParseErrors=[]; importFileName=''; importSummary=null;
+          try{
+            const { records, errors } = await parseImportFile(file);
+            importRows = records; importParseErrors = errors; importFileName = file.name;
+          }catch(error){ importParseError = error.message; }
           renderTable();
         }
 
         async function runImport(){
-          if(!importBatches.length || importParseErrors.length || importParseError || importing) return;
-          importing=true; renderTable();
-          const existingByKey=new Map(data.map(record=>[record.unique_key,record]));
-          let totalInserted=0,totalUpdated=0,totalSkipped=0,totalErrors=0;
-          for(const source of importBatches){
-            let inserted=0,updated=0,skipped=0,errorCount=0;
-            const errors=[],historyPayload=[];
-            const fields=IMPORT_FIELD_KEYS[source.mode] || [];
-            for(let i=0;i<source.records.length;i+=8){
-              await Promise.all(source.records.slice(i,i+8).map(async record=>{
-                try{
-                  const existing=existingByKey.get(record.unique_key);
-                  if(existing){
-                    const changes=diffRecord(existing,record,fields,source.mode!=='backup');
-                    if(!changes){ skipped++; return; }
-                    changes.overall_status=applyRemaintimeRule({...existing,...changes}).overall_status;
-                    changes.updated_at=new Date().toISOString();
-                    const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents?id=eq.'+existing.id,{method:'PATCH',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(changes)});
-                    if(!res.ok) throw new Error(await res.text());
-                    const [saved]=await res.json();
-                    historyPayload.push({document_id:existing.id,unique_key:record.unique_key,action:'update',old_data:{...existing},new_data:saved});
-                    Object.assign(existing,applyRemaintimeRule(saved));
-                    updated++;
-                  }else{
-                    const newRecord=applyRemaintimeRule({...record,overall_status:record.overall_status || null});
-                    const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents',{method:'POST',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(newRecord)});
-                    if(!res.ok) throw new Error(await res.text());
-                    const [saved]=await res.json();
-                    data.push(saved); existingByKey.set(record.unique_key,saved);
-                    historyPayload.push({document_id:saved.id,unique_key:record.unique_key,action:'insert',old_data:null,new_data:saved});
-                    inserted++;
-                  }
-                }catch(error){ errorCount++; errors.push({unique_key:record.unique_key,message:error.message}); }
-              }));
-            }
-            if(historyPayload.length){
-              try{ await fetch(SUPABASE_URL+'/rest/v1/engineering_document_history',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify(historyPayload)}); }catch(error){}
-            }
-            const logPayload={file_name:source.fileName,total_rows:source.records.length,inserted_count:inserted,updated_count:updated,skipped_count:skipped,error_count:errorCount,errors};
-            try{
-              const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_document_import_log',{method:'POST',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(logPayload)});
-              if(res.ok){ const [saved]=await res.json(); importLogs=[saved,...importLogs].slice(0,5); }
-            }catch(error){}
-            totalInserted+=inserted; totalUpdated+=updated; totalSkipped+=skipped; totalErrors+=errorCount;
+          if(!importRows || !importRows.length || importing) return;
+          importing = true; renderTable();
+          const existingByKey = new Map(data.map(r=>[r.unique_key, r]));
+          let inserted=0, updated=0, skipped=0, errorCount = importParseErrors.length;
+          const errors = importParseErrors.slice();
+          const historyPayload = [];
+          for(let i=0; i<importRows.length; i+=8){
+            const batch = importRows.slice(i, i+8);
+            await Promise.all(batch.map(async rec=>{
+              try{
+                const existing = existingByKey.get(rec.unique_key);
+                if(existing){
+                  const changes = diffRecord(existing, rec);
+                  if(!changes){ skipped++; return; }
+                  changes.updated_at = new Date().toISOString();
+                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents?id=eq.' + existing.id, {method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(changes)});
+                  if(!res.ok) throw new Error(await res.text());
+                  const [saved] = await res.json();
+                  historyPayload.push({document_id:existing.id, unique_key:rec.unique_key, action:'update', old_data:{...existing}, new_data:saved});
+                  Object.assign(existing, saved);
+                  updated++;
+                }else{
+                  const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_documents', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(rec)});
+                  if(!res.ok) throw new Error(await res.text());
+                  const [saved] = await res.json();
+                  data.push(saved);
+                  existingByKey.set(rec.unique_key, saved);
+                  historyPayload.push({document_id:saved.id, unique_key:rec.unique_key, action:'insert', old_data:null, new_data:saved});
+                  inserted++;
+                }
+              }catch(error){ errorCount++; errors.push({unique_key:rec.unique_key, message:error.message}); }
+            }));
           }
-          importSummary={files:importBatches.length,inserted:totalInserted,updated:totalUpdated,skipped:totalSkipped,error:totalErrors};
-          importBatches=[]; importParseErrors=[]; importParseError=''; importing=false; page=1;
+          if(historyPayload.length){
+            try{ await fetch(SUPABASE_URL + '/rest/v1/engineering_document_history', {method:'POST', headers:{...HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify(historyPayload)}); }catch(error){}
+          }
+          const logPayload = { file_name:importFileName, total_rows:importRows.length, inserted_count:inserted, updated_count:updated, skipped_count:skipped, error_count:errorCount, errors };
+          try{
+            const res = await fetch(SUPABASE_URL + '/rest/v1/engineering_document_import_log', {method:'POST', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(logPayload)});
+            if(res.ok){ const [saved] = await res.json(); importLogs = [saved, ...importLogs].slice(0,5); }
+          }catch(error){}
+          importSummary = { inserted, updated, skipped, error:errorCount };
+          importRows = null; importParseErrors = []; importFileName=''; importing=false; page=1;
           renderTable();
-          showToast(`Import ${importSummary.files} ไฟล์สำเร็จ · เพิ่มใหม่ ${totalInserted} · อัปเดต ${totalUpdated} · ข้าม ${totalSkipped} · Error ${totalErrors}`,totalErrors>0);
+          showToast(`Import สำเร็จ ${inserted + updated} รายการ · เพิ่มใหม่ ${inserted} · อัปเดต ${updated} · ข้าม ${skipped} · Error ${errorCount}`, errorCount > 0);
         }
 
-        function latestSet(records=data){
+        function latestSet(){
           const map = new Map();
-          records.forEach(rec=>{
+          data.forEach(rec=>{
             const cur = map.get(rec.doc_no);
             if(!cur){ map.set(rec.doc_no, rec); return; }
             const curT = cur.actual_issue_date ? Date.parse(cur.actual_issue_date) : -Infinity;
@@ -10907,11 +10478,11 @@
         function visibleRows(){
           const query = search.trim().toLowerCase();
           let rowsOut = data.filter(rec=>{
-            if(docStatusFilter.length && !docStatusFilter.includes(rec.document_status)) return false;
-            if(pmFilter.length && !pmFilter.some(value=>value==='__PENDING__' ? !rec.pm_approval_status : rec.pm_approval_status===value)) return false;
-            if(extFilter.length && !extFilter.some(value=>value==='__PENDING__' ? !rec.external_approval_status : rec.external_approval_status===value)) return false;
-            if(overallFilter.length && !overallFilter.includes(rec.overall_status)) return false;
-            if(revFilter.length && !revFilter.includes(rec.revision)) return false;
+            if(docStatusFilter && rec.document_status !== docStatusFilter) return false;
+            if(pmFilter){ if(pmFilter === '__PENDING__'){ if(rec.pm_approval_status) return false; } else if(rec.pm_approval_status !== pmFilter) return false; }
+            if(extFilter){ if(extFilter === '__PENDING__'){ if(rec.external_approval_status) return false; } else if(rec.external_approval_status !== extFilter) return false; }
+            if(overallFilter && rec.overall_status !== overallFilter) return false;
+            if(revFilter && rec.revision !== revFilter) return false;
             if(query && !(String(rec.doc_no||'').toLowerCase().includes(query) || String(rec.doc_name||'').toLowerCase().includes(query) || String(rec.pending_person||'').toLowerCase().includes(query))) return false;
             return true;
           });
@@ -10943,16 +10514,15 @@
           return rowsOut;
         }
 
-        function exportRows(rowsOut,filePrefix){
-          const fields=Object.keys(ENGDOC_FIELDS);
-          const aoa=[fields,...rowsOut.map(record=>fields.map(key=>ENGDOC_JSON_FIELDS.has(key) ? (record[key]==null ? '' : JSON.stringify(record[key])) : (record[key] ?? '')))];
+        function exportFiltered(){
+          const rowsOut = visibleRows();
+          const headerRow = ['Doc No','Revision','ชื่อเอกสาร','Document Status','Pending Person','Actual Issue Date','PM Approved Date','PM Approval Status','External Approved Date','External Approval Status','Remaintime','Overall Status'];
+          const aoa = [headerRow, ...rowsOut.map(r=>[r.doc_no, r.revision, r.doc_name, r.document_status, r.pending_person, formatDT(r.actual_issue_date), formatDT(r.pm_approved_date), r.pm_approval_status || '-', formatDT(r.external_approved_date), r.external_approval_status || '-', r.remaintime || '-', r.overall_status])];
           const sheet = XLSX.utils.aoa_to_sheet(aoa);
           const workbook = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(workbook, sheet, 'Engineering Documents');
-          XLSX.writeFile(workbook, filePrefix + '_' + todayISO() + '.xlsx');
+          XLSX.writeFile(workbook, 'Engineering_Document_Status_' + todayISO() + '.xlsx');
         }
-        function exportFiltered(){ exportRows(visibleRows(),'Engineering_Documents_Filtered'); }
-        function exportDatabase(){ exportRows(data,'Engineering_Documents_Backup'); }
 
         async function deleteRecord(rec){
           if(!confirm(`ลบเอกสาร ${rec.doc_no} · Rev.${rec.revision} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
@@ -10983,56 +10553,6 @@
             showToast('ลบข้อมูล Engineering Document ทั้งหมดแล้ว');
             renderTable();
           }catch(error){ showToast('ลบทั้งหมดไม่สำเร็จ: ' + error.message, true); }
-        }
-
-        function editDateValue(value){
-          if(!value) return '';
-          const date=new Date(value); if(isNaN(date)) return '';
-          return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')+'T'+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0');
-        }
-
-        function openEdit(rec){
-          const modal=$('#modalContent');
-          const fieldMarkup=ENGDOC_EDIT_FIELDS.map(key=>{
-            const value=rec[key];
-            const isJson=ENGDOC_JSON_FIELDS.has(key), isDate=ENGDOC_DATE_FIELDS.has(key), isNumber=ENGDOC_NUMBER_FIELDS.has(key);
-            const inputValue=isJson ? (value==null ? '' : JSON.stringify(value,null,2)) : (isDate ? editDateValue(value) : (value ?? ''));
-            const input=isJson ? `<textarea data-edit-field="${key}" rows="4">${escapeHtml(inputValue)}</textarea>` : `<input data-edit-field="${key}" type="${isDate?'datetime-local':isNumber?'number':'text'}" ${isNumber?'step="any"':''} value="${escapeHtml(String(inputValue))}">`;
-            const full=key==='doc_name' || isJson ? ' full' : '';
-            return `<div class="detail-field${full}"><label>${escapeHtml(ENGDOC_FIELDS[key])}</label>${input}</div>`;
-          }).join('');
-          modal.innerHTML=`
-            <div class="modal-head"><h2>แก้ไขข้อมูล · ${escapeHtml(rec.doc_no)} Rev.${escapeHtml(rec.revision)}</h2><button class="modal-close" id="modalCloseBtn">&times;</button></div>
-            <div class="detail-grid" style="max-height:65vh;overflow:auto;padding:4px;">${fieldMarkup}</div>
-            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;"><button class="btn btn-ghost" type="button" id="edEditCancel">ยกเลิก</button><button class="btn btn-primary" type="button" id="edEditSave">บันทึก</button></div>`;
-          $('#modalBg').classList.add('show');
-          $('#modalCloseBtn').addEventListener('click',closeModal);
-          $('#edEditCancel').addEventListener('click',closeModal);
-          $('#edEditSave').addEventListener('click',async()=>{
-            const changes={};
-            try{
-              ENGDOC_EDIT_FIELDS.forEach(key=>{
-                const input=modal.querySelector(`[data-edit-field="${key}"]`), value=input.value.trim();
-                if(ENGDOC_JSON_FIELDS.has(key)) changes[key]=value ? JSON.parse(value) : null;
-                else if(ENGDOC_DATE_FIELDS.has(key)) changes[key]=value ? new Date(value).toISOString() : null;
-                else if(ENGDOC_NUMBER_FIELDS.has(key)) changes[key]=value==='' ? null : Number(value);
-                else changes[key]=value || null;
-              });
-              if(!changes.doc_no || !changes.revision) throw new Error('Doc No และ Revision ห้ามเว้นว่าง');
-              const newKey=changes.doc_no+'|'+changes.revision;
-              if(data.some(item=>item.id!==rec.id && item.unique_key===newKey)) throw new Error('Doc No และ Revision นี้มีอยู่แล้ว');
-              changes.unique_key=newKey;
-              const prepared=applyRemaintimeRule({...rec,...changes});
-              changes.overall_status=prepared.overall_status;
-              changes.updated_at=new Date().toISOString();
-              const res=await fetch(SUPABASE_URL+'/rest/v1/engineering_documents?id=eq.'+encodeURIComponent(rec.id),{method:'PATCH',headers:{...HEADERS,'Prefer':'return=representation'},body:JSON.stringify(changes)});
-              if(!res.ok) throw new Error(await res.text());
-              const [saved]=await res.json();
-              try{ await fetch(SUPABASE_URL+'/rest/v1/engineering_document_history',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify({document_id:rec.id,unique_key:newKey,action:'update',old_data:{...rec},new_data:saved})}); }catch(error){}
-              Object.assign(rec,applyRemaintimeRule(saved));
-              closeModal(); renderTable(); showToast('บันทึกการแก้ไขแล้ว');
-            }catch(error){ showToast('บันทึกไม่สำเร็จ: '+error.message,true); }
-          });
         }
 
         function openDetail(rec){
@@ -11098,7 +10618,6 @@
         }
 
         function renderTable(){
-          const openFilter = container.querySelector('.ed-filter[open]')?.dataset.filter;
           const latest = latestSet();
           const latestIds = new Set(latest.map(r=>r.id));
           data.forEach(rec=>{ if(!latestIds.has(rec.id) && rec.overall_status !== 'Complete'){ rec.remaintime = 'Complete'; rec.overall_status = 'Complete'; } });
@@ -11120,17 +10639,8 @@
           const pages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
           page = Math.min(page, pages);
           const pageRows = pageSize === 'all' ? filtered : filtered.slice((page-1)*pageSize, page*pageSize);
-          const importNote = importParseErrors.length ? ` · ผิดพลาด ${importParseErrors.length} จุด: ${importParseErrors.slice(0,3).map(error=>`${error.fileName || ''} แถว ${error.row} ${error.message}`).join(' / ')}` : '';
-          const importPreviewHtml = importBatches.length ? `<div class="db-table-wrap" style="margin-top:8px;max-height:180px;"><table class="db-table"><thead><tr><th>ไฟล์</th><th>รายการ</th><th>เพิ่มใหม่</th><th>อัปเดต</th><th>ข้าม</th><th>Error</th></tr></thead><tbody>${importBatches.map(source=>`<tr><td>${escapeHtml(source.fileName)}</td><td>${source.records.length}</td><td>${source.summary.inserted}</td><td>${source.summary.updated}</td><td>${source.summary.skipped}</td><td style="color:${source.summary.error?'var(--danger)':'inherit'};">${source.summary.error}</td></tr>`).join('')}</tbody></table></div>` : '';
+          const importNote = (importRows && importParseErrors.length) ? ` · ข้อมูลผิดพลาด ${importParseErrors.length} แถว (จะนับเป็น Error)` : '';
           const sortHeader = (key,label) => `<th class="resizable"><button class="db-sort-btn" type="button" data-sort-key="${key}" title="เรียงตาม ${escapeHtml(label)}">${escapeHtml(label)} ${sortKey===key?(sortDir==='asc'?'↑':'↓'):''}</button></th>`;
-          const checkboxFilter = (key,label,options,selected) => `<details class="ed-filter" data-filter="${key}"><summary>${label}${selected.length ? ` (${selected.length})` : ''}<span aria-hidden="true">▾</span></summary><div class="ed-filter-options"><div class="ed-filter-head"><span>${label}</span><button class="ed-filter-clear" type="button" data-clear-filter="${key}">ล้าง</button></div>${options.map(option=>`<label class="ed-filter-option"><input class="ed-filter-input" type="checkbox" data-filter="${key}" value="${escapeHtml(option.value)}" ${selected.includes(option.value)?'checked':''}><span>${escapeHtml(option.label)}</span></label>`).join('')}</div></details>`;
-          const filterSetters = {
-            document:value=>{ docStatusFilter=value; },
-            pm:value=>{ pmFilter=value; },
-            external:value=>{ extFilter=value; },
-            overall:value=>{ overallFilter=value; },
-            revision:value=>{ revFilter=value; }
-          };
 
           container.innerHTML = `
             <div class="dash-section">
@@ -11158,39 +10668,30 @@
             <div class="dash-section" style="margin-bottom:0;">
               <div class="db-toolbar">
                 <input class="search-box" id="edSearch" placeholder="ค้นหา Doc No, ชื่อเอกสาร, Pending Person..." value="${escapeHtml(search)}" style="margin-bottom:0;flex:2 1 220px;">
-                ${checkboxFilter('document','Document Status',docStatusOptions.map(value=>({value,label:value})),docStatusFilter)}
-                ${checkboxFilter('pm','PM Approval',[{value:'__PENDING__',label:'ยังไม่อนุมัติ'},...pmStatusOptions.map(value=>({value,label:value}))],pmFilter)}
-                ${checkboxFilter('external','External Approval',[{value:'__PENDING__',label:'ยังไม่อนุมัติ'},...extStatusOptions.map(value=>({value,label:value}))],extFilter)}
-                ${checkboxFilter('overall','Overall Status',['Complete','Pending','Overdue','In Progress'].map(value=>({value,label:value})),overallFilter)}
-                ${checkboxFilter('revision','Revision',revisionOptions.map(value=>({value,label:value})),revFilter)}
+                <select class="kpi-input" id="edDocStatusFilter"><option value="">Document Status ทั้งหมด</option>${docStatusOptions.map(o=>`<option ${docStatusFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edPmFilter"><option value="">PM Approval ทั้งหมด</option><option value="__PENDING__" ${pmFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${pmStatusOptions.map(o=>`<option ${pmFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edExtFilter"><option value="">External Approval ทั้งหมด</option><option value="__PENDING__" ${extFilter==='__PENDING__'?'selected':''}>ยังไม่อนุมัติ</option>${extStatusOptions.map(o=>`<option ${extFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
+                <select class="kpi-input" id="edOverallFilter"><option value="">Overall Status ทั้งหมด</option>${['Complete','Pending','Overdue','In Progress'].map(o=>`<option ${overallFilter===o?'selected':''}>${o}</option>`).join('')}</select>
+                <select class="kpi-input" id="edRevFilter"><option value="">Revision ทั้งหมด</option>${revisionOptions.map(o=>`<option ${revFilter===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select>
                 <select class="kpi-input" id="edPageSize"><option value="20" ${pageSize===20?'selected':''}>20 รายการ/หน้า</option><option value="50" ${pageSize===50?'selected':''}>50 รายการ/หน้า</option><option value="100" ${pageSize===100?'selected':''}>100 รายการ/หน้า</option><option value="all" ${pageSize==='all'?'selected':''}>ทั้งหมด</option></select>
-                <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export filtered</button>
-                <button class="btn btn-ghost" type="button" id="edBackup" style="flex:0 0 auto;padding:9px 12px;">⬇ Backup all</button>
-                <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกหลายไฟล์<input type="file" id="edImportFile" accept=".xlsx,.xls" multiple hidden></label>
-                <button class="btn btn-primary" type="button" id="edImportBtn" ${(importBatches.length && !importParseErrors.length && !importParseError && !importing) ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;">${importing ? 'กำลัง Import...' : 'ยืนยัน Import'}</button>
+                <button class="btn btn-ghost" type="button" id="edExport" style="flex:0 0 auto;padding:9px 12px;">⬇ Export Excel</button>
+                <label class="btn btn-ghost" style="flex:0 0 auto;padding:9px 12px;cursor:pointer;">📥 เลือกไฟล์ Excel<input type="file" id="edImportFile" accept=".xlsx,.xls" hidden></label>
+                <button class="btn btn-primary" type="button" id="edImportBtn" ${(importRows && importRows.length && !importing) ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;">${importing ? 'กำลัง Import...' : 'ยืนยัน Import'}</button>
                 <button class="btn btn-ghost" type="button" id="edRefresh" style="flex:0 0 auto;padding:9px 12px;">รีเฟรช</button>
                 <button class="btn btn-ghost" type="button" id="edDeleteAll" ${data.length ? '' : 'disabled'} style="flex:0 0 auto;padding:9px 12px;color:var(--danger);border-color:#FECACA;">🗑 ลบข้อมูลทั้งหมด</button>
               </div>
               <div class="dash-note" style="${importParseError ? 'color:var(--danger);border-color:#FECACA;background:#FEF2F2;' : (importSummary ? 'color:#15803D;border-color:#86EFAC;background:#F0FDF4;' : '')}">
                 ${importParseError ? 'อ่านไฟล์ไม่สำเร็จ: ' + escapeHtml(importParseError)
-                  : importSummary ? `Import ${importSummary.files} ไฟล์สำเร็จ · เพิ่มใหม่ ${importSummary.inserted} · อัปเดต ${importSummary.updated} · ข้าม ${importSummary.skipped} · Error ${importSummary.error}`
-                  : importBatches.length ? `ตรวจพบ ${importBatches.length} ไฟล์ · ระบบจะประมวลผล Progress → Revision → Pending Review · ไม่ลบรายการเดิม${importBatches.some(source=>source.mode==='backup') ? ' · Backup จะเขียนทับทุกคอลัมน์รวมถึงค่าว่าง' : ' · ค่าว่างจะไม่ทับข้อมูลเดิม'}${importNote}`
-                  : 'เลือก Pending review, Progress doc และ Revision พร้อมกันได้ ระบบจะแสดงผลก่อนยืนยัน Import'}
+                  : importSummary ? `Import สำเร็จ ${importSummary.inserted + importSummary.updated} รายการ · เพิ่มใหม่ ${importSummary.inserted} รายการ · อัปเดต ${importSummary.updated} รายการ · ข้าม ${importSummary.skipped} รายการ · Error ${importSummary.error} รายการ`
+                  : importRows ? `${escapeHtml(importFileName)}: พบ ${importRows.length} รายการ (Doc+Rev)${importNote}`
+                  : 'เลือกไฟล์ Excel รูปแบบ Alldoc Export (Doc No, Purpose &amp; Doc Name &amp; Rev, Document Status, Pending Person, Actual Issue Date, PM Approved Date, Status, External Approved Date, Status, Remaintime)'}
               </div>
-              ${importPreviewHtml}
               <div class="db-table-wrap"><table class="db-table"><thead><tr>
                 ${sortHeader('doc_no','Doc No')}
                 ${sortHeader('revision','Rev')}
                 ${sortHeader('doc_name','ชื่อเอกสาร')}
                 ${sortHeader('document_status','Document Status')}
                 ${sortHeader('pending_person','Pending Person')}
-                ${sortHeader('plan_issue_to_backspace_rev_a','Plan Issue (Rev.A)')}
-                ${sortHeader('plan_internal_rev_a','Plan Internal (Rev.A)')}
-                ${sortHeader('plan_external_rev_a','Plan External (Rev.A)')}
-                ${sortHeader('plan_issue_to_backspace_rev_0','Plan Issue (Rev.0)')}
-                ${sortHeader('plan_internal_rev_0','Plan Internal (Rev.0)')}
-                ${sortHeader('plan_external_rev_0','Plan External (Rev.0)')}
-                ${sortHeader('plan_progress','Plan Progress')}
                 ${sortHeader('actual_issue_date','Actual Issue Date')}
                 ${sortHeader('pm_approved_date','PM Approved Date')}
                 ${sortHeader('pm_approval_status','PM Status')}
@@ -11206,13 +10707,6 @@
                 <td style="max-width:280px;">${escapeHtml(r.doc_name || '-')}</td>
                 <td style="white-space:nowrap;">${escapeHtml(r.document_status || '-')}</td>
                 <td style="white-space:nowrap;">${escapeHtml(r.pending_person || '-')}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_issue_to_backspace_rev_a)}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_internal_rev_a)}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_external_rev_a)}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_issue_to_backspace_rev_0)}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_internal_rev_0)}</td>
-                <td style="white-space:nowrap;">${formatDT(r.plan_external_rev_0)}</td>
-                <td style="white-space:nowrap;">${r.plan_progress == null ? '-' : escapeHtml(String(r.plan_progress))}</td>
                 <td style="white-space:nowrap;">${formatDT(r.actual_issue_date)}</td>
                 <td style="white-space:nowrap;">${formatDT(r.pm_approved_date)}</td>
                 <td>${codePill(r.pm_approval_status)}</td>
@@ -11220,8 +10714,8 @@
                 <td>${codePill(r.external_approval_status)}</td>
                 <td style="white-space:nowrap;${Number(r.remaintime) < 0 ? 'color:var(--danger);font-weight:700;' : ''}">${escapeHtml(r.remaintime || '-')}</td>
                 <td>${statusPill(r.overall_status)}</td>
-                <td style="white-space:nowrap;"><button class="btn btn-ghost ed-detail-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">รายละเอียด</button> <button class="btn btn-ghost ed-edit-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">แก้ไข</button> <button class="btn btn-ghost ed-history-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">ประวัติ</button> <button class="btn btn-ghost ed-delete-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;color:var(--danger);border-color:#FECACA;">ลบ</button></td>
-              </tr>`).join('') : `<tr><td colspan="20" style="padding:28px;text-align:center;color:var(--muted);">ไม่พบข้อมูล</td></tr>`}</tbody></table></div>
+                <td style="white-space:nowrap;"><button class="btn btn-ghost ed-detail-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">รายละเอียด</button> <button class="btn btn-ghost ed-history-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;">ประวัติ</button> <button class="btn btn-ghost ed-delete-btn" type="button" data-key="${escapeHtml(r.unique_key)}" style="padding:5px 8px;font-size:11px;color:var(--danger);border-color:#FECACA;">ลบ</button></td>
+              </tr>`).join('') : `<tr><td colspan="13" style="padding:28px;text-align:center;color:var(--muted);">ไม่พบข้อมูล</td></tr>`}</tbody></table></div>
               <div class="db-pager"><span>${filtered.length} รายการ · หน้า ${page} / ${pages}</span><span class="db-pager-actions"><button class="btn btn-ghost" id="edPrev" type="button" ${page===1?'disabled':''} style="padding:7px 11px;">ก่อนหน้า</button><button class="btn btn-ghost" id="edNext" type="button" ${page===pages?'disabled':''} style="padding:7px 11px;">ถัดไป</button></span></div>
             </div>`;
 
@@ -11230,27 +10724,21 @@
             search = event.target.value; page = 1; renderTable();
             const input = $('#edSearch'); input.focus(); input.setSelectionRange(position, position);
           });
-          if(openFilter){ const details=container.querySelector(`.ed-filter[data-filter="${openFilter}"]`); if(details) details.open=true; }
-          container.querySelectorAll('.ed-filter-input').forEach(input=>input.addEventListener('change', event=>{
-            const details=event.target.closest('.ed-filter'), filter=details.dataset.filter;
-            filterSetters[filter](Array.from(details.querySelectorAll('.ed-filter-input:checked')).map(checkbox=>checkbox.value));
-            page=1; renderTable();
-          }));
-          container.querySelectorAll('.ed-filter-clear').forEach(button=>button.addEventListener('click', ()=>{
-            filterSetters[button.dataset.clearFilter]([]); page=1; renderTable();
-          }));
+          $('#edDocStatusFilter').addEventListener('change', e=>{ docStatusFilter=e.target.value; page=1; renderTable(); });
+          $('#edPmFilter').addEventListener('change', e=>{ pmFilter=e.target.value; page=1; renderTable(); });
+          $('#edExtFilter').addEventListener('change', e=>{ extFilter=e.target.value; page=1; renderTable(); });
+          $('#edOverallFilter').addEventListener('change', e=>{ overallFilter=e.target.value; page=1; renderTable(); });
+          $('#edRevFilter').addEventListener('change', e=>{ revFilter=e.target.value; page=1; renderTable(); });
           $('#edPageSize').addEventListener('change', e=>{ pageSize = e.target.value==='all' ? 'all' : Number(e.target.value); page=1; renderTable(); });
           $('#edExport').addEventListener('click', exportFiltered);
-          $('#edBackup').addEventListener('click', exportDatabase);
           $('#edImportFile').addEventListener('change', event=>{
-            const files=Array.from(event.target.files || []); event.target.value=''; if(!files.length) return;
-            handleFilesChange(files);
+            const file = event.target.files[0]; event.target.value=''; if(!file) return;
+            handleFileChange(file);
           });
           $('#edImportBtn').addEventListener('click', runImport);
           $('#edRefresh').addEventListener('click', ()=> switchModule('engdoc_status'));
           $('#edDeleteAll').addEventListener('click', deleteAllRecords);
           $$('.ed-detail-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openDetail(rec); }));
-          $$('.ed-edit-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openEdit(rec); }));
           $$('.ed-history-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) openHistory(rec); }));
           $$('.ed-delete-btn').forEach(btn=>btn.addEventListener('click', ()=>{ const rec = data.find(r=>r.unique_key===btn.dataset.key); if(rec) deleteRecord(rec); }));
           $$('.db-sort-btn').forEach(btn=>btn.addEventListener('click', ()=>{
@@ -12233,13 +11721,10 @@
   function navBtnHtml(m){
     return `<button class="nav-btn ${m.id===activeModule.id?'active':''}" data-id="${m.id}" title="${escapeHtml(m.label)}"><span class="ic">${m.icon}</span><span class="lbl">${escapeHtml(m.label)}</span></button>`;
   }
-  function allDashboards(){
-    return currentUser && currentUser.role === 'admin' ? DASHBOARDS.concat([USER_MANAGEMENT_DASHBOARD]) : DASHBOARDS;
-  }
   function renderModuleRow(){
     $('#navReports').innerHTML = MODULES.map(navBtnHtml).join('') + CUSTOM_REPORTS.map(navBtnHtml).join('');
     $('#navDatabase').innerHTML = DATABASE_REPORTS.map(navBtnHtml).join('');
-    $('#navDashboards').innerHTML = allDashboards().map(navBtnHtml).join('');
+    $('#navDashboards').innerHTML = DASHBOARDS.map(navBtnHtml).join('');
     $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=>{
       switchModule(btn.dataset.id);
       if(window.innerWidth <= 760) setSidebarCollapsed(true);
@@ -12255,7 +11740,7 @@
     const isDash = id.startsWith('dash_');
     const custom = CUSTOM_REPORTS.concat(DATABASE_REPORTS).find(c => c.id === id);
     if(isDash){
-      const dash = allDashboards().find(d => d.id === id);
+      const dash = DASHBOARDS.find(d => d.id === id);
       activeModule = dash;
       renderModuleRow();
       $('.tabs').style.display = 'none';
@@ -13091,6 +12576,7 @@
 
       showToast((editingId ? 'บันทึกการแก้ไขแล้ว: ' : 'บันทึกสำเร็จ: ') + label);
       clearForm();
+      await refreshAndRender();
       switchTab('list');
     }catch(e){
       console.error(e); showToast('บันทึกไม่สำเร็จ: ' + e.message, true);
@@ -13194,13 +12680,7 @@
     setConn(false, 'กำลังเชื่อมต่อ...');
     await refreshAndRender();
   }
-  async function startApp(){
-    renderSidebarUser();
-    await init();
-  }
-  (async function boot(){
-    if(await requireAuth()) await startApp();
-  })();
+  init();
 })();
 </script>
 </body>

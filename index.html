@@ -4692,6 +4692,72 @@
         const dToday = dailyByDate(today), dYest = dailyByDate(yesterday), dBeforeYest = dailyByDate(dayBeforeYesterday);
         const briefDailyRecordsByDate = {};
         [dToday, dYest, dBeforeYest].forEach(r=>{ if(r && r.report_date) briefDailyRecordsByDate[r.report_date] = r; });
+        function openDailyReportPresentationEditor(r){
+          if(VIEW_ONLY){ showToast('โหมดดูอย่างเดียว — ไม่สามารถแก้ไขข้อมูลได้', true); return; }
+          const dailyModule = MODULES.find(m => m.id === 'daily');
+          const editorFields = dailyModule.fields.map(f => ({...f, key:'briefDaily_' + f.key}));
+          const modal = document.getElementById('modalContent');
+          modal.innerHTML = `
+            <div class="modal-head"><h2>แก้ไข Daily Report — ${escapeHtml(r.report_date || '')}</h2><button class="modal-close" id="briefDailyEditClose">&times;</button></div>
+            <div class="validation" id="briefDailyValidation" role="alert"></div>
+            <div class="form-grid">${chunkFieldsForLayout(editorFields).map(group=>{
+              const inner = group.map(f=>`<div class="field"><label for="field_${f.key}">${escapeHtml(f.label)}${f.required ? '<span class="req">*</span>' : ''}</label>${renderFieldInput(f)}</div>`).join('');
+              return group.length === 2 ? `<div class="two-col">${inner}</div>` : inner;
+            }).join('')}</div>
+            <div class="dash-note">รูปภาพเดิมจะคงอยู่หลังบันทึกการแก้ไข</div>
+            <div class="btn-row">
+              <button type="button" class="btn btn-primary" id="briefDailySave">💾 บันทึกการแก้ไข</button>
+              <button type="button" class="btn btn-ghost" id="briefDailyCancel">ยกเลิก</button>
+            </div>`;
+          editorFields.forEach((f,i)=> setFieldValue(f, r[dailyModule.fields[i].key]));
+          modal.querySelectorAll('.list-add-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+            if(btn.dataset.listtype === 'ot-list') addOtRow(btn.dataset.key, {});
+            else addListRow(btn.dataset.key, btn.dataset.listtype, {position:'',count:1}, btn.dataset.placeholder);
+          }));
+          const backToDetail = ()=> openDailyReportPresentationModal(r);
+          document.getElementById('briefDailyEditClose').addEventListener('click', backToDetail);
+          document.getElementById('briefDailyCancel').addEventListener('click', backToDetail);
+          document.getElementById('modalBg').classList.add('show');
+          const saveBtn = document.getElementById('briefDailySave');
+          saveBtn.addEventListener('click', async ()=>{
+            const missing = editorFields.filter(f=> f.required && !getFieldValue(f)).map(f=> f.label);
+            const validation = document.getElementById('briefDailyValidation');
+            if(missing.length){
+              validation.textContent = 'กรุณากรอกช่องที่มีเครื่องหมาย * ให้ครบ: ' + missing.join(', ');
+              validation.classList.add('show');
+              return;
+            }
+            validation.classList.remove('show');
+            const record = {};
+            editorFields.forEach((f,i)=>{
+              let value = getFieldValue(f);
+              if((f.type === 'date' || f.type === 'time') && !value) value = null;
+              record[dailyModule.fields[i].key] = value;
+            });
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'กำลังบันทึก...';
+            const closeBtn = document.getElementById('briefDailyEditClose');
+            const cancelBtn = document.getElementById('briefDailyCancel');
+            closeBtn.disabled = true;
+            cancelBtn.disabled = true;
+            try{
+              await updateRecord(r.id, record, dailyModule);
+              showToast('บันทึกการแก้ไข Daily Report แล้ว');
+              if(modal.contains(saveBtn)){
+                closeModal();
+                await switchModule('dash_brief');
+              }
+            }catch(e){
+              console.error(e);
+              showToast('บันทึกไม่สำเร็จ: ' + e.message, true);
+            }finally{
+              saveBtn.disabled = false;
+              saveBtn.textContent = '💾 บันทึกการแก้ไข';
+              closeBtn.disabled = false;
+              cancelBtn.disabled = false;
+            }
+          });
+        }
         function openDailyReportPresentationModal(r){
           const dailyModule = MODULES.find(m => m.id === 'daily');
           if(!dailyModule) return;
@@ -4707,9 +4773,12 @@
               <div class="detail-field full detail-photos"><label>Photos</label>
                 <div class="photo-grid">${urls.length ? urls.map(u=>`<div class="photo-thumb"><img src="${u}" data-full="${u}"></div>`).join('') : '<span class="photo-status">ยังไม่มีรูปภาพในรายการนี้</span>'}</div>
               </div>
-            </div>`;
+            </div>
+            ${VIEW_ONLY ? '' : '<div class="btn-row"><button type="button" class="btn btn-primary" id="briefDailyEdit">📝 แก้ไขรายการนี้</button></div>'}`;
           const closeBtn = document.getElementById('modalCloseBtn');
           if(closeBtn) closeBtn.addEventListener('click', closeModal);
+          const editBtn = document.getElementById('briefDailyEdit');
+          if(editBtn) editBtn.addEventListener('click', ()=> openDailyReportPresentationEditor(r));
           modal.querySelectorAll('.photo-thumb img').forEach(img => img.addEventListener('click', ()=> openLightbox(img.dataset.full, img)));
           document.getElementById('modalBg').classList.add('show');
         }
@@ -4732,7 +4801,10 @@
           <div class="dash-section brief-daily-card" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="margin-bottom:10px;cursor:pointer;" title="คลิกเพื่อดูรายละเอียดทั้งหมดแบบเต็มหน้า">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
               <div style="font-weight:700;color:var(--charcoal);margin-bottom:8px;">${escapeHtml(label)} (${escapeHtml(r.report_date||dateIso)})</div>
-              <div style="font-size:11.5px;color:var(--progress);white-space:nowrap;">ดูทั้งหมด ↗</div>
+              <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+                ${VIEW_ONLY ? '' : '<button type="button" class="btn btn-ghost brief-daily-edit">📝 แก้ไข</button>'}
+                <span style="font-size:11.5px;color:var(--progress);">ดูทั้งหมด ↗</span>
+              </div>
             </div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
@@ -4756,6 +4828,12 @@
           </div>`,
           afterRender(){
             document.querySelectorAll('#briefSlideBody [data-daily-date]').forEach(card => {
+              const editBtn = card.querySelector('.brief-daily-edit');
+              if(editBtn) editBtn.addEventListener('click', (e)=>{
+                e.stopPropagation();
+                const rec = briefDailyRecordsByDate[card.dataset.dailyDate];
+                if(rec) openDailyReportPresentationEditor(rec);
+              });
               card.addEventListener('click', (e)=>{
                 if(e.target.closest('.photo-thumb')) return;
                 const rec = briefDailyRecordsByDate[card.dataset.dailyDate];
@@ -5371,6 +5449,7 @@
         document.getElementById('briefNext').addEventListener('click', ()=>{ briefIdx = (briefIdx + 1) % slides.length; renderBriefSlide(); });
         document.addEventListener('keydown', function briefKeyNav(e){
           if(!document.getElementById('briefStage')){ document.removeEventListener('keydown', briefKeyNav); return; }
+          if(document.getElementById('modalBg').classList.contains('show')) return;
           if(e.key === 'ArrowRight') document.getElementById('briefNext').click();
           if(e.key === 'ArrowLeft') document.getElementById('briefPrev').click();
         });
@@ -10827,8 +10906,8 @@
     if(!res.ok) throw new Error('insert failed: ' + res.status + ' ' + await res.text());
     return (await res.json())[0];
   }
-  async function updateRecord(id, record){
-    const res = await fetch(restUrl() + '?id=eq.' + id, { method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(record) });
+  async function updateRecord(id, record, module = activeModule){
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + module.table + '?id=eq.' + encodeURIComponent(id), { method:'PATCH', headers:{...HEADERS,'Prefer':'return=representation'}, body:JSON.stringify(record) });
     if(!res.ok) throw new Error('update failed: ' + res.status + ' ' + await res.text());
     const data = await res.json();
     if(!data.length) throw new Error('ไม่พบรายการนี้แล้ว (อาจถูกลบไปก่อนหน้านี้) กรุณากดรีเฟรชแล้วลองใหม่');

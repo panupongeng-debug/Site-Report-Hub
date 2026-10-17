@@ -82,6 +82,29 @@
   .sidebar-backdrop{display:none;}
   .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:24;}
 
+  #appWrap[hidden],#authOverlay[hidden],.auth-pane[hidden]{display:none;}
+  #authOverlay{position:fixed;inset:0;z-index:200;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;}
+  .auth-card{width:100%;max-width:360px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:26px 24px;}
+  .auth-card h1{font-size:18px;color:var(--charcoal);margin:0 0 16px;}
+  .auth-tabs{display:flex;margin-bottom:16px;border-bottom:1px solid var(--line);}
+  .auth-tab-btn{flex:1;padding:9px 4px;font:600 13px var(--body);color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;}
+  .auth-tab-btn.active{color:var(--charcoal);border-bottom-color:var(--amber-deep);}
+  .auth-field{margin-bottom:12px;}
+  .auth-field label{display:block;font-size:12px;font-weight:600;margin-bottom:5px;}
+  .auth-field input{width:100%;font:14px var(--body);padding:9px 10px;border:1px solid var(--line);border-radius:7px;}
+  .auth-submit-btn{width:100%;padding:10px;border:none;border-radius:7px;background:var(--amber-deep);color:#fff;font:700 14px var(--body);cursor:pointer;}
+  .auth-submit-btn:disabled{opacity:.55;cursor:default;}
+  .auth-msg{font-size:12.5px;margin:10px 0 0;padding:8px 10px;border-radius:7px;}
+  .auth-msg.err{background:#FEF2F2;color:var(--danger);}
+  .auth-msg.ok{background:#F0FBF9;color:var(--amber-deep);}
+  .sidebar-user{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);}
+  .sidebar-user .who{flex:1;min-width:0;overflow:hidden;}
+  .sidebar-user .name{display:block;font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;}
+  .sidebar-user .role{display:block;font-size:10.5px;color:var(--muted);}
+  .logout-btn{border:1px solid var(--line);background:#F7F9FB;border-radius:6px;padding:5px;font-size:11px;cursor:pointer;}
+  .sidebar.collapsed .sidebar-user .who{display:none;}
+  .sidebar.collapsed .sidebar-user{justify-content:center;padding:10px 2px;}
+
   .stat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
   .stat-row.qc-kpi-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;}
   .stat-row.qc-kpi-row .stat-chip{min-width:0;}
@@ -750,7 +773,28 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="authOverlay">
+  <div class="auth-card">
+    <h1>Site Reports Hub</h1>
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab-btn active" data-pane="login">เข้าสู่ระบบ</button>
+      <button type="button" class="auth-tab-btn" data-pane="signup">ขอสิทธิ์การใช้งาน</button>
+    </div>
+    <div class="auth-pane" id="authPaneLogin">
+      <div class="auth-field"><label for="authLoginUser">Username</label><input type="text" id="authLoginUser" autocomplete="username"></div>
+      <div class="auth-field"><label for="authLoginPass">Password</label><input type="password" id="authLoginPass" autocomplete="current-password"></div>
+      <button type="button" class="auth-submit-btn" id="authLoginBtn">เข้าสู่ระบบ</button>
+    </div>
+    <div class="auth-pane" id="authPaneSignup" hidden>
+      <div class="auth-field"><label for="authSignupName">ชื่อ-นามสกุล</label><input type="text" id="authSignupName" autocomplete="name"></div>
+      <div class="auth-field"><label for="authSignupUser">Username</label><input type="text" id="authSignupUser" autocomplete="username"></div>
+      <div class="auth-field"><label for="authSignupPass">Password</label><input type="password" id="authSignupPass" autocomplete="new-password"></div>
+      <button type="button" class="auth-submit-btn" id="authSignupBtn">ส่งคำขอสิทธิ์การใช้งาน</button>
+    </div>
+    <div class="auth-msg" id="authMsg" role="status" hidden></div>
+  </div>
+</div>
+<div class="wrap" id="appWrap" hidden>
 
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
@@ -761,6 +805,7 @@
       <span class="label">Job number</span>
       <span class="value">B-26-6530</span>
     </div>
+    <div class="sidebar-user" id="sidebarUser"></div>
     <div class="sidebar-conn"><span class="conn-dot" id="connDot"></span><span class="sidebar-label" id="connText">เชื่อมต่อ Supabase...</span></div>
     <div class="sidebar-group">
       <div class="sidebar-group-label">📝 Report</div>
@@ -939,6 +984,119 @@
   const STORAGE_PUBLIC = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/';
   const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
 
+  const AUTH_SESSION_KEY = 'srh_auth_session';
+  let currentUser = null;
+  async function sha256Hex(text){
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buffer)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  function getSavedSession(){
+    try{ return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null'); }catch(error){ return null; }
+  }
+  function saveSession(user){
+    try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ id:user.id, username:user.username })); }catch(error){}
+  }
+  function clearSession(){
+    try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(error){}
+  }
+  async function fetchAppUsers(){
+    return fetchAllRows(SUPABASE_URL + '/rest/v1/app_users?select=*&order=requested_at.desc');
+  }
+  async function fetchAppUser(field, value){
+    const response = await fetch(SUPABASE_URL + '/rest/v1/app_users?' + field + '=eq.' + encodeURIComponent(value) + '&select=*', { headers:HEADERS });
+    if(!response.ok) throw new Error('ไม่สามารถตรวจสอบบัญชีผู้ใช้ได้ (status ' + response.status + ')');
+    const rows = await response.json();
+    return rows[0] || null;
+  }
+  function showAuthMsg(text, isErr){
+    const message = document.getElementById('authMsg');
+    message.hidden = false;
+    message.textContent = text;
+    message.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
+  }
+  function showAuthOverlay(){
+    document.getElementById('authOverlay').hidden = false;
+    document.getElementById('appWrap').hidden = true;
+  }
+  function hideAuthOverlay(){
+    document.getElementById('authOverlay').hidden = true;
+    document.getElementById('appWrap').hidden = false;
+  }
+  function setupAuthOverlay(){
+    const overlay = document.getElementById('authOverlay');
+    overlay.querySelectorAll('.auth-tab-btn').forEach(button => button.addEventListener('click', ()=>{
+      overlay.querySelectorAll('.auth-tab-btn').forEach(tab => tab.classList.toggle('active', tab === button));
+      document.getElementById('authPaneLogin').hidden = button.dataset.pane !== 'login';
+      document.getElementById('authPaneSignup').hidden = button.dataset.pane !== 'signup';
+      document.getElementById('authMsg').hidden = true;
+    }));
+    document.getElementById('authLoginBtn').addEventListener('click', doLogin);
+    document.getElementById('authSignupBtn').addEventListener('click', doSignup);
+    ['authLoginUser','authLoginPass'].forEach(id => document.getElementById(id).addEventListener('keydown', event => { if(event.key === 'Enter') doLogin(); }));
+    ['authSignupName','authSignupUser','authSignupPass'].forEach(id => document.getElementById(id).addEventListener('keydown', event => { if(event.key === 'Enter') doSignup(); }));
+  }
+  async function doLogin(){
+    const button = document.getElementById('authLoginBtn');
+    if(button.disabled) return;
+    const username = document.getElementById('authLoginUser').value.trim();
+    const password = document.getElementById('authLoginPass').value;
+    if(!username || !password){ showAuthMsg('กรอก Username และ Password ให้ครบ', true); return; }
+    button.disabled = true;
+    try{
+      const user = await fetchAppUser('username', username);
+      const passwordHash = await sha256Hex(password);
+      if(!user || user.password_hash !== passwordHash){ showAuthMsg('Username หรือ Password ไม่ถูกต้อง', true); return; }
+      if(user.status !== 'approved'){ showAuthMsg(user.status === 'pending' ? 'บัญชีนี้ยังรอผู้ดูแลระบบอนุมัติสิทธิ์การใช้งาน' : 'บัญชีนี้ไม่ได้รับอนุมัติ กรุณาติดต่อผู้ดูแลระบบ', true); return; }
+      currentUser = user;
+      saveSession(user);
+      document.getElementById('authLoginPass').value = '';
+      if(user.role === 'dev_viewer') activateViewOnlyMode();
+      await startApp();
+      hideAuthOverlay();
+    }catch(error){ showAuthMsg('เข้าสู่ระบบไม่สำเร็จ: ' + error.message, true); }
+    finally{ button.disabled = false; }
+  }
+  async function doSignup(){
+    const button = document.getElementById('authSignupBtn');
+    if(button.disabled) return;
+    const fullName = document.getElementById('authSignupName').value.trim();
+    const username = document.getElementById('authSignupUser').value.trim();
+    const password = document.getElementById('authSignupPass').value;
+    if(!fullName || !username || !password){ showAuthMsg('กรอกข้อมูลให้ครบทุกช่อง', true); return; }
+    if(password.length < 6){ showAuthMsg('Password ต้องมีอย่างน้อย 6 ตัวอักษร', true); return; }
+    button.disabled = true;
+    try{
+      if(await fetchAppUser('username', username)){ showAuthMsg('Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น', true); return; }
+      const passwordHash = await sha256Hex(password);
+      const response = await fetch(SUPABASE_URL + '/rest/v1/app_users', {
+        method:'POST', headers:{ ...HEADERS, 'Prefer':'return=minimal' },
+        body:JSON.stringify({ username, password_hash:passwordHash, full_name:fullName, role:'user', status:'pending' })
+      });
+      if(!response.ok) throw new Error('บันทึกคำขอไม่สำเร็จ (status ' + response.status + ')');
+      showAuthMsg('ส่งคำขอสิทธิ์การใช้งานแล้ว กรุณารอผู้ดูแลระบบอนุมัติ', false);
+      ['authSignupName','authSignupUser','authSignupPass'].forEach(id => { document.getElementById(id).value = ''; });
+    }catch(error){ showAuthMsg('ส่งคำขอไม่สำเร็จ: ' + error.message, true); }
+    finally{ button.disabled = false; }
+  }
+  function renderSidebarUser(){
+    if(!currentUser) return;
+    const roleLabel = currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : currentUser.role === 'dev_viewer' ? 'Dev Viewer' : 'ผู้ใช้งาน';
+    document.getElementById('sidebarUser').innerHTML = `<span class="who"><span class="name">${escapeHtml(currentUser.full_name || currentUser.username)}</span><span class="role">${roleLabel}</span></span><button type="button" class="logout-btn" id="btnLogout" title="ออกจากระบบ">ออกจากระบบ</button>`;
+    document.getElementById('btnLogout').addEventListener('click', ()=>{ clearSession(); currentUser = null; location.reload(); });
+  }
+  async function requireAuth(){
+    setupAuthOverlay();
+    const session = getSavedSession();
+    if(!session || !session.id){ showAuthOverlay(); return false; }
+    try{
+      const user = await fetchAppUser('id', session.id);
+      if(!user || user.status !== 'approved'){ clearSession(); showAuthOverlay(); return false; }
+      currentUser = user;
+      if(user.role === 'dev_viewer') activateViewOnlyMode();
+      return true;
+    }catch(error){ showAuthOverlay(); showAuthMsg('ตรวจสอบบัญชีไม่สำเร็จ: ' + error.message, true); return false; }
+  }
+
   // ============================================================================================
   // โหมด "ดูอย่างเดียว" (View Only) — เพิ่ม 2026-09-08
   // เปิดด้วย query param ?view=readonly ต่อท้าย URL เช่น https://.../index.html?view=readonly
@@ -957,7 +1115,10 @@
   const VIEW_ONLY_HOSTS = ['site-report-hub-view.vercel.app'];
   const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'readonly'
     || VIEW_ONLY_HOSTS.indexOf(location.hostname) !== -1;
-  if (VIEW_ONLY) {
+  let viewOnlyModeActive = false;
+  function activateViewOnlyMode(){
+    if(viewOnlyModeActive) return;
+    viewOnlyModeActive = true;
     const _origFetch = window.fetch.bind(window);
     window.fetch = function(url, opts){
       const method = ((opts && opts.method) || 'GET').toUpperCase();
@@ -1025,6 +1186,8 @@
     hideEditAffordances();
     new MutationObserver(()=> hideEditAffordances()).observe(document.documentElement, { childList:true, subtree:true });
   }
+
+  if(VIEW_ONLY) activateViewOnlyMode();
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -9621,6 +9784,56 @@
       }
     },
   ];
+  const USER_MANAGEMENT_DASHBOARD = {
+    id:'dash_user_management', label:'User Management', icon:'👤',
+    async render(container){
+      if(!currentUser || currentUser.role !== 'admin'){
+        container.innerHTML = '<div class="dash-empty">หน้านี้สำหรับผู้ดูแลระบบเท่านั้น</div>';
+        return;
+      }
+      container.innerHTML = '<div class="dash-empty">กำลังโหลดรายชื่อผู้ใช้...</div>';
+      let users;
+      try{ users = await fetchAppUsers(); }
+      catch(error){ container.innerHTML = '<div class="dash-empty">โหลดข้อมูลไม่สำเร็จ: ' + escapeHtml(error.message) + '</div>'; return; }
+      async function updateUser(id, payload, method = 'PATCH'){
+        const response = await fetch(SUPABASE_URL + '/rest/v1/app_users?id=eq.' + encodeURIComponent(id), {
+          method, headers:{ ...HEADERS, 'Prefer':'return=minimal' },
+          ...(method === 'PATCH' ? { body:JSON.stringify({ ...payload, updated_at:new Date().toISOString() }) } : {})
+        });
+        if(!response.ok) throw new Error('อัปเดตไม่สำเร็จ (status ' + response.status + ')');
+        users = await fetchAppUsers();
+        renderUsers();
+      }
+      function renderUsers(){
+        const statusLabels = { pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ปฏิเสธ / เพิกถอนสิทธิ์' };
+        const roleLabels = { user:'User', admin:'Admin', dev_viewer:'Dev Viewer' };
+        container.innerHTML = Object.entries(statusLabels).map(([status,label])=>{
+          const rows = users.filter(user => user.status === status);
+          return `<div class="dash-section"><h3>${label} (${rows.length})</h3><div class="db-table-wrap"><table class="db-table"><thead><tr><th>ชื่อ-นามสกุล</th><th>Username</th><th>บทบาท</th><th>การจัดการ</th></tr></thead><tbody>${rows.map(user=>`<tr><td>${escapeHtml(user.full_name || '-')}</td><td>${escapeHtml(user.username)}</td><td><select class="um-role-select" aria-label="บทบาท ${escapeHtml(user.username)}" data-role-id="${escapeHtml(user.id)}" ${user.id === currentUser.id ? 'disabled' : ''}>${Object.entries(roleLabels).map(([role,roleLabel])=>`<option value="${role}" ${user.role === role ? 'selected' : ''}>${roleLabel}</option>`).join('')}</select></td><td>${status !== 'approved' ? `<button type="button" class="chip" data-approve-id="${escapeHtml(user.id)}">อนุมัติ</button>` : ''} ${status !== 'rejected' ? `<button type="button" class="chip" data-reject-id="${escapeHtml(user.id)}" ${user.id === currentUser.id ? 'disabled' : ''}>${status === 'pending' ? 'ปฏิเสธ' : 'เพิกถอนสิทธิ์'}</button>` : `<button type="button" class="chip" data-delete-id="${escapeHtml(user.id)}">ลบผู้ใช้</button>`}</td></tr>`).join('') || '<tr><td colspan="4">ไม่มีรายการ</td></tr>'}</tbody></table></div></div>`;
+        }).join('');
+        container.querySelectorAll('[data-approve-id]').forEach(button => button.addEventListener('click', async ()=>{
+          try{ await updateUser(button.dataset.approveId, { status:'approved', approved_at:new Date().toISOString(), approved_by:currentUser.username }); }
+          catch(error){ showToast(error.message, true); }
+        }));
+        container.querySelectorAll('[data-reject-id]').forEach(button => button.addEventListener('click', async ()=>{
+          if(button.dataset.rejectId === currentUser.id) return;
+          try{ await updateUser(button.dataset.rejectId, { status:'rejected', approved_at:null, approved_by:currentUser.username }); }
+          catch(error){ showToast(error.message, true); }
+        }));
+        container.querySelectorAll('[data-role-id]').forEach(select => select.addEventListener('change', async ()=>{
+          if(select.dataset.roleId === currentUser.id) return;
+          try{ await updateUser(select.dataset.roleId, { role:select.value }); }
+          catch(error){ showToast(error.message, true); renderUsers(); }
+        }));
+        container.querySelectorAll('[data-delete-id]').forEach(button => button.addEventListener('click', async ()=>{
+          if(button.dataset.deleteId === currentUser.id || !confirm('ยืนยันลบผู้ใช้นี้ออกจากระบบถาวร?')) return;
+          try{ await updateUser(button.dataset.deleteId, null, 'DELETE'); }
+          catch(error){ showToast(error.message, true); }
+        }));
+      }
+      renderUsers();
+    }
+  };
   // ================= CUSTOM REPORTS (non-generic entry pages, listed under 📝 Report) =================
   // Safety KPI & Safe Days: a live-editable summary/counter page (not a per-day journal like the
   // other MODULES), so it renders its own form + save handlers instead of using the generic
@@ -11808,13 +12021,16 @@
   });
 
   // ---------- sidebar navigation (Report / Dashboard, separated) ----------
+  function allDashboards(){
+    return currentUser && currentUser.role === 'admin' ? DASHBOARDS.concat([USER_MANAGEMENT_DASHBOARD]) : DASHBOARDS;
+  }
   function navBtnHtml(m){
     return `<button class="nav-btn ${m.id===activeModule.id?'active':''}" data-id="${m.id}" title="${escapeHtml(m.label)}"><span class="ic">${m.icon}</span><span class="lbl">${escapeHtml(m.label)}</span></button>`;
   }
   function renderModuleRow(){
     $('#navReports').innerHTML = MODULES.map(navBtnHtml).join('') + CUSTOM_REPORTS.map(navBtnHtml).join('');
     $('#navDatabase').innerHTML = DATABASE_REPORTS.map(navBtnHtml).join('');
-    $('#navDashboards').innerHTML = DASHBOARDS.map(navBtnHtml).join('');
+    $('#navDashboards').innerHTML = allDashboards().map(navBtnHtml).join('');
     $$('.nav-btn').forEach(btn => btn.addEventListener('click', ()=>{
       switchModule(btn.dataset.id);
       if(window.innerWidth <= 760) setSidebarCollapsed(true);
@@ -11830,7 +12046,8 @@
     const isDash = id.startsWith('dash_');
     const custom = CUSTOM_REPORTS.concat(DATABASE_REPORTS).find(c => c.id === id);
     if(isDash){
-      const dash = DASHBOARDS.find(d => d.id === id);
+      const dash = allDashboards().find(d => d.id === id);
+      if(!dash) return;
       activeModule = dash;
       renderModuleRow();
       $('.tabs').style.display = 'none';
@@ -12775,7 +12992,16 @@
     setConn(false, 'กำลังเชื่อมต่อ...');
     await refreshAndRender();
   }
-  init();
+  async function startApp(){
+    renderSidebarUser();
+    await init();
+  }
+  (async function boot(){
+    if(await requireAuth()){
+      try{ await startApp(); hideAuthOverlay(); }
+      catch(error){ showAuthOverlay(); showAuthMsg('เริ่มระบบไม่สำเร็จ: ' + error.message, true); }
+    }
+  })();
 })();
 </script>
 </body>

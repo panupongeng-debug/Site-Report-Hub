@@ -4974,6 +4974,10 @@
         function dailyDetailBlockHtml(label, dateIso, r){
           if(!r) return `<div class="dash-section" style="margin-bottom:10px;"><div style="font-weight:700;color:var(--charcoal);margin-bottom:6px;">${escapeHtml(label)} (${escapeHtml(dateIso)})</div><div class="dash-note">⚠️ ยังไม่มีการกรอก Daily Report</div></div>`;
           const urls = Array.isArray(r.photo_urls) ? r.photo_urls : [];
+          const otRecords = Array.isArray(r.ot_records) ? r.ot_records.filter(item => item && (item.end_time || item.headcount || item.work)) : [];
+          const otHtml = otRecords.length
+            ? otRecords.map(item => `ถึง ${escapeHtml(item.end_time || '-')} · ${Number(item.headcount) || 0} คน · ${escapeHtml(item.work || '-')}`).join('<br>')
+            : 'ไม่มีบันทึก OT';
           return `
           <div class="dash-section brief-daily-card" data-daily-date="${escapeHtml(r.report_date||dateIso)}" style="margin-bottom:10px;cursor:pointer;" title="คลิกเพื่อดูรายละเอียดทั้งหมดแบบเต็มหน้า">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
@@ -4984,6 +4988,7 @@
               </div>
             </div>
             <div style="margin-bottom:6px;"><span class="pill loc">👨‍💼 กำลังคนรวม ${manpowerOf(r)}</span> <span class="pill loc">🚜 เครื่องจักร ${equipOf(r)}</span></div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;line-height:1.6;"><b>⏱️ OT:</b><br>${otHtml}</div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">🌤️ ${escapeHtml(weatherLine(r))}</div>
             <div style="margin-bottom:6px;line-height:1.6;"><b>🎯 กิจกรรม:</b><br>${formatDashList(r.activities)}</div>
             <div style="margin-bottom:8px;line-height:1.6;"><b>📊 Progress:</b><br>${formatDashList(r.progress_summary)}</div>

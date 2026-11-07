@@ -5618,17 +5618,28 @@
           </div>`;
 
         let briefIdx = Math.min(briefSavedIdx, slides.length - 1);
+        function scrollBriefToTop(button){
+          requestAnimationFrame(()=>{
+            button.blur();
+            const stage = document.getElementById('briefStage');
+            if(stage && (getComputedStyle(stage).overflowY === 'auto' || getComputedStyle(stage).overflowY === 'scroll')) stage.scrollTop = 0;
+            const scrollRoot = document.scrollingElement || document.documentElement;
+            scrollRoot.scrollTop = 0;
+            document.body.scrollTop = 0;
+            window.scrollTo(0, 0);
+          });
+        }
         function renderBriefSlide(){
           document.getElementById('briefSlideBody').innerHTML = slides[briefIdx].html;
           document.getElementById('briefSlideLabel').textContent = (briefIdx+1) + ' / ' + slides.length + ' · ' + slides[briefIdx].title;
           document.getElementById('briefDots').innerHTML = slides.map((s,i)=>`<span class="brief-dot ${i===briefIdx?'active':''}" data-i="${i}" title="${escapeHtml(s.title)}"></span>`).join('');
-          document.querySelectorAll('.brief-dot').forEach(d => d.addEventListener('click', ()=>{ briefIdx = Number(d.dataset.i); briefSavedIdx = briefIdx; renderBriefSlide(); }));
+          document.querySelectorAll('.brief-dot').forEach(d => d.addEventListener('click', ()=>{ briefIdx = Number(d.dataset.i); briefSavedIdx = briefIdx; renderBriefSlide(); scrollBriefToTop(d); }));
           briefSavedIdx = briefIdx;
           if(slides[briefIdx].afterRender) slides[briefIdx].afterRender();
         }
         renderBriefSlide();
-        document.getElementById('briefPrev').addEventListener('click', ()=>{ briefIdx = (briefIdx - 1 + slides.length) % slides.length; renderBriefSlide(); });
-        document.getElementById('briefNext').addEventListener('click', ()=>{ briefIdx = (briefIdx + 1) % slides.length; renderBriefSlide(); });
+        document.getElementById('briefPrev').addEventListener('click', e=>{ briefIdx = (briefIdx - 1 + slides.length) % slides.length; renderBriefSlide(); scrollBriefToTop(e.currentTarget); });
+        document.getElementById('briefNext').addEventListener('click', e=>{ briefIdx = (briefIdx + 1) % slides.length; renderBriefSlide(); scrollBriefToTop(e.currentTarget); });
         document.addEventListener('keydown', function briefKeyNav(e){
           if(!document.getElementById('briefStage')){ document.removeEventListener('keydown', briefKeyNav); return; }
           if(document.getElementById('modalBg').classList.contains('show')) return;

@@ -8645,6 +8645,9 @@
                 <button type="button" class="btn btn-ghost" id="vpShapeSquareBtn" style="flex:0 0 auto;${vpShapeType==='square'?'background:var(--ink);color:#fff;':''}">🔲 จุด</button>
                 <button type="button" class="btn btn-ghost" id="vpShapeLineBtn" style="flex:0 0 auto;${vpShapeType==='line'?'background:var(--ink);color:#fff;':''}">📏 เส้น</button>
                 <button type="button" class="btn btn-ghost" id="vpShapeAreaBtn" style="flex:0 0 auto;${vpShapeType==='area'?'background:var(--ink);color:#fff;':''}">▭ พื้นที่</button>
+                <button type="button" class="btn btn-ghost" id="vpShapePolygonBtn" title="พื้นที่ Polyline" aria-pressed="${vpShapeType==='polygon'}" style="flex:0 0 auto;${vpShapeType==='polygon'?'background:var(--ink);color:#fff;':''}">▱ Polyline</button>
+                <button type="button" class="btn btn-ghost" id="vpPolygonFinishBtn" style="flex:0 0 auto;display:none;" disabled>ปิดพื้นที่</button>
+                <button type="button" class="btn btn-ghost" id="vpPolygonCancelBtn" style="flex:0 0 auto;display:none;" disabled>ยกเลิก</button>
                 <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto;">
                   <button type="button" class="btn btn-ghost" id="vpSizeMinusBtn" style="flex:0 0 auto;padding:6px 10px;">➖</button>
                   <span id="vpSizeLabel" style="font-size:12.5px;font-weight:700;color:var(--charcoal);min-width:44px;text-align:center;display:inline-block;">${Math.round(vpSizeMult*100)}%</span>
@@ -8700,6 +8703,26 @@
           });
           document.getElementById('vpEditPlanBtn').addEventListener('click', ()=> openEditPlanModal(plan));
           document.getElementById('vpDeletePlanBtn').addEventListener('click', ()=> deletePlan(plan));
+          let polygonDraft = null, polygonHover = null;
+          function cancelPolygon(){
+            polygonDraft = null;
+            polygonHover = null;
+            syncVpToolbarUI();
+            redrawCanvas();
+          }
+          function finishPolygon(){
+            if(!polygonDraft || polygonDraft.points.length < 3) return;
+            const points = polygonDraft.points;
+            const origin = points[0];
+            const hasArea = points.slice(1, -1).some((point, index)=>{
+              const next = points[index + 2];
+              return Math.abs((point.x-origin.x)*(next.y-origin.y) - (point.y-origin.y)*(next.x-origin.x)) > 1e-8;
+            });
+            if(!hasArea){ showToast('กรุณากำหนดพื้นที่อย่างน้อย 3 มุมที่ไม่อยู่บนเส้นตรงเดียวกัน', true); return; }
+            vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+            vpShapes.push(polygonDraft);
+            cancelPolygon();
+          }
           // Toggling status/erase-mode/shape-type/size only changes which
           // buttons are highlighted and how new marks will be drawn — it never
           // needs to reload the plan image or rebuild the canvas, so we just
@@ -8718,11 +8741,23 @@
             if(sqBtn){ sqBtn.style.background = vpShapeType==='square' ? 'var(--ink)' : ''; sqBtn.style.color = vpShapeType==='square' ? '#fff' : ''; }
             if(lnBtn){ lnBtn.style.background = vpShapeType==='line' ? 'var(--ink)' : ''; lnBtn.style.color = vpShapeType==='line' ? '#fff' : ''; }
             if(arBtn){ arBtn.style.background = vpShapeType==='area' ? 'var(--ink)' : ''; arBtn.style.color = vpShapeType==='area' ? '#fff' : ''; }
+            const polygonBtn = document.getElementById('vpShapePolygonBtn');
+            polygonBtn.style.background = vpShapeType==='polygon' ? 'var(--ink)' : '';
+            polygonBtn.style.color = vpShapeType==='polygon' ? '#fff' : '';
+            polygonBtn.setAttribute('aria-pressed', String(vpShapeType==='polygon'));
+            const finishBtn = document.getElementById('vpPolygonFinishBtn');
+            const cancelBtn = document.getElementById('vpPolygonCancelBtn');
+            finishBtn.style.display = cancelBtn.style.display = vpShapeType==='polygon' ? '' : 'none';
+            finishBtn.disabled = !polygonDraft || polygonDraft.points.length < 3;
+            cancelBtn.disabled = !polygonDraft;
+            const drawingCanvas = document.querySelector('#vpCanvasWrap canvas');
+            if(drawingCanvas) drawingCanvas.style.touchAction = vpShapeType==='polygon' ? 'none' : '';
             const sizeLabel = document.getElementById('vpSizeLabel');
             if(sizeLabel) sizeLabel.textContent = Math.round(vpSizeMult*100) + '%';
           }
           container.querySelectorAll('.vp-legend-btn').forEach(btn=>{
             btn.addEventListener('click', ()=>{
+              cancelPolygon();
               const gId = btn.dataset.group;
               const idx = Number(btn.dataset.idx);
               if(vpActiveGroupId === gId && vpActiveColorIdx === idx){ vpActiveGroupId = null; vpActiveColorIdx = -1; }
@@ -8739,13 +8774,19 @@
             });
           });
           document.getElementById('vpEraseBtn').addEventListener('click', ()=>{
+            cancelPolygon();
             vpEraseMode = !vpEraseMode;
             if(vpEraseMode) { vpActiveGroupId = null; vpActiveColorIdx = -1; }
             syncVpToolbarUI();
           });
-          document.getElementById('vpShapeSquareBtn').addEventListener('click', ()=>{ vpShapeType = 'square'; syncVpToolbarUI(); });
-          document.getElementById('vpShapeLineBtn').addEventListener('click', ()=>{ vpShapeType = 'line'; syncVpToolbarUI(); });
-          document.getElementById('vpShapeAreaBtn').addEventListener('click', ()=>{ vpShapeType = 'area'; syncVpToolbarUI(); });
+          [['vpShapeSquareBtn','square'], ['vpShapeLineBtn','line'], ['vpShapeAreaBtn','area'], ['vpShapePolygonBtn','polygon']].forEach(([id, type])=>{
+            document.getElementById(id).addEventListener('click', ()=>{
+              vpShapeType = type;
+              cancelPolygon();
+            });
+          });
+          document.getElementById('vpPolygonFinishBtn').addEventListener('click', finishPolygon);
+          document.getElementById('vpPolygonCancelBtn').addEventListener('click', cancelPolygon);
           document.getElementById('vpSizeMinusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.max(0.4, Math.round((vpSizeMult - 0.2)*10)/10); syncVpToolbarUI(); });
           document.getElementById('vpSizePlusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.min(3, Math.round((vpSizeMult + 0.2)*10)/10); syncVpToolbarUI(); });
           const vpFsBtn = document.getElementById('vpFullscreenBtn');
@@ -8765,18 +8806,30 @@
             }
           }
           document.getElementById('vpUndoBtn').addEventListener('click', ()=>{
+            if(polygonDraft){
+              polygonDraft.points.pop();
+              polygonHover = null;
+              if(!polygonDraft.points.length) polygonDraft = null;
+              syncVpToolbarUI();
+              redrawCanvas();
+              return;
+            }
             if(!vpUndoStack.length){ showToast('ไม่มีการแก้ไขให้ Undo', true); return; }
             vpShapes = vpUndoStack.pop();
             redrawCanvas();
           });
           document.getElementById('vpClearBtn').addEventListener('click', ()=>{
+            cancelPolygon();
             if(!vpShapes.length) return;
             if(!confirm('ล้างจุดทั้งหมดของวันที่ ' + vpSelectedDate + ' ?')) return;
             vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
             vpShapes = [];
             redrawCanvas();
           });
-          document.getElementById('vpSaveBtn').addEventListener('click', ()=> saveShapes(plan));
+          document.getElementById('vpSaveBtn').addEventListener('click', ()=>{
+            if(polygonDraft){ showToast('กรุณาปิดพื้นที่หรือยกเลิก Polyline ก่อนบันทึก', true); return; }
+            saveShapes(plan);
+          });
           document.getElementById('vpDownloadBtn').addEventListener('click', ()=> downloadCurrent(plan));
 
           const wrap = document.getElementById('vpCanvasWrap');
@@ -8788,6 +8841,7 @@
             return vpShapes.indexOf(vis[idx]);
           }
           async function downloadCurrent(plan){
+            if(polygonDraft){ showToast('กรุณาปิดพื้นที่หรือยกเลิก Polyline ก่อนดาวน์โหลด', true); return; }
             if(!canvasEl){ showToast('กรุณารอให้แปลนโหลดเสร็จก่อน', true); return; }
             const safeName = (plan.building_name || 'plan').replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
             const fname = safeName + '_' + vpSelectedDate;
@@ -8808,6 +8862,7 @@
           }
           function redrawCanvas(draft){
             if(!base || !canvasEl) return;
+            if(!draft && polygonDraft) draft = { ...polygonDraft, points: polygonHover ? [...polygonDraft.points, polygonHover] : polygonDraft.points };
             vpDrawCanvas(canvasEl, base, visibleVpShapes(), draft);
             groups.forEach(g=>{
               if(!g.total_units) return;
@@ -8822,12 +8877,21 @@
           vpLoadPlanImage(plan).then(b=>{
             base = b;
             canvasEl = document.createElement('canvas');
+            canvasEl.tabIndex = 0;
+            canvasEl.setAttribute('aria-label', 'แปลนสำหรับวางมาร์ค');
             wrap.innerHTML = '';
             wrap.appendChild(canvasEl);
+            syncVpToolbarUI();
             redrawCanvas();
             let dragging = false;
             let dragStart = null;
+            canvasEl.addEventListener('keydown', (e)=>{
+              if(!polygonDraft) return;
+              if(e.key === 'Enter'){ e.preventDefault(); finishPolygon(); }
+              if(e.key === 'Escape'){ e.preventDefault(); cancelPolygon(); }
+            });
             canvasEl.addEventListener('pointerdown', (e)=>{
+              if(e.button !== 0 || !e.isPrimary) return;
               const rect = canvasEl.getBoundingClientRect();
               const relX = (e.clientX - rect.left) / rect.width;
               const relY = (e.clientY - rect.top) / rect.height;
@@ -8842,6 +8906,14 @@
               }
               const item = activeLegendItem();
               if(!item){ showToast('เลือกสถานะจาก Legend ก่อน', true); return; }
+              if(vpShapeType === 'polygon'){
+                e.preventDefault();
+                canvasEl.focus({ preventScroll:true });
+                dragging = true;
+                dragStart = { x:relX, y:relY };
+                canvasEl.setPointerCapture(e.pointerId);
+                return;
+              }
               // Don't decide "editing an existing mark" vs. "drawing a new one" here
               // anymore — deciding it at pointerdown meant starting a drag near an
               // old line/area (to draw a NEW one right next to it) got swallowed as
@@ -8861,6 +8933,14 @@
               }
             });
             canvasEl.addEventListener('pointermove', (e)=>{
+              if(vpShapeType === 'polygon'){
+                if(polygonDraft){
+                  const rect = canvasEl.getBoundingClientRect();
+                  polygonHover = { x:Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width)), y:Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height)) };
+                  redrawCanvas();
+                }
+                return;
+              }
               if(!dragging) return;
               const rect = canvasEl.getBoundingClientRect();
               const relX = (e.clientX - rect.left) / rect.width;
@@ -8884,6 +8964,36 @@
               const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
               const item = activeLegendItem();
               if(!item){ dragStart = null; return; }
+              if(vpShapeType === 'polygon'){
+                dragStart = null;
+                if(canvasEl.hasPointerCapture(e.pointerId)) canvasEl.releasePointerCapture(e.pointerId);
+                if(!polygonDraft){
+                  const existingIdx = hitTestVisible(relX, relY);
+                  if(existingIdx >= 0){
+                    const existing = vpShapes[existingIdx];
+                    if(existing.color !== item.color || existing.label !== item.label || shapeGroupId(existing) !== vpActiveGroupId){
+                      vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                      Object.assign(existing, { color:item.color, label:item.label, group:vpActiveGroupId });
+                    }
+                    redrawCanvas();
+                    return;
+                  }
+                  polygonDraft = { type:'polygon', points:[], color:item.color, label:item.label, size:vpLineSizeFrac(), group:vpActiveGroupId };
+                }
+                const first = polygonDraft.points[0];
+                if(first && polygonDraft.points.length >= 3 && Math.hypot((relX-first.x)*rect.width, (relY-first.y)*rect.height) <= 12){
+                  finishPolygon();
+                  return;
+                }
+                const last = polygonDraft.points[polygonDraft.points.length-1];
+                if(!last || Math.hypot((relX-last.x)*rect.width, (relY-last.y)*rect.height) > 3){
+                  polygonDraft.points.push({ x:relX, y:relY });
+                }
+                polygonHover = null;
+                syncVpToolbarUI();
+                redrawCanvas();
+                return;
+              }
               const dragDist = Math.hypot(relX - dragStart.x, relY - dragStart.y);
               const wasClick = dragDist < 0.01;
               if(wasClick){
@@ -8922,7 +9032,12 @@
               redrawCanvas();
             };
             canvasEl.addEventListener('pointerup', commitPoint);
-            canvasEl.addEventListener('pointerleave', ()=>{ if(dragging){ dragging = false; dragStart = null; redrawCanvas(); } });
+            canvasEl.addEventListener('pointercancel', ()=>{ dragging = false; dragStart = null; polygonHover = null; redrawCanvas(); });
+            canvasEl.addEventListener('pointerleave', ()=>{
+              polygonHover = null;
+              if(dragging && vpShapeType !== 'polygon'){ dragging = false; dragStart = null; }
+              redrawCanvas();
+            });
           }).catch(e=>{ wrap.innerHTML = '<div class="dash-empty">โหลดแปลนไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
         }
         async function saveShapes(plan){
@@ -11717,6 +11832,15 @@
     const y2c = Math.max(0, Math.min(1, Math.max(y1,y2)));
     return { x, y, w: x2c - x, h: y2c - y };
   }
+  function vpPolygonPath(base, points){
+    const path = new Path2D();
+    points.forEach((point, index)=>{
+      if(index === 0) path.moveTo(point.x*base.w, point.y*base.h);
+      else path.lineTo(point.x*base.w, point.y*base.h);
+    });
+    if(points.length >= 3) path.closePath();
+    return path;
+  }
   function vpHexToRgba(hex, alpha){
     const h = (hex || '#999999').replace('#','');
     const full = h.length === 3 ? h.split('').map(c=>c+c).join('') : h;
@@ -11774,6 +11898,21 @@
         ctx.moveTo(m.x1*base.w, m.y1*base.h);
         ctx.lineTo(m.x2*base.w, m.y2*base.h);
         ctx.stroke();
+      } else if(m.type === 'polygon'){
+        const path = vpPolygonPath(base, m.points);
+        ctx.fillStyle = vpHexToRgba(m.color, 0.28);
+        ctx.lineWidth = vpShapeAreaBorderWidthPx(base, m);
+        if(m.points.length >= 3) ctx.fill(path);
+        ctx.stroke(path);
+        if(dashed){
+          ctx.setLineDash([]);
+          m.points.forEach(point=>{
+            ctx.beginPath();
+            ctx.arc(point.x*base.w, point.y*base.h, Math.max(4, base.w*0.004), 0, Math.PI*2);
+            ctx.fillStyle = m.color;
+            ctx.fill();
+          });
+        }
       } else if(m.type === 'area'){
         const aw = m.w*base.w, ah = m.h*base.h;
         const ax = m.x*base.w, ay = m.y*base.h;
@@ -11800,6 +11939,16 @@
         const lw = vpShapeLineWidthPx(base, m);
         const d = vpPointToSegDist(px, py, m.x1*base.w, m.y1*base.h, m.x2*base.w, m.y2*base.h);
         if(d <= Math.max(10, lw*1.5)) return i;
+      } else if(m.type === 'polygon'){
+        const ctx = base.canvas.getContext ? base.canvas.getContext('2d') : document.createElement('canvas').getContext('2d');
+        const path = vpPolygonPath(base, m.points);
+        if(ctx.isPointInPath(path, px, py)) return i;
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.lineWidth = Math.max(20, vpShapeAreaBorderWidthPx(base, m)*3);
+        const hit = ctx.isPointInStroke(path, px, py);
+        ctx.restore();
+        if(hit) return i;
       } else if(m.type === 'area'){
         const ax = m.x*base.w, ay = m.y*base.h, aw = m.w*base.w, ah = m.h*base.h;
         if(px >= ax && px <= ax+aw && py >= ay && py <= ay+ah) return i;

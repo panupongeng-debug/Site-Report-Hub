@@ -8932,11 +8932,41 @@
                 redrawCanvas({ type:'square', x: relX, y: relY, color: item.color, size: vpSquareSizeFrac() });
               }
             });
+            function snapPointToAxis(relX, relY, anchor, shiftKey){
+              if(!shiftKey || !anchor) return { x:relX, y:relY };
+              const rect = canvasEl.getBoundingClientRect();
+              const deltaX = (relX - anchor.x) * rect.width;
+              const deltaY = (relY - anchor.y) * rect.height;
+              return Math.abs(deltaX) >= Math.abs(deltaY)
+                ? { x:relX, y:anchor.y }
+                : { x:anchor.x, y:relY };
+            }
+            function lineEndPoint(relX, relY, shiftKey){
+              return snapPointToAxis(relX, relY, dragStart, shiftKey);
+            }
+            function areaEndPoint(relX, relY, shiftKey){
+              if(!shiftKey) return { x:relX, y:relY };
+              const rect = canvasEl.getBoundingClientRect();
+              const deltaX = (relX - dragStart.x) * rect.width;
+              const deltaY = (relY - dragStart.y) * rect.height;
+              const directionX = Math.sign(deltaX) || 1;
+              const directionY = Math.sign(deltaY) || 1;
+              const maxSideX = (directionX > 0 ? 1 - dragStart.x : dragStart.x) * rect.width;
+              const maxSideY = (directionY > 0 ? 1 - dragStart.y : dragStart.y) * rect.height;
+              const side = Math.min(Math.max(Math.abs(deltaX), Math.abs(deltaY)), maxSideX, maxSideY);
+              return {
+                x:dragStart.x + directionX * side / rect.width,
+                y:dragStart.y + directionY * side / rect.height
+              };
+            }
             canvasEl.addEventListener('pointermove', (e)=>{
               if(vpShapeType === 'polygon'){
                 if(polygonDraft){
                   const rect = canvasEl.getBoundingClientRect();
-                  polygonHover = { x:Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width)), y:Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height)) };
+                  const relX = Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width));
+                  const relY = Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height));
+                  const last = polygonDraft.points[polygonDraft.points.length-1];
+                  polygonHover = snapPointToAxis(relX, relY, last, e.shiftKey);
                   redrawCanvas();
                 }
                 return;
@@ -8948,9 +8978,11 @@
               const item = activeLegendItem();
               if(!item) return;
               if(vpShapeType === 'line'){
-                redrawCanvas({ type:'line', x1: dragStart.x, y1: dragStart.y, x2: relX, y2: relY, color: item.color, size: vpLineSizeFrac() });
+                const end = lineEndPoint(relX, relY, e.shiftKey);
+                redrawCanvas({ type:'line', x1: dragStart.x, y1: dragStart.y, x2: end.x, y2: end.y, color: item.color, size: vpLineSizeFrac() });
               } else if(vpShapeType === 'area'){
-                const r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);
+                const end = areaEndPoint(relX, relY, e.shiftKey);
+                const r = vpNormalizeRect(dragStart.x, dragStart.y, end.x, end.y);
                 redrawCanvas({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, size: vpLineSizeFrac() });
               } else {
                 redrawCanvas({ type:'square', x: relX, y: relY, color: item.color, size: vpSquareSizeFrac() });
@@ -8986,8 +9018,9 @@
                   return;
                 }
                 const last = polygonDraft.points[polygonDraft.points.length-1];
-                if(!last || Math.hypot((relX-last.x)*rect.width, (relY-last.y)*rect.height) > 3){
-                  polygonDraft.points.push({ x:relX, y:relY });
+                const point = snapPointToAxis(relX, relY, last, e.shiftKey);
+                if(!last || Math.hypot((point.x-last.x)*rect.width, (point.y-last.y)*rect.height) > 3){
+                  polygonDraft.points.push(point);
                 }
                 polygonHover = null;
                 syncVpToolbarUI();
@@ -9018,11 +9051,13 @@
               }
               vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
               if(vpShapeType === 'line'){
-                let x2 = relX, y2 = relY;
+                const end = lineEndPoint(relX, relY, e.shiftKey);
+                let x2 = end.x, y2 = end.y;
                 if(wasClick){ x2 = Math.min(1, dragStart.x + 0.05); y2 = dragStart.y; }
                 vpShapes.push({ type:'line', x1: dragStart.x, y1: dragStart.y, x2, y2, color: item.color, label: item.label, size: vpLineSizeFrac(), group: vpActiveGroupId });
               } else if(vpShapeType === 'area'){
-                let r = vpNormalizeRect(dragStart.x, dragStart.y, relX, relY);
+                const end = areaEndPoint(relX, relY, e.shiftKey);
+                let r = vpNormalizeRect(dragStart.x, dragStart.y, end.x, end.y);
                 if(r.w < 0.01 || r.h < 0.01){ r = { x: dragStart.x, y: dragStart.y, w: Math.max(r.w, 0.05), h: Math.max(r.h, 0.05) }; }
                 vpShapes.push({ type:'area', x: r.x, y: r.y, w: r.w, h: r.h, color: item.color, label: item.label, size: vpLineSizeFrac(), group: vpActiveGroupId });
               } else {
@@ -12197,10 +12232,13 @@
   $('#lbPrev').addEventListener('click', (e)=>{ e.stopPropagation(); lbPrev(); });
   $('#lightbox').addEventListener('click', (e)=>{ if(e.target.id === 'lightbox') $('#lightbox').classList.remove('show'); });
   document.addEventListener('keydown', (e)=>{
-    if(!$('#lightbox').classList.contains('show')) return;
-    if(e.key === 'ArrowRight') lbNext();
-    else if(e.key === 'ArrowLeft') lbPrev();
-    else if(e.key === 'Escape') $('#lightbox').classList.remove('show');
+    if($('#lightbox').classList.contains('show')){
+      if(e.key === 'ArrowRight') lbNext();
+      else if(e.key === 'ArrowLeft') lbPrev();
+      else if(e.key === 'Escape') $('#lightbox').classList.remove('show');
+      return;
+    }
+    if(e.key === 'Escape' && $('#modalBg').classList.contains('show')) closeModal();
   });
 
   // ---------- sidebar navigation (Report / Dashboard, separated) ----------
@@ -12905,7 +12943,6 @@
       document.getElementById('vpAskCancelBtn').addEventListener('click', ()=> finish('cancel'));
     });
   }
-  $('#modalBg').addEventListener('click', (e)=>{ if(e.target.id === 'modalBg') closeModal(); });
 
   async function deleteFinding(id){
     if(!confirm('ยืนยันการลบรายการนี้? (รูปภาพที่แนบจะถูกลบด้วย)')) return;

@@ -372,6 +372,7 @@
   .vp-tab-search{margin-left:auto;min-width:180px;max-width:260px;padding:5px 12px;border-radius:20px;border:1.3px solid var(--line);font-size:12px;background:#fff;}
   .vp-tab-search:focus{outline:none;border-color:var(--charcoal);}
   .vp-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
+  .vp-note-input{width:220px;min-width:140px;min-height:34px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;font:12.5px var(--body);resize:vertical;}
   .vp-legend-btn{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:7px;border:1.3px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--charcoal);}
   .vp-legend-btn.active{border-color:var(--ink);box-shadow:0 0 0 2px rgba(0,0,0,0.10) inset;}
   .vp-legend-swatch{width:14px;height:14px;border-radius:3px;flex:0 0 auto;border:1.5px solid rgba(0,0,0,0.25);}
@@ -8377,6 +8378,7 @@
         let vpEraseMode = false;
         let vpUndoStack = [];
         let vpShapeType = 'square';
+        let vpNoteColor = '#D62828';
         let vpSizeMult = 1;
         let vpFsListenerAttached = false;
         let vpActiveGroupId = null;
@@ -8602,7 +8604,7 @@
           const groups = legendGroupsOf(plan);
           if(!vpHiddenGroups) vpHiddenGroups = new Set();
           const datesForPlan = (marksByPlan.get(plan.id) || []).map(m=>m.mark_date);
-          function shapeGroupId(s){ return s.group || '_default'; }
+          function shapeGroupId(s){ return s.type === 'text' ? '__notes__' : (s.group || '_default'); }
           function visibleVpShapes(){ return vpShapes.filter(s=> !vpHiddenGroups.has(shapeGroupId(s))); }
           function activeLegendItem(){
             if(vpActiveGroupId == null || vpActiveColorIdx < 0) return null;
@@ -8646,6 +8648,9 @@
                 <button type="button" class="btn btn-ghost" id="vpShapeLineBtn" style="flex:0 0 auto;${vpShapeType==='line'?'background:var(--ink);color:#fff;':''}">📏 เส้น</button>
                 <button type="button" class="btn btn-ghost" id="vpShapeAreaBtn" style="flex:0 0 auto;${vpShapeType==='area'?'background:var(--ink);color:#fff;':''}">▭ พื้นที่</button>
                 <button type="button" class="btn btn-ghost" id="vpShapePolygonBtn" title="พื้นที่ Polyline" aria-pressed="${vpShapeType==='polygon'}" style="flex:0 0 auto;${vpShapeType==='polygon'?'background:var(--ink);color:#fff;':''}">▱ Polyline</button>
+                <button type="button" class="btn btn-ghost" id="vpShapeTextBtn" aria-pressed="${vpShapeType==='text'}" style="flex:0 0 auto;${vpShapeType==='text'?'background:var(--ink);color:#fff;':''}">T ข้อความ</button>
+                <textarea id="vpNoteTextInput" class="vp-note-input" rows="2" placeholder="พิมพ์ข้อความบันทึก..." aria-label="ข้อความบันทึกบนแปลน"></textarea>
+                <input type="color" id="vpNoteColorInput" value="${vpNoteColor}" title="สีข้อความ" aria-label="สีข้อความ" style="width:36px;height:34px;padding:2px;flex:0 0 auto;">
                 <button type="button" class="btn btn-ghost" id="vpPolygonFinishBtn" style="flex:0 0 auto;display:none;" disabled>ปิดพื้นที่</button>
                 <button type="button" class="btn btn-ghost" id="vpPolygonCancelBtn" style="flex:0 0 auto;display:none;" disabled>ยกเลิก</button>
                 <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto;">
@@ -8659,7 +8664,7 @@
               </div>
               <div class="vp-canvas-wrap" id="vpCanvasWrap"><div class="dash-note">กำลังโหลดแปลน...</div></div>
             </div>
-            <div class="dash-note">เลือก Group แล้วเลือกสถานะจาก Legend ของ Group นั้น แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — คลิกทับมาร์คที่วางไว้แล้วโดยเลือกสถานะใหม่ไว้ก่อน จะเปลี่ยนสีมาร์คนั้นเป็นสถานะใหม่ทันที (ไม่สร้างมาร์คซ้อนเพิ่ม) — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ (ใช้ได้ทั้งจุด เส้น และความหนาเส้นขอบของพื้นที่) — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — ติ๊ก/ปลดติ๊กชื่อ Group ด้านบนเพื่อซ่อน/แสดงมาร์คของ Group นั้นบนแปลน (ซ่อนได้พร้อมกันหลาย Group หรือแสดงทั้งหมดพร้อมกันก็ได้ ไม่กระทบข้อมูลที่บันทึกไว้) — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
+            <div class="dash-note">เลือก Group แล้วเลือกสถานะจาก Legend ของ Group นั้น แล้วเลือกรูปแบบมาร์ค (จุด/เส้น/พื้นที่) แล้วคลิก (หรือคลิกลาก สำหรับเส้นและพื้นที่) บนแปลนเพื่อวางมาร์ค — คลิกทับมาร์คที่วางไว้แล้วโดยเลือกสถานะใหม่ไว้ก่อน จะเปลี่ยนสีมาร์คนั้นเป็นสถานะใหม่ทันที — เพิ่มบันทึกด้วยโหมด "ข้อความ" พิมพ์ข้อความแล้วกดค้างและลากเพื่อจัดตำแหน่งก่อนปล่อย; ดับเบิลคลิกข้อความเดิมเพื่อแก้ไข — ปรับขนาดมาร์คด้วยปุ่ม ➖/➕ — เปิด "โหมดลบ" แล้วคลิกที่มาร์คเพื่อลบ — ติ๊ก/ปลดติ๊กชื่อ Group เพื่อซ่อน/แสดงมาร์ค — อย่าลืมกด "บันทึกของวันนี้" ทุกครั้งหลังแก้ไข</div>
             <div class="btn-row">
               <button class="btn btn-primary" id="vpSaveBtn">💾 บันทึกของวันที่ ${vpSelectedDate}</button>
               <button class="btn btn-ghost" id="vpDownloadBtn">⬇️ ดาวน์โหลด (${plan.file_type === 'pdf' ? 'PDF' : 'รูปภาพ'})</button>
@@ -8745,6 +8750,10 @@
             polygonBtn.style.background = vpShapeType==='polygon' ? 'var(--ink)' : '';
             polygonBtn.style.color = vpShapeType==='polygon' ? '#fff' : '';
             polygonBtn.setAttribute('aria-pressed', String(vpShapeType==='polygon'));
+            const textBtn = document.getElementById('vpShapeTextBtn');
+            textBtn.style.background = vpShapeType==='text' ? 'var(--ink)' : '';
+            textBtn.style.color = vpShapeType==='text' ? '#fff' : '';
+            textBtn.setAttribute('aria-pressed', String(vpShapeType==='text'));
             const finishBtn = document.getElementById('vpPolygonFinishBtn');
             const cancelBtn = document.getElementById('vpPolygonCancelBtn');
             finishBtn.style.display = cancelBtn.style.display = vpShapeType==='polygon' ? '' : 'none';
@@ -8779,12 +8788,13 @@
             if(vpEraseMode) { vpActiveGroupId = null; vpActiveColorIdx = -1; }
             syncVpToolbarUI();
           });
-          [['vpShapeSquareBtn','square'], ['vpShapeLineBtn','line'], ['vpShapeAreaBtn','area'], ['vpShapePolygonBtn','polygon']].forEach(([id, type])=>{
+          [['vpShapeSquareBtn','square'], ['vpShapeLineBtn','line'], ['vpShapeAreaBtn','area'], ['vpShapePolygonBtn','polygon'], ['vpShapeTextBtn','text']].forEach(([id, type])=>{
             document.getElementById(id).addEventListener('click', ()=>{
               vpShapeType = type;
               cancelPolygon();
             });
           });
+          document.getElementById('vpNoteColorInput').addEventListener('input', e=>{ vpNoteColor = e.target.value; });
           document.getElementById('vpPolygonFinishBtn').addEventListener('click', finishPolygon);
           document.getElementById('vpPolygonCancelBtn').addEventListener('click', cancelPolygon);
           document.getElementById('vpSizeMinusBtn').addEventListener('click', ()=>{ vpSizeMult = Math.max(0.4, Math.round((vpSizeMult - 0.2)*10)/10); syncVpToolbarUI(); });
@@ -8885,10 +8895,46 @@
             redrawCanvas();
             let dragging = false;
             let dragStart = null;
+            let textDraft = null;
             canvasEl.addEventListener('keydown', (e)=>{
               if(!polygonDraft) return;
               if(e.key === 'Enter'){ e.preventDefault(); finishPolygon(); }
               if(e.key === 'Escape'){ e.preventDefault(); cancelPolygon(); }
+            });
+            canvasEl.addEventListener('dblclick', (e)=>{
+              const rect = canvasEl.getBoundingClientRect();
+              const relX = (e.clientX - rect.left) / rect.width;
+              const relY = (e.clientY - rect.top) / rect.height;
+              const index = hitTestVisible(relX, relY);
+              if(index < 0 || vpShapes[index].type !== 'text') return;
+              e.preventDefault();
+              const shape = vpShapes[index];
+              const modal = document.getElementById('modalContent');
+              modal.innerHTML = `
+                <div class="modal-head"><h2>แก้ไขข้อความบันทึก</h2><button class="modal-close" id="vpTextEditClose">&times;</button></div>
+                <div class="detail-grid"><div class="detail-field full"><label for="vpTextEditInput">ข้อความบันทึก</label><textarea id="vpTextEditInput" rows="4" style="min-height:110px;">${escapeHtml(shape.text)}</textarea></div></div>
+                <div class="btn-row"><button type="button" class="btn btn-primary" id="vpTextEditSave">บันทึกข้อความ</button><button type="button" class="btn btn-ghost" id="vpTextEditCancel">ยกเลิก</button></div>
+              `;
+              const textInput = document.getElementById('vpTextEditInput');
+              const saveEdit = ()=>{
+                const editedText = textInput.value.trim();
+                if(!editedText){ showToast('ข้อความบันทึกต้องไม่ว่าง', true); textInput.focus(); return; }
+                if(editedText !== shape.text){
+                  vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                  shape.text = editedText;
+                  redrawCanvas();
+                }
+                closeModal();
+              };
+              document.getElementById('vpTextEditClose').addEventListener('click', closeModal);
+              document.getElementById('vpTextEditCancel').addEventListener('click', closeModal);
+              document.getElementById('vpTextEditSave').addEventListener('click', saveEdit);
+              textInput.addEventListener('keydown', event=>{
+                if(event.key === 'Enter' && (event.ctrlKey || event.metaKey)){ event.preventDefault(); saveEdit(); }
+              });
+              document.getElementById('modalBg').classList.add('show');
+              textInput.focus();
+              textInput.setSelectionRange(textInput.value.length, textInput.value.length);
             });
             canvasEl.addEventListener('pointerdown', (e)=>{
               if(e.button !== 0 || !e.isPrimary) return;
@@ -8902,6 +8948,17 @@
                   vpShapes.splice(idx, 1);
                   redrawCanvas();
                 }
+                return;
+              }
+              const existingIdx = hitTestVisible(relX, relY);
+              if(existingIdx >= 0 && vpShapes[existingIdx].type === 'text') return;
+              if(vpShapeType === 'text'){
+                const textInput = document.getElementById('vpNoteTextInput');
+                const text = textInput.value.trim();
+                if(!text){ showToast('พิมพ์ข้อความบันทึกก่อนคลิกวางบนแปลน', true); textInput.focus(); return; }
+                textDraft = { type:'text', x:relX, y:relY, text, color:vpNoteColor, size:0.018, group:'__notes__', pointerId:e.pointerId };
+                canvasEl.setPointerCapture(e.pointerId);
+                redrawCanvas(textDraft);
                 return;
               }
               const item = activeLegendItem();
@@ -8960,6 +9017,13 @@
               };
             }
             canvasEl.addEventListener('pointermove', (e)=>{
+              if(textDraft && e.pointerId === textDraft.pointerId){
+                const rect = canvasEl.getBoundingClientRect();
+                textDraft.x = Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width));
+                textDraft.y = Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height));
+                redrawCanvas(textDraft);
+                return;
+              }
               if(vpShapeType === 'polygon'){
                 if(polygonDraft){
                   const rect = canvasEl.getBoundingClientRect();
@@ -8989,6 +9053,15 @@
               }
             });
             const commitPoint = (e)=>{
+              if(textDraft && e.pointerId === textDraft.pointerId){
+                const { pointerId, ...note } = textDraft;
+                textDraft = null;
+                vpUndoStack.push(JSON.parse(JSON.stringify(vpShapes)));
+                vpShapes.push(note);
+                if(canvasEl.hasPointerCapture(e.pointerId)) canvasEl.releasePointerCapture(e.pointerId);
+                redrawCanvas();
+                return;
+              }
               if(!dragging) return;
               dragging = false;
               const rect = canvasEl.getBoundingClientRect();
@@ -9067,11 +9140,11 @@
               redrawCanvas();
             };
             canvasEl.addEventListener('pointerup', commitPoint);
-            canvasEl.addEventListener('pointercancel', ()=>{ dragging = false; dragStart = null; polygonHover = null; redrawCanvas(); });
+            canvasEl.addEventListener('pointercancel', ()=>{ dragging = false; dragStart = null; textDraft = null; polygonHover = null; redrawCanvas(); });
             canvasEl.addEventListener('pointerleave', ()=>{
               polygonHover = null;
               if(dragging && vpShapeType !== 'polygon'){ dragging = false; dragStart = null; }
-              redrawCanvas();
+              redrawCanvas(textDraft || undefined);
             });
           }).catch(e=>{ wrap.innerHTML = '<div class="dash-empty">โหลดแปลนไม่สำเร็จ: ' + escapeHtml(e.message) + '</div>'; });
         }
@@ -11926,7 +11999,20 @@
     function drawOne(m, dashed){
       ctx.strokeStyle = m.color;
       ctx.setLineDash(dashed ? [4,3] : []);
-      if(m.type === 'line'){
+      if(m.type === 'text'){
+        const fontSize = vpNoteFontSize(base, m);
+        ctx.font = '700 ' + fontSize + 'px Sarabun, sans-serif';
+        ctx.textBaseline = 'top';
+        const lines = vpNoteLines(ctx, m.text, base.w*0.3);
+        lines.forEach((line, index)=>{
+          const x = m.x*base.w, y = m.y*base.h + index*fontSize*1.25;
+          ctx.lineWidth = Math.max(3, fontSize*0.18);
+          ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+          ctx.strokeText(line, x, y);
+          ctx.fillStyle = m.color || '#D62828';
+          ctx.fillText(line, x, y);
+        });
+      } else if(m.type === 'line'){
         const lw = vpShapeLineWidthPx(base, m);
         ctx.lineWidth = lw;
         ctx.beginPath();
@@ -11966,11 +12052,33 @@
     if(draft) drawOne(draft, true);
     ctx.setLineDash([]);
   }
+  function vpNoteFontSize(base, shape){ return Math.max(12, base.w*((shape && shape.size) || 0.018)); }
+  function vpNoteLines(ctx, text, maxWidth){
+    const lines = [];
+    String(text || '').split('\n').forEach(paragraph=>{
+      let line = '';
+      Array.from(paragraph).forEach(char=>{
+        const next = line + char;
+        if(line && ctx.measureText(next).width > maxWidth){ lines.push(line); line = char; }
+        else line = next;
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
   function vpHitTest(shapes, base, relX, relY){
     const px = relX*base.w, py = relY*base.h;
     for(let i = shapes.length - 1; i >= 0; i--){
       const m = shapes[i];
-      if(m.type === 'line'){
+      if(m.type === 'text'){
+        const fontSize = vpNoteFontSize(base, m);
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.font = '700 ' + fontSize + 'px Sarabun, sans-serif';
+        const lines = vpNoteLines(ctx, m.text, base.w*0.3);
+        const x = m.x*base.w, y = m.y*base.h;
+        const width = Math.max(0, ...lines.map(line=>ctx.measureText(line).width));
+        if(px >= x-4 && px <= x+width+4 && py >= y-4 && py <= y+lines.length*fontSize*1.25) return i;
+      } else if(m.type === 'line'){
         const lw = vpShapeLineWidthPx(base, m);
         const d = vpPointToSegDist(px, py, m.x1*base.w, m.y1*base.h, m.x2*base.w, m.y2*base.h);
         if(d <= Math.max(10, lw*1.5)) return i;
